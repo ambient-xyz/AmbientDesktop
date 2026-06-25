@@ -1,13 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { DesktopEvent } from "../../shared/desktopTypes";
 import {
+  MESSAGE_DELTA_COALESCE_INTERVAL_MS,
+  createAgentRuntimeDesktopEventCoalescer,
   emitAgentRuntimeDesktopEvent,
   type AgentRuntimeDesktopEventWindow,
 } from "./agentRuntimeDesktopEventEmit";
 import type { AgentRuntimeEventWorkspaceScopeStore } from "./agentRuntimeEventWorkspaceScope";
 
 describe("agentRuntimeDesktopEventEmit", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("scopes and sends desktop events to the renderer", () => {
     const send = vi.fn();
     const window = desktopWindow({ send });
@@ -98,14 +104,71 @@ describe("agentRuntimeDesktopEventEmit", () => {
       workspacePath: "/explicit",
     });
   });
+
+  it("coalesces high-frequency message deltas and flushes them on the cadence timer", () => {
+    vi.useFakeTimers();
+    const send = vi.fn();
+    const coalescer = createAgentRuntimeDesktopEventCoalescer(deps({
+      getWindow: () => desktopWindow({ send }),
+    }));
+
+    coalescer.emit(messageDeltaEvent({ delta: "hel" }));
+    coalescer.emit(messageDeltaEvent({ delta: "lo" }));
+
+    expect(send).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(MESSAGE_DELTA_COALESCE_INTERVAL_MS - 1);
+    expect(send).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith("desktop:event", {
+      type: "message-delta",
+      messageId: "message-1",
+      threadId: "thread-1",
+      delta: "hello",
+      workspacePath: "/workspace",
+    });
+  });
+
+  it("flushes pending deltas before non-delta events", () => {
+    vi.useFakeTimers();
+    const send = vi.fn();
+    const coalescer = createAgentRuntimeDesktopEventCoalescer(deps({
+      getWindow: () => desktopWindow({ send }),
+    }));
+    const updated: DesktopEvent = {
+      type: "message-updated",
+      message: {
+        id: "message-1",
+        threadId: "thread-1",
+        role: "assistant",
+        content: "hello",
+        createdAt: "2026-06-16T00:00:00.000Z",
+      },
+    };
+
+    coalescer.emit(messageDeltaEvent({ delta: "hello" }));
+    coalescer.emit(updated);
+
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(send).toHaveBeenNthCalledWith(1, "desktop:event", expect.objectContaining({
+      type: "message-delta",
+      delta: "hello",
+    }));
+    expect(send).toHaveBeenNthCalledWith(2, "desktop:event", expect.objectContaining({
+      type: "message-updated",
+      message: expect.objectContaining({ content: "hello" }),
+    }));
+  });
 });
 
-function messageDeltaEvent(): DesktopEvent {
+function messageDeltaEvent(overrides: Partial<Extract<DesktopEvent, { type: "message-delta" }>> = {}): DesktopEvent {
   return {
     type: "message-delta",
     messageId: "message-1",
     threadId: "thread-1",
     delta: "hello",
+    ...overrides,
   };
 }
 

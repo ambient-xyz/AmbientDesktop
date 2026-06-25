@@ -1,9 +1,5 @@
-import { dirname } from "node:path";
 import type { DesktopState } from "../../shared/desktopTypes";
-import {
-  assertProjectBoardCardGenerationAllowed,
-  assertProjectBoardCharterReviewAllowed,
-} from "../../shared/projectBoardSynthesisGate";
+import { assertProjectBoardCardGenerationAllowed, assertProjectBoardCharterReviewAllowed } from "../../shared/projectBoardSynthesisGate";
 import {
   DEFAULT_PROJECT_BOARD_SYNTHESIS_STALE_MS,
   projectBoardSynthesisOutputCapRecovery,
@@ -12,31 +8,23 @@ import {
 import type {
   PauseProjectBoardSynthesisInput,
   ProjectBoardCharterProjectSummary,
-  ProjectBoardPmReviewReport,
   ProjectBoardSource,
   ProjectBoardSynthesisProposal,
   ProjectBoardSynthesisRun,
-  ProjectBoardSynthesisRunStage,
   ProjectSummary,
   RefineProjectBoardSynthesisInput,
   RefreshProjectBoardSourcesInput,
   RetryProjectBoardSynthesisInput,
   SuggestProjectBoardKickoffDefaultsInput,
 } from "../../shared/projectBoardTypes";
-import {
-  ambientChatCompletionTransportTimeoutsFromEnv,
-  ambientRetryPolicyFromSettings,
-} from "./projectBoardAmbientFacade";
+import { ambientChatCompletionTransportTimeoutsFromEnv, ambientRetryPolicyFromSettings } from "./projectBoardAmbientFacade";
 import { getAmbientProviderStatus } from "./projectBoardProviderFacade";
 import { ProjectStore } from "./projectBoardProjectStoreFacade";
 import {
   AmbientProjectBoardCharterSummaryProvider,
   type AmbientProjectBoardCharterSummaryResult,
 } from "./projectBoardCharterSummaryProvider";
-import {
-  projectBoardConsolidationCandidates,
-  runProjectBoardCandidateConsolidation,
-} from "./projectBoardCandidateConsolidation";
+import { projectBoardConsolidationCandidates, runProjectBoardCandidateConsolidation } from "./projectBoardCandidateConsolidation";
 import { recordProjectBoardDirectHelperRetryActivity } from "./projectBoardDirectHelperRetryActivity";
 import {
   projectBoardSemanticIdleDogfoodFastRetryEnabled,
@@ -48,12 +36,8 @@ import {
   buildProjectBoardKickoffContextBrief,
   projectBoardKickoffDefaultSuggestionTargets,
 } from "./projectBoardKickoffDefaultProvider";
-import { createProjectBoardPlannerWorkspace, readProjectBoardPlannerWorkspaceRecordsFromRoot } from "./projectBoardPlannerWorkspace";
-import { projectBoardPlannerContinuationForRetry, type ProjectBoardPlannerBatchContinuation } from "./projectBoardPlannerContinuation";
-import {
-  projectBoardProgressiveRecordsFromDraft,
-  projectBoardSynthesisDraftFromProgressiveRecords,
-} from "./projectBoardProgressivePlanning";
+import { createProjectBoardPlannerWorkspace } from "./projectBoardPlannerWorkspace";
+import { projectBoardProgressiveRecordsFromDraft } from "./projectBoardProgressivePlanning";
 import { readAmbientApiKey } from "./projectBoardSecurityFacade";
 import {
   annotateProjectBoardDraftWithObjectiveProvenance,
@@ -62,10 +46,7 @@ import {
   projectBoardSourceScopeAnswersForRefinement,
   selectProjectBoardSynthesisSources,
 } from "./projectBoardSourceElaboration";
-import {
-  projectBoardSourceDeterministicAuthorityLocked,
-  projectBoardSourceIncludedInSynthesis,
-} from "./projectBoardSourceIdentity";
+import { projectBoardSourceDeterministicAuthorityLocked, projectBoardSourceIncludedInSynthesis } from "./projectBoardSourceIdentity";
 import {
   AmbientProjectBoardSourceClassifierProvider,
   type AmbientProjectBoardSourceBatchedClassificationResult,
@@ -85,8 +66,17 @@ import {
   type AmbientProjectBoardSynthesisProgressiveBatch,
   type ProjectBoardSynthesisReasoning,
 } from "./projectBoardSynthesisProvider";
+import {
+  applyProjectBoardIncrementalSynthesisFromRun as applyProjectBoardIncrementalSynthesisFromRunWithStore,
+  createOrUpdateProjectBoardSynthesisProposalForRun,
+  createProjectBoardRunProgressEmitter,
+  projectBoardValidatedProgressiveRecordsForRetry,
+  recordProjectBoardSynthesisCardBuildEvents,
+  recordProjectBoardSynthesisProgressiveBatch,
+  recordProjectBoardSynthesisProgressiveRecords,
+  upsertProjectBoardProgressiveProposalFromRun,
+} from "./projectBoardSynthesisDesktopProgress";
 import { projectBoardShouldUseSectionedPlanningForWorkflow } from "./projectBoardWorkflowPlanningDepth";
-import { validateProposalJsonlRecordArtifact, type ProposalJsonlRecordArtifact } from "./projectBoardArtifacts";
 
 export interface ProjectBoardSynthesisRuntimeHost {
   store: ProjectStore;
@@ -114,7 +104,10 @@ function defaultProjectBoardSynthesisStore(): ProjectStore {
   return services().store();
 }
 
-function emitProjectBoardState(targetStore: ProjectStore = defaultProjectBoardSynthesisStore(), host?: ProjectBoardSynthesisRuntimeHost): void {
+function emitProjectBoardState(
+  targetStore: ProjectStore = defaultProjectBoardSynthesisStore(),
+  host?: ProjectBoardSynthesisRuntimeHost,
+): void {
   services().emitProjectBoardState(targetStore, host);
 }
 
@@ -139,7 +132,11 @@ function isProjectBoardSynthesisPauseRequested(runId: string, targetStore: Proje
   return projectBoardSynthesisPauseRequests.has(runId) || targetStore.getProjectBoardSynthesisRun(runId)?.status === "pause_requested";
 }
 
-function abortProjectBoardSynthesisForPause(runId: string, reason: string, targetStore: ProjectStore = defaultProjectBoardSynthesisStore()): boolean {
+function abortProjectBoardSynthesisForPause(
+  runId: string,
+  reason: string,
+  targetStore: ProjectStore = defaultProjectBoardSynthesisStore(),
+): boolean {
   if (!isProjectBoardSynthesisPauseRequested(runId, targetStore)) return false;
   const controller = projectBoardSynthesisAbortControllers.get(runId);
   if (!controller || controller.signal.aborted) return true;
@@ -147,7 +144,10 @@ function abortProjectBoardSynthesisForPause(runId: string, reason: string, targe
   return true;
 }
 
-export function pauseProjectBoardSynthesisForProjectHost(host: ProjectBoardSynthesisRuntimeHost, input: PauseProjectBoardSynthesisInput): void {
+export function pauseProjectBoardSynthesisForProjectHost(
+  host: ProjectBoardSynthesisRuntimeHost,
+  input: PauseProjectBoardSynthesisInput,
+): void {
   const targetStore = host.store;
   const run = targetStore.requestProjectBoardSynthesisRunPause({
     boardId: input.boardId,
@@ -162,8 +162,7 @@ export function pauseProjectBoardSynthesisForProjectHost(host: ProjectBoardSynth
     targetStore.markProjectBoardSynthesisRunPaused({
       boardId: input.boardId,
       runId: input.runId,
-      reason:
-        "Planning pause was finalized immediately because this desktop process has no active Ambient/Pi planner stream for the run.",
+      reason: "Planning pause was finalized immediately because this desktop process has no active Ambient/Pi planner stream for the run.",
       metadata: {
         orphanedPauseRequest: true,
         recoverySource: "pause_request_without_active_controller",
@@ -212,7 +211,10 @@ export async function retryProjectBoardSynthesisForProjectHost(
   return readStateForProjectHostAction(host);
 }
 
-export function recoverOrphanedProjectBoardSynthesisPauseRequests(board?: ProjectSummary["board"], targetStore: ProjectStore = defaultProjectBoardSynthesisStore()): ProjectSummary["board"] {
+export function recoverOrphanedProjectBoardSynthesisPauseRequests(
+  board?: ProjectSummary["board"],
+  targetStore: ProjectStore = defaultProjectBoardSynthesisStore(),
+): ProjectSummary["board"] {
   if (!board) return board;
   let recovered = false;
   for (const run of board.synthesisRuns ?? []) {
@@ -233,90 +235,26 @@ export function recoverOrphanedProjectBoardSynthesisPauseRequests(board?: Projec
   return recovered ? targetStore.getProjectBoard(board.id) : board;
 }
 
-
-type ProjectBoardRunProgressPatch = {
-  stage?: ProjectBoardSynthesisRunStage;
-  model?: string;
-  sourceCount?: number;
-  includedSourceCount?: number;
-  sourceCharCount?: number;
-  promptCharCount?: number;
-  responseCharCount?: number;
-  cardCount?: number;
-  questionCount?: number;
-  warningCount?: number;
-};
-
-const PROJECT_BOARD_RUN_PROGRESS_EMIT_INTERVAL_MS = 2_000;
-
-
-function createProjectBoardRunProgressEmitter(
-  runId: string,
-  options: { intervalMs?: number; targetStore?: ProjectStore; host?: ProjectBoardSynthesisRuntimeHost } = {},
-) {
-  let latest: ProjectBoardRunProgressPatch | undefined;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const targetStore = options.targetStore ?? defaultProjectBoardSynthesisStore();
-  const intervalMs = options.intervalMs ?? PROJECT_BOARD_RUN_PROGRESS_EMIT_INTERVAL_MS;
-
-  const flush = () => {
-    if (timer) clearTimeout(timer);
-    timer = undefined;
-    if (!latest) return;
-    const progress = latest;
-    latest = undefined;
-    try {
-      const updated = targetStore.tryUpdateProjectBoardSynthesisRunProgress(runId, progress);
-      if (!updated) {
-        console.warn(`Ignored project-board synthesis progress for missing run: ${runId}`);
-        return;
-      }
-      emitProjectBoardState(targetStore, options.host);
-    } catch (error) {
-      console.warn("Ignored project-board synthesis progress flush failure", error);
-    }
-  };
-
-  return {
-    update(progress: ProjectBoardRunProgressPatch) {
-      latest = mergeDefinedProjectBoardRunProgress(latest, progress);
-      if (timer) return;
-      timer = setTimeout(flush, intervalMs);
-    },
-    flush,
-  };
-}
-
-function mergeDefinedProjectBoardRunProgress(
-  current: ProjectBoardRunProgressPatch | undefined,
-  nextProgress: ProjectBoardRunProgressPatch,
-): ProjectBoardRunProgressPatch {
-  const next = { ...current };
-  if (nextProgress.stage !== undefined) next.stage = nextProgress.stage;
-  if (nextProgress.model !== undefined) next.model = nextProgress.model;
-  if (nextProgress.sourceCount !== undefined) next.sourceCount = nextProgress.sourceCount;
-  if (nextProgress.includedSourceCount !== undefined) next.includedSourceCount = nextProgress.includedSourceCount;
-  if (nextProgress.sourceCharCount !== undefined) next.sourceCharCount = nextProgress.sourceCharCount;
-  if (nextProgress.promptCharCount !== undefined) next.promptCharCount = nextProgress.promptCharCount;
-  if (nextProgress.responseCharCount !== undefined) next.responseCharCount = nextProgress.responseCharCount;
-  if (nextProgress.cardCount !== undefined) next.cardCount = nextProgress.cardCount;
-  if (nextProgress.questionCount !== undefined) next.questionCount = nextProgress.questionCount;
-  if (nextProgress.warningCount !== undefined) next.warningCount = nextProgress.warningCount;
-  return next;
-}
-
-
 async function scanSourcesForProjectBoard(
   boardId: string,
   targetStore: ProjectStore = defaultProjectBoardSynthesisStore(),
 ): Promise<Awaited<ReturnType<typeof scanProjectBoardSources>>> {
   const board = targetStore.getProjectBoard(boardId);
-  return scanProjectBoardSources(targetStore, { workspacePath: board?.projectPath ?? targetStore.getWorkspace().path, threadId: board?.sourceThreadId });
+  return scanProjectBoardSources(targetStore, {
+    workspacePath: board?.projectPath ?? targetStore.getWorkspace().path,
+    threadId: board?.sourceThreadId,
+  });
 }
 
 export async function refreshProjectBoardSources(
   boardId: string,
-  options: { synthesize?: boolean; runId?: string; model?: string; targetStore?: ProjectStore; host?: ProjectBoardSynthesisRuntimeHost } = {},
+  options: {
+    synthesize?: boolean;
+    runId?: string;
+    model?: string;
+    targetStore?: ProjectStore;
+    host?: ProjectBoardSynthesisRuntimeHost;
+  } = {},
 ): Promise<void> {
   const targetStore = options.targetStore ?? defaultProjectBoardSynthesisStore();
   const sources = await scanSourcesForProjectBoard(boardId, targetStore);
@@ -381,11 +319,15 @@ export async function refreshProjectBoardSourcesForProjectHost(
 ): Promise<DesktopState> {
   const targetStore = host.store;
   const model = targetStore.getDefaultSettings().model;
-  const prepared = prepareProjectBoardSynthesisRun({
-    boardId: input.boardId,
-    model,
-    intent: "source refresh",
-  }, targetStore, host);
+  const prepared = prepareProjectBoardSynthesisRun(
+    {
+      boardId: input.boardId,
+      model,
+      intent: "source refresh",
+    },
+    targetStore,
+    host,
+  );
   if (prepared.reused) {
     return readStateForProjectHostAction(host);
   }
@@ -445,7 +387,9 @@ async function classifyProjectBoardSourcesWithPi(
 
   const model = options.model ?? targetStore.getDefaultSettings().model;
   const runId = options.runId;
-  const progressEmitter = runId ? createProjectBoardRunProgressEmitter(runId, { targetStore, host: options.host }) : undefined;
+  const progressEmitter = runId
+    ? createProjectBoardRunProgressEmitter(runId, { targetStore, host: options.host, emitProjectBoardState })
+    : undefined;
   if (runId) {
     targetStore.recordProjectBoardSynthesisRunEvent(runId, {
       stage: "source_classification",
@@ -502,7 +446,7 @@ async function classifyProjectBoardSourcesWithPi(
               includeInSynthesis: classification.includeInSynthesis,
               model,
             })),
-        )
+          )
         : sources;
     if (runId) {
       targetStore.recordProjectBoardSynthesisRunEvent(runId, {
@@ -541,9 +485,7 @@ function projectBoardSourceClassificationSummary(result: AmbientProjectBoardSour
   }
   const failedAttempts = result.failures.length;
   const failedAttemptPart =
-    failedAttempts > 0
-      ? ` after ${failedAttempts} failed classification batch attempt${failedAttempts === 1 ? "" : "s"}`
-      : "";
+    failedAttempts > 0 ? ` after ${failedAttempts} failed classification batch attempt${failedAttempts === 1 ? "" : "s"}` : "";
   if (piCount === 0) {
     return `Using fallback source classifications for ${fallbackCount} project source${fallbackCount === 1 ? "" : "s"}${failedAttemptPart}.`;
   }
@@ -553,7 +495,14 @@ function projectBoardSourceClassificationSummary(result: AmbientProjectBoardSour
 async function refreshProjectBoardCharterSummaryWithPi(
   boardId: string,
   sources: ProjectBoardSource[],
-  options: { model?: string; runId?: string; force?: boolean; signal?: AbortSignal; targetStore?: ProjectStore; host?: ProjectBoardSynthesisRuntimeHost } = {},
+  options: {
+    model?: string;
+    runId?: string;
+    force?: boolean;
+    signal?: AbortSignal;
+    targetStore?: ProjectStore;
+    host?: ProjectBoardSynthesisRuntimeHost;
+  } = {},
 ): Promise<ProjectBoardCharterProjectSummary | undefined> {
   const targetStore = options.targetStore ?? defaultProjectBoardSynthesisStore();
   const board = targetStore.getProjectBoard(boardId);
@@ -581,7 +530,9 @@ async function refreshProjectBoardCharterSummaryWithPi(
 
   const model = options.model ?? targetStore.getDefaultSettings().model;
   const runId = options.runId;
-  const progressEmitter = runId ? createProjectBoardRunProgressEmitter(runId, { targetStore, host: options.host }) : undefined;
+  const progressEmitter = runId
+    ? createProjectBoardRunProgressEmitter(runId, { targetStore, host: options.host, emitProjectBoardState })
+    : undefined;
   if (runId) {
     targetStore.recordProjectBoardSynthesisRunEvent(runId, {
       stage: "charter_summary",
@@ -764,12 +715,16 @@ async function projectBoardPmReviewGitContextForBoard(
   }
 }
 
-function prepareProjectBoardSynthesisRun(input: {
-  boardId: string;
-  model?: string;
-  retryOfRunId?: string;
-  intent: string;
-}, targetStore: ProjectStore = defaultProjectBoardSynthesisStore(), host?: ProjectBoardSynthesisRuntimeHost): { run: ProjectBoardSynthesisRun; reused: boolean } {
+function prepareProjectBoardSynthesisRun(
+  input: {
+    boardId: string;
+    model?: string;
+    retryOfRunId?: string;
+    intent: string;
+  },
+  targetStore: ProjectStore = defaultProjectBoardSynthesisStore(),
+  host?: ProjectBoardSynthesisRuntimeHost,
+): { run: ProjectBoardSynthesisRun; reused: boolean } {
   requireProjectBoardForAction(input.boardId, targetStore);
   const staleBefore = new Date(Date.now() - PROJECT_BOARD_SYNTHESIS_STALE_MS).toISOString();
   const staleRuns = targetStore.failStaleProjectBoardSynthesisRuns({
@@ -807,80 +762,10 @@ function prepareProjectBoardSynthesisRun(input: {
   };
 }
 
-
-function projectBoardValidatedProgressiveRecordsFromRun(runId?: string, targetStore: ProjectStore = defaultProjectBoardSynthesisStore()): ProposalJsonlRecordArtifact[] {
-  if (!runId?.trim()) return [];
-  const run = targetStore.getProjectBoardSynthesisRun(runId.trim());
-  if (!run?.progressiveRecords?.length) return [];
-  return run.progressiveRecords.flatMap((record) => {
-    try {
-      return [validateProposalJsonlRecordArtifact(record)];
-    } catch {
-      return [];
-    }
-  });
-}
-
-interface ProjectBoardRetryResumeRecords {
-  records: ProposalJsonlRecordArtifact[];
-  continuation?: ProjectBoardPlannerBatchContinuation;
-}
-
-async function projectBoardValidatedProgressiveRecordsForRetry(
-  runId?: string,
-  options: { mode?: RetryProjectBoardSynthesisInput["mode"]; targetStore?: ProjectStore } = {},
-): Promise<ProjectBoardRetryResumeRecords> {
-  const targetStore = options.targetStore ?? defaultProjectBoardSynthesisStore();
-  if (!runId?.trim()) return { records: [] };
-  const run = targetStore.getProjectBoardSynthesisRun(runId.trim());
-  if (!run) return { records: [] };
-  if (options.mode === "start_fresh") return { records: [] };
-  const records: ProposalJsonlRecordArtifact[] = [...projectBoardValidatedProgressiveRecordsFromRun(run.id, targetStore)];
-  for (const rootPath of projectBoardPlannerWorkspaceRootsFromRun(run)) {
-    const workspaceRecords = await readProjectBoardPlannerWorkspaceRecordsFromRoot(rootPath);
-    for (const record of workspaceRecords) {
-      try {
-        records.push(validateProposalJsonlRecordArtifact(record));
-      } catch {
-        // Workspace reads are validated at the artifact boundary; keep retry loading tolerant of older or partial files.
-      }
-    }
-  }
-  const deduped = dedupeProjectBoardProgressiveRecords(records);
-  if (options.mode === "continue_batch" || options.mode === "paused_run") {
-    const continuation = projectBoardPlannerContinuationForRetry(run, deduped);
-    if (options.mode === "continue_batch" && !continuation.continuation) {
-      throw new Error("This synthesis run has no recoverable planner-batch output checkpoint to continue.");
-    }
-    return continuation;
-  }
-  return { records: deduped };
-}
-
-function projectBoardPlannerWorkspaceRootsFromRun(run: ProjectBoardSynthesisRun): string[] {
-  const roots = new Set<string>();
-  for (const event of run.events) {
-    const root = event.metadata.plannerWorkspaceRoot;
-    if (typeof root === "string" && root.trim()) roots.add(root.trim());
-    const aggregatePath = event.metadata.aggregateJsonlPath;
-    if (typeof aggregatePath === "string" && aggregatePath.trim()) roots.add(dirname(dirname(aggregatePath.trim())));
-  }
-  return [...roots];
-}
-
-function dedupeProjectBoardProgressiveRecords(records: ProposalJsonlRecordArtifact[]): ProposalJsonlRecordArtifact[] {
-  const seen = new Set<string>();
-  const result: ProposalJsonlRecordArtifact[] = [];
-  for (const record of records) {
-    const key = JSON.stringify(record);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    result.push(record);
-  }
-  return result;
-}
-
-function createProjectBoardSynthesisProvider(model: string, targetStore: ProjectStore = defaultProjectBoardSynthesisStore()): AmbientProjectBoardSynthesisProvider {
+function createProjectBoardSynthesisProvider(
+  model: string,
+  targetStore: ProjectStore = defaultProjectBoardSynthesisStore(),
+): AmbientProjectBoardSynthesisProvider {
   return new AmbientProjectBoardSynthesisProvider({
     model,
     reasoning: projectBoardSynthesisReasoningConfigFromEnv(),
@@ -891,7 +776,9 @@ function createProjectBoardSynthesisProvider(model: string, targetStore: Project
 
 function isRecoverableEmptyPlannerCardFailure(error: unknown): boolean {
   const message = projectBoardSynthesisErrorMessage(error);
-  return /Planner-batch Ambient\/Pi synthesis did not produce any candidate cards|Ambient project-board synthesis returned an empty response/i.test(message);
+  return /Planner-batch Ambient\/Pi synthesis did not produce any candidate cards|Ambient project-board synthesis returned an empty response/i.test(
+    message,
+  );
 }
 
 function projectBoardSynthesisErrorMessage(error: unknown): string {
@@ -935,54 +822,7 @@ export function applyProjectBoardIncrementalSynthesisFromRun(input: {
   targetStore?: ProjectStore;
 }): void {
   const targetStore = input.targetStore ?? defaultProjectBoardSynthesisStore();
-  const records = projectBoardValidatedProgressiveRecordsFromRun(input.runId, targetStore);
-  if (!records.some((record) => record.type === "candidate_card")) return;
-  let draft: ProjectBoardSynthesisDraft;
-  try {
-    draft = projectBoardSynthesisDraftFromProgressiveRecords(records, input.fallback);
-  } catch (error) {
-    targetStore.recordProjectBoardSynthesisRunEvent(input.runId, {
-      stage: "schema_validation",
-      title: "Incremental board batch not ready",
-      summary: `Progressive records were saved, but they cannot be applied to the board yet: ${error instanceof Error ? error.message : String(error)}`,
-      metadata: { progressive: true, error: error instanceof Error ? error.message : String(error), recordCount: records.length },
-    });
-    return;
-  }
-
-  const before = targetStore.getProjectBoard(input.boardId);
-  const beforeSourceIds = new Set(before?.id === input.boardId ? before.cards.map((card) => card.sourceId) : []);
-  const summary = targetStore.applyProjectBoardSynthesis(input.boardId, draft, {
-    replaceExistingDraft: input.replaceExistingDraft,
-    insertQuestions: false,
-    deleteStaleDraftCards: false,
-    sourceIdNamespace: input.sourceIdNamespace,
-    snapshotRunId: input.runId,
-    snapshotKind: "incremental",
-    coverPlannerPlanDrafts: true,
-  });
-  const insertedCards = summary.cards.filter((card) => card.sourceKind === "board_synthesis" && !beforeSourceIds.has(card.sourceId));
-  targetStore.recordProjectBoardSynthesisRunEvent(input.runId, {
-    stage: "board_applied",
-    title: "Applied incremental Pi card batch",
-    summary: [
-      `Applied ${draft.cards.length} progressive card${draft.cards.length === 1 ? "" : "s"} to the draft inbox before full planning completed.`,
-      insertedCards.length ? `${insertedCards.length} new card${insertedCards.length === 1 ? "" : "s"} appeared in the board.` : "",
-    ]
-      .filter(Boolean)
-      .join(" "),
-    metadata: {
-      progressive: true,
-      recordCount: records.length,
-      cardCount: draft.cards.length,
-      insertedCardIds: insertedCards.map((card) => card.id),
-      insertedSourceIds: insertedCards.map((card) => card.sourceId),
-      durationMs: Date.now() - input.startedAt,
-      model: input.model,
-    },
-    cardCount: draft.cards.length,
-    questionCount: draft.questions.length,
-  });
+  applyProjectBoardIncrementalSynthesisFromRunWithStore({ ...input, targetStore });
 }
 
 async function consolidateProjectBoardSynthesisCandidates(input: {
@@ -1066,19 +906,23 @@ export async function applyProjectBoardLiveSynthesis(
   assertProjectBoardCardGenerationAllowed(requireProjectBoardForAction(boardId, targetStore), "Board synthesis");
   const startedAt = Date.now();
   const model = targetStore.getDefaultSettings().model;
-  const prepared = prepareProjectBoardSynthesisRun({
-    boardId,
-    model,
-    retryOfRunId: options.retryOfRunId,
-    intent: options.retryMode === "start_fresh" ? "fresh synthesis" : options.retryOfRunId ? "retry synthesis" : "board synthesis",
-  }, targetStore, options.host);
+  const prepared = prepareProjectBoardSynthesisRun(
+    {
+      boardId,
+      model,
+      retryOfRunId: options.retryOfRunId,
+      intent: options.retryMode === "start_fresh" ? "fresh synthesis" : options.retryOfRunId ? "retry synthesis" : "board synthesis",
+    },
+    targetStore,
+    options.host,
+  );
   if (prepared.reused) return;
   const run = prepared.run;
   const sourceIdNamespace = options.retryMode === "start_fresh" ? projectBoardStartFreshSourceIdNamespace(run.id) : undefined;
   projectBoardSynthesisPauseRequests.delete(run.id);
   const synthesisAbortController = new AbortController();
   projectBoardSynthesisAbortControllers.set(run.id, synthesisAbortController);
-  const progressEmitter = createProjectBoardRunProgressEmitter(run.id, { targetStore, host: options.host });
+  const progressEmitter = createProjectBoardRunProgressEmitter(run.id, { targetStore, host: options.host, emitProjectBoardState });
   let progressiveRecordsPersisted = false;
   const shouldPause = () => isProjectBoardSynthesisPauseRequested(run.id, targetStore);
   const abortIfPauseRequested = () =>
@@ -1103,7 +947,12 @@ export async function applyProjectBoardLiveSynthesis(
       metadata: { persistedSourceCount: persistedSources.length },
     });
     emitProjectBoardState(targetStore, options.host);
-    persistedSources = await classifyProjectBoardSourcesWithPi(boardId, persistedSources, { model, runId: run.id, targetStore, host: options.host });
+    persistedSources = await classifyProjectBoardSourcesWithPi(boardId, persistedSources, {
+      model,
+      runId: run.id,
+      targetStore,
+      host: options.host,
+    });
     abortIfPauseRequested();
     await refreshProjectBoardCharterSummaryWithPi(boardId, persistedSources, {
       model,
@@ -1162,7 +1011,10 @@ export async function applyProjectBoardLiveSynthesis(
       },
     });
     emitProjectBoardState(targetStore, options.host);
-    const retryResume = await projectBoardValidatedProgressiveRecordsForRetry(options.retryOfRunId, { mode: options.retryMode, targetStore });
+    const retryResume = await projectBoardValidatedProgressiveRecordsForRetry(options.retryOfRunId, {
+      mode: options.retryMode,
+      targetStore,
+    });
     const resumeFromRecords = retryResume.records;
     if (resumeFromRecords.length > 0) {
       targetStore.recordProjectBoardSynthesisRunEvent(run.id, {
@@ -1256,7 +1108,14 @@ export async function applyProjectBoardLiveSynthesis(
     progressEmitter.flush();
     const pauseRequestedAfterResult = result.telemetry.paused || isProjectBoardSynthesisPauseRequested(run.id, targetStore);
     if (!progressiveRecordsPersisted) {
-      recordProjectBoardSynthesisProgressiveRecords(run.id, result.draft, persistedSources, undefined, result.progressiveRecords, targetStore);
+      recordProjectBoardSynthesisProgressiveRecords(
+        run.id,
+        result.draft,
+        persistedSources,
+        undefined,
+        result.progressiveRecords,
+        targetStore,
+      );
     }
     recordProjectBoardSynthesisCardBuildEvents(run.id, result.draft.cards, targetStore);
     emitProjectBoardState(targetStore, options.host);
@@ -1287,7 +1146,13 @@ export async function applyProjectBoardLiveSynthesis(
       emitProjectBoardState(targetStore, options.host);
       return;
     }
-    await refreshProjectBoardCharterSummaryWithPi(boardId, persistedSources, { model, runId: run.id, force: true, targetStore, host: options.host });
+    await refreshProjectBoardCharterSummaryWithPi(boardId, persistedSources, {
+      model,
+      runId: run.id,
+      force: true,
+      targetStore,
+      host: options.host,
+    });
     projectBoardSynthesisPauseRequests.delete(run.id);
     projectBoardSynthesisAbortControllers.delete(run.id);
     const partialSectionSummary =
@@ -1300,7 +1165,12 @@ export async function applyProjectBoardLiveSynthesis(
       summary: `Applied ${result.draft.cards.length} candidate card${
         result.draft.cards.length === 1 ? "" : "s"
       } from Ambient/Pi to the draft inbox.${partialSectionSummary}`,
-      metadata: { durationMs: Date.now() - startedAt, scopeContract: result.scopeContract, planningDepth: result.planningDepth, ...result.telemetry },
+      metadata: {
+        durationMs: Date.now() - startedAt,
+        scopeContract: result.scopeContract,
+        planningDepth: result.planningDepth,
+        ...result.telemetry,
+      },
       status: "succeeded",
       promptCharCount: result.telemetry.promptCharCount,
       responseCharCount: result.telemetry.responseCharCount,
@@ -1439,7 +1309,11 @@ function recordProjectBoardSynthesisPlannerContinuationDecision(
   });
 }
 
-function recordProjectBoardSynthesisResumeDecision(boardId: string, runId: string, targetStore: ProjectStore = defaultProjectBoardSynthesisStore()): void {
+function recordProjectBoardSynthesisResumeDecision(
+  boardId: string,
+  runId: string,
+  targetStore: ProjectStore = defaultProjectBoardSynthesisStore(),
+): void {
   const run = targetStore.getProjectBoardSynthesisRun(runId);
   if (!run || run.boardId !== boardId) throw new Error("Project board synthesis run not found for this board.");
   if (run.status !== "paused") throw new Error("Only a paused project-board synthesis run can be resumed.");
@@ -1465,7 +1339,11 @@ function recordProjectBoardSynthesisResumeDecision(boardId: string, runId: strin
   });
 }
 
-function recordProjectBoardSynthesisStartFreshDecision(boardId: string, runId: string, targetStore: ProjectStore = defaultProjectBoardSynthesisStore()): void {
+function recordProjectBoardSynthesisStartFreshDecision(
+  boardId: string,
+  runId: string,
+  targetStore: ProjectStore = defaultProjectBoardSynthesisStore(),
+): void {
   targetStore.abandonProjectBoardSynthesisRunPause({
     boardId,
     runId,
@@ -1482,183 +1360,10 @@ function projectBoardStartFreshSourceIdNamespace(runId: string): string {
   return `start-fresh:${runId}:`;
 }
 
-function recordProjectBoardSynthesisCardBuildEvents(
-  runId: string,
-  cards: Awaited<ReturnType<AmbientProjectBoardSynthesisProvider["synthesizeWithTelemetry"]>>["draft"]["cards"],
+function applyPmReviewActivationProposalToDraftInbox(
+  proposal: ProjectBoardSynthesisProposal,
   targetStore: ProjectStore = defaultProjectBoardSynthesisStore(),
-): void {
-  const visibleCards = cards.slice(0, 60);
-  visibleCards.forEach((card, index) => {
-    targetStore.recordProjectBoardSynthesisRunEvent(runId, {
-      stage: "schema_validation",
-      title: `Prepared card ${index + 1}/${cards.length}`,
-      summary: `${card.title}${card.phase ? ` · ${card.phase}` : ""}${card.blockedBy.length ? ` · blocked by ${card.blockedBy.join(", ")}` : ""}`,
-      metadata: { sourceId: card.sourceId, phase: card.phase, sourceRefs: card.sourceRefs },
-      cardCount: index + 1,
-    });
-  });
-  if (cards.length > visibleCards.length) {
-    targetStore.recordProjectBoardSynthesisRunEvent(runId, {
-      stage: "schema_validation",
-      title: "Prepared remaining cards",
-      summary: `${cards.length - visibleCards.length} additional card${cards.length - visibleCards.length === 1 ? "" : "s"} were validated and are ready to apply.`,
-      metadata: { omittedCardCount: cards.length - visibleCards.length },
-      cardCount: cards.length,
-    });
-  }
-}
-
-function recordProjectBoardSynthesisProgressiveRecords(
-  runId: string,
-  draft: Awaited<ReturnType<AmbientProjectBoardSynthesisProvider["synthesizeWithTelemetry"]>>["draft"],
-  sources: ProjectBoardSource[],
-  proposalId?: string,
-  records?: Awaited<ReturnType<AmbientProjectBoardSynthesisProvider["synthesizeWithTelemetry"]>>["progressiveRecords"],
-  targetStore: ProjectStore = defaultProjectBoardSynthesisStore(),
-): void {
-  const progressiveRecords =
-    records && records.length > 0
-      ? records
-      : projectBoardProgressiveRecordsFromDraft({
-          draft,
-          sources,
-          proposalId: proposalId ?? runId,
-          createdAt: new Date().toISOString(),
-          includeProgress: false,
-        });
-  targetStore.recordProjectBoardSynthesisRunProgressiveRecords(runId, progressiveRecords, {
-    summary: `Persisted ${draft.cards.length} candidate card${draft.cards.length === 1 ? "" : "s"}, ${draft.questions.length} question${draft.questions.length === 1 ? "" : "s"}, and source coverage before applying board state.`,
-  });
-}
-
-function recordProjectBoardSynthesisProgressiveBatch(
-  runId: string,
-  batch: AmbientProjectBoardSynthesisProgressiveBatch,
-  targetStore: ProjectStore = defaultProjectBoardSynthesisStore(),
-): void {
-  const candidateCount = batch.records.filter((record) => record.type === "candidate_card").length;
-  const questionCount = batch.records.filter((record) => record.type === "question").length;
-  const coverageCount = batch.records.filter((record) => record.type === "source_coverage").length;
-  const errorCount = batch.records.filter((record) => record.type === "error").length;
-  const semanticIdleCount = batch.records.filter((record) => record.type === "error" && record.code === "section_semantic_idle_timeout").length;
-  const sectionStatus = batch.records.find(
-    (record) => record.type === "progress" && typeof record.metadata.sectionStatus === "string",
-  );
-  const lastCard = batch.records.filter((record) => record.type === "candidate_card").at(-1);
-  targetStore.recordProjectBoardSynthesisRunProgressiveRecords(runId, batch.records, {
-    title: `Imported section ${batch.sectionIndex}/${batch.sectionCount} planning records`,
-    summary: [
-      `${batch.records.length} record${batch.records.length === 1 ? "" : "s"}`,
-      sectionStatus?.type === "progress" ? `section ${sectionStatus.metadata.sectionStatus}` : "",
-      candidateCount ? `${candidateCount} card${candidateCount === 1 ? "" : "s"}` : "",
-      questionCount ? `${questionCount} question${questionCount === 1 ? "" : "s"}` : "",
-      coverageCount ? `${coverageCount} coverage update${coverageCount === 1 ? "" : "s"}` : "",
-      semanticIdleCount ? `${semanticIdleCount} semantic-idle stall${semanticIdleCount === 1 ? "" : "s"}` : "",
-      errorCount ? `${errorCount} recoverable error${errorCount === 1 ? "" : "s"}` : "",
-      lastCard?.type === "candidate_card" ? `last card: ${lastCard.title}` : "",
-      `${batch.section.sourcePath || batch.section.sourceTitle} (${batch.section.heading})`,
-    ]
-      .filter(Boolean)
-      .join(" · "),
-  });
-}
-
-function upsertProjectBoardProgressiveProposalFromRun(input: {
-  boardId: string;
-  runId: string;
-  fallback: ProjectBoardSynthesisDraft;
-  model?: string;
-  startedAt: number;
-  targetStore?: ProjectStore;
-}): ProjectBoardSynthesisProposal | undefined {
-  const targetStore = input.targetStore ?? defaultProjectBoardSynthesisStore();
-  const records = projectBoardValidatedProgressiveRecordsFromRun(input.runId, targetStore);
-  if (!records.some((record) => record.type === "candidate_card")) return undefined;
-  let draft: ProjectBoardSynthesisDraft;
-  try {
-    draft = projectBoardSynthesisDraftFromProgressiveRecords(records, input.fallback);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    targetStore.recordProjectBoardSynthesisRunEvent(input.runId, {
-      stage: "schema_validation",
-      title: "Progressive PM Review proposal not ready",
-      summary: `Progressive section records were saved, but they do not yet form a reviewable proposal: ${message}`,
-      metadata: { progressive: true, error: message, recordCount: records.length },
-    });
-    return undefined;
-  }
-
-  const existingRun = targetStore.getProjectBoardSynthesisRun(input.runId);
-  const existingProposal =
-    existingRun?.proposalId && existingRun.boardId === input.boardId ? targetStore.getProjectBoardSynthesisProposal(existingRun.proposalId) : undefined;
-  const proposal =
-    existingProposal?.status === "pending" && existingProposal.boardId === input.boardId
-      ? targetStore.updateProjectBoardSynthesisProposal({
-          proposalId: existingProposal.id,
-          synthesis: draft,
-          model: input.model,
-          durationMs: Date.now() - input.startedAt,
-        })
-      : targetStore.createProjectBoardSynthesisProposal({
-          boardId: input.boardId,
-          synthesis: draft,
-          model: input.model,
-          durationMs: Date.now() - input.startedAt,
-        });
-
-  targetStore.recordProjectBoardSynthesisRunEvent(input.runId, {
-    stage: "proposal_created",
-    title: existingProposal ? "Updated live PM Review proposal" : "Created live PM Review proposal",
-    summary: `Imported ${draft.cards.length} progressive card${draft.cards.length === 1 ? "" : "s"} and ${draft.questions.length} question${
-      draft.questions.length === 1 ? "" : "s"
-    } into a reviewable partial proposal.`,
-    metadata: {
-      proposalId: proposal.id,
-      progressive: true,
-      recordCount: records.length,
-      cardCount: draft.cards.length,
-      questionCount: draft.questions.length,
-      sourceNoteCount: draft.sourceNotes.length,
-    },
-    proposalId: proposal.id,
-    cardCount: draft.cards.length,
-    questionCount: draft.questions.length,
-  });
-  return proposal;
-}
-
-function createOrUpdateProjectBoardSynthesisProposalForRun(input: {
-  boardId: string;
-  runId: string;
-  synthesis: ProjectBoardSynthesisDraft;
-  reviewReport?: ProjectBoardPmReviewReport;
-  model?: string;
-  durationMs?: number;
-  targetStore?: ProjectStore;
-}): ProjectBoardSynthesisProposal {
-  const targetStore = input.targetStore ?? defaultProjectBoardSynthesisStore();
-  const run = targetStore.getProjectBoardSynthesisRun(input.runId);
-  const existingProposal =
-    run?.proposalId && run.boardId === input.boardId ? targetStore.getProjectBoardSynthesisProposal(run.proposalId) : undefined;
-  if (existingProposal?.status === "pending" && existingProposal.boardId === input.boardId) {
-    return targetStore.updateProjectBoardSynthesisProposal({
-      proposalId: existingProposal.id,
-      synthesis: input.synthesis,
-      reviewReport: input.reviewReport,
-      model: input.model,
-      durationMs: input.durationMs,
-    });
-  }
-  return targetStore.createProjectBoardSynthesisProposal({
-    boardId: input.boardId,
-    synthesis: input.synthesis,
-    reviewReport: input.reviewReport,
-    model: input.model,
-    durationMs: input.durationMs,
-  });
-}
-
-function applyPmReviewActivationProposalToDraftInbox(proposal: ProjectBoardSynthesisProposal, targetStore: ProjectStore = defaultProjectBoardSynthesisStore()): {
+): {
   autoAcceptedSourceIds: string[];
   acceptedSourceIds: string[];
   mergedSourceIds: string[];
@@ -1687,7 +1392,6 @@ function applyPmReviewActivationProposalToDraftInbox(proposal: ProjectBoardSynth
     .map((card) => card.id);
   return { autoAcceptedSourceIds, acceptedSourceIds, mergedSourceIds, draftCardIds };
 }
-
 
 export async function suggestProjectBoardKickoffDefaults(
   input: SuggestProjectBoardKickoffDefaultsInput,
@@ -1757,7 +1461,7 @@ export async function suggestProjectBoardKickoffDefaults(
     ...sourceTelemetry,
   });
   emitUpdate();
-  const progressEmitter = createProjectBoardRunProgressEmitter(run.id, { targetStore, host });
+  const progressEmitter = createProjectBoardRunProgressEmitter(run.id, { targetStore, host, emitProjectBoardState });
   const requestStartedAt = Date.now();
   const provider = new AmbientProjectBoardKickoffDefaultProvider({
     model: providerStatus.model,
@@ -1850,7 +1554,9 @@ export async function suggestProjectBoardKickoffDefaults(
       else skippedQuestionIds.push(target.questionId);
       targetStore.recordProjectBoardSynthesisRunEvent(run.id, {
         stage: "kickoff_defaults",
-        title: applied ? `Saved kickoff default ${position}/${targets.length}` : `No kickoff default returned ${position}/${targets.length}`,
+        title: applied
+          ? `Saved kickoff default ${position}/${targets.length}`
+          : `No kickoff default returned ${position}/${targets.length}`,
         summary: applied
           ? `Ambient/Pi suggested an editable default for "${target.question}".`
           : `Ambient/Pi did not return a default for "${target.question}".`,
@@ -1940,7 +1646,6 @@ export async function suggestProjectBoardKickoffDefaults(
   }
 }
 
-
 export async function refineProjectBoardSynthesisForProjectHost(
   host: ProjectBoardSynthesisRuntimeHost,
   input: RefineProjectBoardSynthesisInput,
@@ -1961,18 +1666,24 @@ export async function refineProjectBoardSynthesisForProjectHost(
     ? targetStore.getProjectBoardSynthesisProposal(input.proposalId)
     : targetStore.getLatestPendingProjectBoardSynthesisProposal(input.boardId);
   if (input.proposalId && !previousProposal) throw new Error(`Project board synthesis proposal not found: ${input.proposalId}`);
-  if (previousProposal && previousProposal.boardId !== input.boardId) throw new Error("Project board synthesis proposal does not belong to this board.");
-  const prepared = prepareProjectBoardSynthesisRun({
-    boardId: input.boardId,
-    model,
-    intent: synthesisMode === "source_elaboration" && input.objective?.trim()
-      ? "add cards from objective"
-      : synthesisMode === "source_elaboration"
-        ? "add cards from sources"
-        : synthesisMode === "charter_review"
-          ? "charter review"
-        : "PM review synthesis",
-  }, targetStore, host);
+  if (previousProposal && previousProposal.boardId !== input.boardId)
+    throw new Error("Project board synthesis proposal does not belong to this board.");
+  const prepared = prepareProjectBoardSynthesisRun(
+    {
+      boardId: input.boardId,
+      model,
+      intent:
+        synthesisMode === "source_elaboration" && input.objective?.trim()
+          ? "add cards from objective"
+          : synthesisMode === "source_elaboration"
+            ? "add cards from sources"
+            : synthesisMode === "charter_review"
+              ? "charter review"
+              : "PM review synthesis",
+    },
+    targetStore,
+    host,
+  );
   if (prepared.reused) {
     return readStateForProjectHostAction(host);
   }
@@ -1980,7 +1691,7 @@ export async function refineProjectBoardSynthesisForProjectHost(
   projectBoardSynthesisPauseRequests.delete(run.id);
   const synthesisAbortController = new AbortController();
   projectBoardSynthesisAbortControllers.set(run.id, synthesisAbortController);
-  const progressEmitter = createProjectBoardRunProgressEmitter(run.id, { targetStore, host });
+  const progressEmitter = createProjectBoardRunProgressEmitter(run.id, { targetStore, host, emitProjectBoardState });
   let progressiveRecordsPersisted = false;
   const shouldPause = () => isProjectBoardSynthesisPauseRequested(run.id, targetStore);
   const abortIfPauseRequested = () =>
@@ -2005,7 +1716,12 @@ export async function refineProjectBoardSynthesisForProjectHost(
       metadata: { persistedSourceCount: persistedSources.length },
     });
     emitProjectStateIfActive(host);
-    persistedSources = await classifyProjectBoardSourcesWithPi(input.boardId, persistedSources, { model, runId: run.id, targetStore, host });
+    persistedSources = await classifyProjectBoardSourcesWithPi(input.boardId, persistedSources, {
+      model,
+      runId: run.id,
+      targetStore,
+      host,
+    });
     abortIfPauseRequested();
     await refreshProjectBoardCharterSummaryWithPi(input.boardId, persistedSources, {
       model,
@@ -2070,7 +1786,11 @@ export async function refineProjectBoardSynthesisForProjectHost(
       objective: addCardsObjective,
     });
     const proposalAnswers: ProjectBoardSynthesisRefinementAnswer[] =
-      previousProposal?.answers.map((answer) => ({ question: `PM Review: ${answer.question}`, answer: answer.answer, source: "pm_review" })) ?? [];
+      previousProposal?.answers.map((answer) => ({
+        question: `PM Review: ${answer.question}`,
+        answer: answer.answer,
+        source: "pm_review",
+      })) ?? [];
     const pmReviewActivationReport =
       synthesisMode === "board_synthesis" && previousProposal?.reviewReport ? previousProposal.reviewReport : undefined;
     const refinement =
@@ -2082,7 +1802,7 @@ export async function refineProjectBoardSynthesisForProjectHost(
             mode: synthesisMode === "source_elaboration" ? ("additive" as const) : ("refine" as const),
             ...(pmReviewActivationReport ? { pmReviewReport: pmReviewActivationReport } : {}),
           }
-          : undefined;
+        : undefined;
     const provider = createProjectBoardSynthesisProvider(model, targetStore);
     if (synthesisMode === "charter_review") {
       const pmReviewGitContext = await projectBoardPmReviewGitContextForBoard(input.boardId, targetStore);
@@ -2337,16 +2057,10 @@ export async function refineProjectBoardSynthesisForProjectHost(
     }
     progressEmitter.flush();
     const pauseRequestedAfterResult = result.telemetry.paused || isProjectBoardSynthesisPauseRequested(run.id, targetStore);
-    const objectiveAnnotatedDraft = annotateProjectBoardDraftWithObjectiveProvenance(
-      result.draft,
-      addCardsObjectiveProvenanceContext,
-    );
+    const objectiveAnnotatedDraft = annotateProjectBoardDraftWithObjectiveProvenance(result.draft, addCardsObjectiveProvenanceContext);
     const synthesisDraft = objectiveAnnotatedDraft.draft;
     const resultProgressiveRecordAnnotation = result.progressiveRecords
-      ? annotateProjectBoardProgressiveRecordsWithObjectiveProvenance(
-          result.progressiveRecords,
-          addCardsObjectiveProvenanceContext,
-        )
+      ? annotateProjectBoardProgressiveRecordsWithObjectiveProvenance(result.progressiveRecords, addCardsObjectiveProvenanceContext)
       : undefined;
     const resultProgressiveRecords = resultProgressiveRecordAnnotation
       ? [...resultProgressiveRecordAnnotation.records, ...resultProgressiveRecordAnnotation.warningRecords]
@@ -2360,7 +2074,14 @@ export async function refineProjectBoardSynthesisForProjectHost(
           ]
         : undefined;
     if (!progressiveRecordsPersisted) {
-      recordProjectBoardSynthesisProgressiveRecords(run.id, synthesisDraft, synthesisSources, undefined, resultProgressiveRecords, targetStore);
+      recordProjectBoardSynthesisProgressiveRecords(
+        run.id,
+        synthesisDraft,
+        synthesisSources,
+        undefined,
+        resultProgressiveRecords,
+        targetStore,
+      );
     }
     recordProjectBoardSynthesisCardBuildEvents(run.id, synthesisDraft.cards, targetStore);
     emitProjectStateIfActive(host);
@@ -2372,7 +2093,9 @@ export async function refineProjectBoardSynthesisForProjectHost(
       durationMs: Date.now() - startedAt,
       targetStore,
     });
-    const pmReviewDraftInboxApply = pmReviewActivationReport ? applyPmReviewActivationProposalToDraftInbox(proposal, targetStore) : undefined;
+    const pmReviewDraftInboxApply = pmReviewActivationReport
+      ? applyPmReviewActivationProposalToDraftInbox(proposal, targetStore)
+      : undefined;
     const partialSectionSummary =
       result.telemetry.failedSectionCount && result.telemetry.failedSectionCount > 0
         ? ` ${result.telemetry.failedSectionCount} source section${result.telemetry.failedSectionCount === 1 ? "" : "s"} failed and can be retried.`

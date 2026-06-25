@@ -58,6 +58,7 @@ async function readDogfoodSources() {
       readFile(new URL("./project-board-in-app-dogfood-cdp-helpers.mjs", import.meta.url), "utf8"),
       readFile(new URL("./project-board-in-app-dogfood-proof-helpers.mjs", import.meta.url), "utf8"),
       readFile(new URL("./project-board-in-app-dogfood-scenario-helpers.mjs", import.meta.url), "utf8"),
+      readFile(new URL("./project-board-in-app-dogfood-pm-review.mjs", import.meta.url), "utf8"),
     ])
   ).join("\n");
 }

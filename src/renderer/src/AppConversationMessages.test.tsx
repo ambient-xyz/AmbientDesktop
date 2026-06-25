@@ -68,6 +68,22 @@ describe("AppConversationMessages", () => {
     expect(markup.indexOf('class="scroll-to-bottom-anchor"')).toBeLessThan(markup.indexOf("composer-sentinel"));
   });
 
+  it("renders older-message pagination when the active thread has earlier messages", () => {
+    const markup = renderToStaticMarkup(
+      <AppConversationMessages
+        {...baseProps({
+          provider: provider({ hasApiKey: true }),
+          visibleChatMessages: [parentAssistantMessage()],
+          messageWindow: { threadId: "thread-1", order: "latest", limit: 250, loadedCount: 250, hasMoreBefore: true },
+        })}
+      />,
+    );
+
+    expect(markup).toContain("message-history-pagination");
+    expect(markup).toContain("Load older messages");
+    expect(markup).toContain("250 loaded");
+  });
+
   it("renders compaction status even when the run status card is hidden", () => {
     const markup = renderToStaticMarkup(
       <AppConversationMessages

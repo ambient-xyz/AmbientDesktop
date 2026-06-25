@@ -145,7 +145,13 @@ const files = {
     await readText("scripts/subagent-live-confidence-runtime-validators.mjs"),
     await readText("scripts/subagent-live-confidence-validator-utils.mjs"),
   ].join("\n"),
-  subagentLiveConfidenceRunnerTest: await readText("scripts/subagent-live-confidence.test.mjs"),
+  subagentLiveConfidenceRunnerTest: [
+    await readText("scripts/subagent-live-confidence-plan.test.mjs"),
+    await readText("scripts/subagent-live-confidence-evidence-classification.test.mjs"),
+    await readText("scripts/subagent-live-confidence-blockers.test.mjs"),
+    await readText("scripts/subagent-live-confidence-proof-validators.test.mjs"),
+    await readText("scripts/subagent-live-confidence-test-fixtures.mjs"),
+  ].join("\n"),
   subagentReleaseGateRunner: await readText("scripts/subagent-release-gate.mjs"),
   subagentReleaseGateRunnerLib: await readText("scripts/subagent-release-gate-lib.mjs"),
   subagentReleaseGateSourceChecks: [
@@ -155,6 +161,8 @@ const files = {
   ].join("\n"),
   subagentReleaseGateRunnerTest: [
     await readText("scripts/subagent-release-gate.test.mjs"),
+    await readText("scripts/subagent-release-gate-live-desktop-dogfood.test.mjs"),
+    await readText("scripts/subagent-release-gate-live-confidence.test.mjs"),
     await readText("scripts/subagent-release-gate-maturity-history.test.mjs"),
     await readText("scripts/subagent-release-gate-package-scripts.test.mjs"),
   ].join("\n"),
@@ -182,6 +190,9 @@ const files = {
   subagentDesktopDogfoodE2eTest: await readText("src/main/subagents/subagentDesktopDogfood.e2e.test.ts"),
   subagentDesktopDogfoodE2eSupport: await readText("src/main/subagents/subagentDesktopDogfoodE2eSupport.ts"),
   subagentDesktopDogfoodUiInspectors: await readText("src/main/subagents/subagentDesktopDogfoodUiInspectors.ts"),
+  subagentDesktopDogfoodLifecycleRuntimeInspectors: await readText(
+    "src/main/subagents/subagentDesktopDogfoodLifecycleRuntimeInspectors.ts",
+  ),
   subagentReviewedMaturityEvidence: await readText("src/main/subagents/subagentReviewedMaturityEvidence.ts"),
   subagentReviewedMaturityEvidenceTest: await readText("src/main/subagents/subagentReviewedMaturityEvidence.test.ts"),
   subagentInvariants: await readText("src/main/subagents/subagentInvariants.ts"),
@@ -237,6 +248,7 @@ const files = {
   projectStoreSchema: await readText("src/main/projectStore/projectStoreSchema.ts"),
   projectStoreSubagentFoundationTest: [
     await readText("src/main/projectStore/projectStoreSubagentFoundation.test.ts"),
+    await readText("src/main/projectStore/projectStoreSubagentCreationLifecycle.test.ts"),
     await readText("src/main/projectStore/projectStoreSubagentBatchFacade.test.ts"),
     await readText("src/main/projectStore/projectStoreSubagentRetentionParentStop.test.ts"),
   ].join("\n"),
@@ -359,7 +371,10 @@ const files = {
   localModelResourceRegistryTest: await readText("src/main/local-runtime/localModelResourceRegistry.test.ts"),
   localTextSubagentStartupConfig: await readText("src/main/local-runtime/localTextSubagentStartupConfig.ts"),
   localTextSubagentStartupConfigTest: await readText("src/main/local-runtime/localTextSubagentStartupConfig.test.ts"),
-  subagentParentClusterUiModel: await readText("src/renderer/src/subagentParentClusterUiModel.ts"),
+  subagentParentClusterUiModel: [
+    await readText("src/renderer/src/subagentParentClusterUiModel.ts"),
+    await readText("src/renderer/src/subagentParentClusterWorkflowTaskUiModel.ts"),
+  ].join("\n"),
   subagentParentClusterUiModelTest: await readText("src/renderer/src/subagentParentClusterUiModel.test.ts"),
   subagentParentClusterComponent: await readText("src/renderer/src/SubagentParentCluster.tsx"),
   subagentParentClusterComponentTest: await readText("src/renderer/src/SubagentParentCluster.test.tsx"),

@@ -44,6 +44,7 @@ function setup() {
     progressForToolCall: (toolCallId) => toolArgumentProgress.current(toolCallId),
     startedToolCallIds,
     listMessages: () => [...messages.values()],
+    getMessage: (messageId) => messages.get(messageId),
     addToolMessage: vi.fn((input) => {
       const created = message({
         id: `tool-message-${nextId}`,

@@ -234,7 +234,7 @@ export const SUBAGENT_DELEGATED_TOOL_AUTHORITY_SURFACES: readonly SubagentDelega
     adapter: "launch-policy-denial",
     sourceKinds: ["connector_app", "direct_mcp"],
     proofTests: [
-      "src/main/subagents/subagentPiTools.test.ts",
+      "src/main/subagents/subagentPiToolsLaunchToolScope.test.ts",
       "src/main/subagents/subagentChildActiveTools.test.ts",
     ],
     notes: "Direct connector and MCP sources stay non-visible until Ambient adds a child-safe bridge with identity and approval routing.",

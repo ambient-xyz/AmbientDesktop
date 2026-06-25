@@ -41,6 +41,8 @@ export function baseProps(overrides: Partial<AppConversationMessagesProps> = {})
     scrollRef: createRef<HTMLDivElement>(),
     onMessagesScroll: noop,
     visibleChatMessages: [],
+    messageWindow: undefined,
+    onLoadOlderMessages: noop,
     activeChatBrowserUserAction: undefined,
     workflowRecorderEmptyChatState: undefined,
     provider: provider(),

@@ -174,7 +174,7 @@ describe("registerChatRuntimeDomainIpc", () => {
 
     await expect(invoke("message:send", input)).resolves.toBeUndefined();
 
-    expect(host.store.listMessages).toHaveBeenCalledWith("thread-1");
+    expect(host.store.getMessage).toHaveBeenCalledWith(hiddenAnchor.id);
     expect(host.store.deleteMessagesAfter).not.toHaveBeenCalled();
     expect(deps.emitProjectStateIfActive).not.toHaveBeenCalled();
     expect(host.runtime.send).toHaveBeenCalledWith({ ...input, context: undefined });
@@ -273,6 +273,11 @@ function registerWithFakes({
     getThread: vi.fn(() => thread),
     getWorkspace: vi.fn(() => ({ path: "/workspace" })),
     listMessages: vi.fn(() => messages),
+    getMessage: vi.fn((messageId: string) => {
+      const message = messages.find((candidate) => candidate.id === messageId);
+      if (!message) throw new Error(`Missing message ${messageId}`);
+      return message;
+    }),
     deleteMessagesAfter: vi.fn(),
     getThreadGoal: vi.fn(() => currentGoal),
     setThreadGoal: vi.fn(() => nextGoal),

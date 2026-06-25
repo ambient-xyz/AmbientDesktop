@@ -14,6 +14,7 @@ export function buildDesktopReviewedEvidenceSourceChecks(files) {
         files.subagentDesktopDogfoodE2eTest,
         files.subagentDesktopDogfoodE2eSupport,
         files.subagentDesktopDogfoodUiInspectors,
+        files.subagentDesktopDogfoodLifecycleRuntimeInspectors,
         files.subagentDesktopDogfoodRunnerTest,
       ]
         .filter(Boolean)
@@ -819,6 +820,7 @@ export function buildDesktopReviewedEvidenceSourceChecks(files) {
         files.subagentDesktopDogfoodE2eTest,
         files.subagentDesktopDogfoodE2eSupport,
         files.subagentDesktopDogfoodUiInspectors,
+        files.subagentDesktopDogfoodLifecycleRuntimeInspectors,
       ]
         .filter(Boolean)
         .join("\n"),

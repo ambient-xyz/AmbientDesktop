@@ -62,6 +62,8 @@ export type AppConversationMessagesProps = {
   scrollRef: RefObject<HTMLDivElement | null>;
   onMessagesScroll: () => void;
   visibleChatMessages: ChatMessage[];
+  messageWindow?: DesktopState["messageWindow"];
+  onLoadOlderMessages: () => void | Promise<void>;
   activeChatBrowserUserAction?: BrowserUserActionState;
   workflowRecorderEmptyChatState?: { title: string; paragraphs: string[] };
   provider: DesktopState["provider"];

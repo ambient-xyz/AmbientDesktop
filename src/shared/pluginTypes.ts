@@ -1383,6 +1383,7 @@ export type AmbientMcpDefaultCapabilityStatus =
   | "blocked_runtime"
   | "blocked_descriptor"
   | "blocked_approval"
+  | "warming_up"
   | "installing"
   | "installed"
   | "needs_review"
@@ -1411,6 +1412,8 @@ export interface AmbientMcpDefaultCapabilitySummary {
   runtimeStatus: AmbientMcpContainerRuntimeStatusKind;
   installedWorkloadStatus?: string;
   installedEndpoint?: string;
+  unhealthySince?: string;
+  retryAfter?: string;
   lastReconciledAt: string;
   appVersion: string;
 }

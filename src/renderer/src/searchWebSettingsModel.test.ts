@@ -162,7 +162,18 @@ describe("searchWebSettingsModel", () => {
         message: "Install failed.",
         runtimeStatus: "ready",
       },
-    })).toMatchObject({ label: "Error", tone: "error" });
+    })).toMatchObject({ label: "Repair needed", tone: "error" });
+    expect(webResearchProviderHealthBadge(scrapling, {
+      scraplingDefaultCapability: {
+        capabilityId: "scrapling",
+        status: "warming_up",
+        nextAction: "none",
+        message: "Scrapling is warming up.",
+        runtimeStatus: "ready",
+        installedWorkloadStatus: "starting",
+        retryAfter: "2026-05-23T20:11:30.000Z",
+      },
+    })).toMatchObject({ label: "Checking", tone: "info" });
   });
 
   it("derives provider setup actions without mutating provider preferences", () => {
@@ -214,12 +225,44 @@ describe("searchWebSettingsModel", () => {
       scraplingRuntimeReady: true,
       scraplingDefaultCapability: {
         capabilityId: "scrapling",
+        status: "warming_up",
+        nextAction: "none",
+        message: "Scrapling is warming up.",
+        runtimeStatus: "ready",
+        installedWorkloadStatus: "starting",
+        retryAfter: "2026-05-23T20:11:30.000Z",
+      },
+    })).toMatchObject({ kind: "install-scrapling", label: "Checking", disabled: true });
+    expect(webResearchProviderSetupAction(scrapling, {
+      scraplingRuntimeReady: true,
+      scraplingDefaultCapability: {
+        capabilityId: "scrapling",
         status: "not_configured",
         nextAction: "install-default-capability",
         message: "Scrapling can be installed.",
         runtimeStatus: "ready",
       },
     })).toMatchObject({ kind: "install-scrapling", label: "Set up Scrapling", disabled: false });
+    expect(webResearchProviderSetupAction(scrapling, {
+      scraplingRuntimeReady: true,
+      scraplingDefaultCapability: {
+        capabilityId: "scrapling",
+        status: "not_configured",
+        nextAction: "install-default-capability",
+        message: "Scrapling can be retried.",
+        runtimeStatus: "ready",
+        installedWorkloadStatus: "starting",
+      },
+    })).toMatchObject({ kind: "install-scrapling", label: "Retry Scrapling", disabled: false });
+    expect(webResearchProviderSetupAction(scrapling, {
+      scraplingDefaultCapability: {
+        capabilityId: "scrapling",
+        status: "failed",
+        nextAction: "inspect-failure",
+        message: "Scrapling needs repair.",
+        runtimeStatus: "ready",
+      },
+    })).toMatchObject({ kind: "open-mcp-runtime", label: "Repair Scrapling", disabled: false });
     expect(webResearchProviderSetupAction(scrapling, {
       scraplingDefaultCapability: {
         capabilityId: "scrapling",

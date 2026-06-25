@@ -19,6 +19,7 @@ export interface RuntimeToolMessageControllerInput {
   progressForToolCall: (toolCallId: string) => ToolArgumentProgressSnapshot | undefined;
   startedToolCallIds: ReadonlySet<string>;
   listMessages: () => readonly ChatMessage[];
+  getMessage: (messageId: string) => ChatMessage | undefined;
   addToolMessage: (input: { threadId: string; content: string; metadata: Record<string, unknown> }) => ChatMessage;
   replaceMessage: (messageId: string, content: string, metadata?: Record<string, unknown>) => ChatMessage;
   emitRunEvent: (event: DesktopEvent) => void;
@@ -97,6 +98,14 @@ export function createRuntimeToolMessageController(
     toolMessageEditInputPreviews.delete(toolCallId);
   };
 
+  const getMessage = (messageId: string): ChatMessage | undefined => {
+    try {
+      return input.getMessage(messageId);
+    } catch {
+      return undefined;
+    }
+  };
+
   const upsertInputMessage: RuntimeToolMessageController["upsertInputMessage"] = (messageInput) => {
     toolMessageInputs.set(messageInput.toolCallId, messageInput.inputContent);
     toolMessageLabels.set(messageInput.toolCallId, messageInput.label);
@@ -145,7 +154,7 @@ export function createRuntimeToolMessageController(
     metadataFor: (toolCallId) => {
       const messageId = toolMessageIds.get(toolCallId);
       if (!messageId) return {};
-      const message = input.listMessages().find((candidate) => candidate.id === messageId);
+      const message = getMessage(messageId);
       const metadata = message?.metadata;
       return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? metadata as Record<string, unknown> : {};
     },

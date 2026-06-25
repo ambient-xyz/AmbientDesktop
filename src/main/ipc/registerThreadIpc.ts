@@ -8,6 +8,10 @@ import type {
   ForkThreadInput,
   RequestThreadPermissionModeChangeInput,
   ThreadActionInput,
+  ThreadMessageDetail,
+  ThreadMessageDetailInput,
+  ThreadMessagePage,
+  ThreadMessagePageInput,
   UpdateThreadInput,
   UpdateThreadSettingsInput,
 } from "../../shared/desktopTypes";
@@ -52,6 +56,7 @@ export const threadMarkUnreadIpcChannels = ["thread:mark-unread"] as const;
 export const threadRevealIpcChannels = ["thread:reveal"] as const;
 export const threadForkIpcChannels = ["thread:fork"] as const;
 export const threadOpenMiniWindowIpcChannels = ["thread:open-mini-window"] as const;
+export const threadMessageReadIpcChannels = ["thread:messages-before", "thread:message-detail"] as const;
 export const threadExportChatIpcChannels = ["thread:export-chat"] as const;
 export const threadExportChatPdfIpcChannels = ["thread:export-chat-pdf"] as const;
 export const threadUpdateSettingsIpcChannels = ["thread:update-settings"] as const;
@@ -231,6 +236,24 @@ export interface RegisterThreadOpenMiniWindowIpcDependencies<
   openThreadMiniWindow(thread: Thread, messages: Message[], workingDirectory: string): MaybePromise<void>;
 }
 
+export interface ThreadMessageReadStore<Message extends ChatMessage = ChatMessage> {
+  listMessagesBefore(threadId: string, beforeMessageId: string | undefined, limit: number): { messages: Message[]; hasMoreBefore: boolean };
+  getMessage(messageId: string): Message;
+}
+
+export interface ThreadMessageReadHost<Store extends ThreadMessageReadStore = ThreadMessageReadStore> {
+  store: Store;
+}
+
+export interface RegisterThreadMessageReadIpcDependencies<
+  Message extends ChatMessage = ChatMessage,
+  Store extends ThreadMessageReadStore<Message> = ThreadMessageReadStore<Message>,
+  Host extends ThreadMessageReadHost<Store> = ThreadMessageReadHost<Store>,
+> {
+  handleIpc: HandleIpc;
+  requireProjectRuntimeHostForThread(threadId: string): Host;
+}
+
 export interface RegisterThreadExportChatIpcDependencies {
   handleIpc: HandleIpc;
   exportChat(input: ExportChatInput): MaybePromise<ExportChatResult | undefined>;
@@ -350,6 +373,15 @@ const exportChatPdfSchema = z.object({
   threadId: z.string().min(1),
   projectId: projectIdSchema.optional(),
 }) satisfies z.ZodType<ExportChatPdfInput>;
+const threadMessagePageSchema = z.object({
+  threadId: z.string().min(1),
+  beforeMessageId: z.string().min(1).optional(),
+  limit: z.number().int().positive().max(1000).optional(),
+}) satisfies z.ZodType<ThreadMessagePageInput>;
+const threadMessageDetailSchema = z.object({
+  threadId: z.string().min(1),
+  messageId: z.string().min(1),
+}) satisfies z.ZodType<ThreadMessageDetailInput>;
 const threadGoalStatusSchema = z.enum([
   "active",
   "paused",
@@ -571,6 +603,41 @@ export function registerThreadOpenMiniWindowIpc<
       workingDirectory: threadWorkingDirectory(thread),
     };
     await openThreadMiniWindow(snapshot.thread, snapshot.messages, snapshot.workingDirectory);
+  });
+}
+
+export function registerThreadMessageReadIpc<
+  Message extends ChatMessage = ChatMessage,
+  Store extends ThreadMessageReadStore<Message> = ThreadMessageReadStore<Message>,
+  Host extends ThreadMessageReadHost<Store> = ThreadMessageReadHost<Store>,
+>({
+  handleIpc,
+  requireProjectRuntimeHostForThread,
+}: RegisterThreadMessageReadIpcDependencies<Message, Store, Host>): void {
+  handleIpc("thread:messages-before", (_event, raw: ThreadMessagePageInput): ThreadMessagePage => {
+    const input = threadMessagePageSchema.parse(raw);
+    const host = requireProjectRuntimeHostForThread(input.threadId);
+    const limit = input.limit ?? 100;
+    const page = host.store.listMessagesBefore(input.threadId, input.beforeMessageId, limit);
+    return {
+      threadId: input.threadId,
+      ...(input.beforeMessageId ? { beforeMessageId: input.beforeMessageId } : {}),
+      order: "ascending",
+      limit,
+      messages: page.messages,
+      hasMoreBefore: page.hasMoreBefore,
+    };
+  });
+
+  handleIpc("thread:message-detail", (_event, raw: ThreadMessageDetailInput): ThreadMessageDetail => {
+    const input = threadMessageDetailSchema.parse(raw);
+    const host = requireProjectRuntimeHostForThread(input.threadId);
+    const message = host.store.getMessage(input.messageId);
+    if (message.threadId !== input.threadId) throw new Error(`Message ${input.messageId} does not belong to thread ${input.threadId}.`);
+    return {
+      threadId: input.threadId,
+      message,
+    };
   });
 }
 

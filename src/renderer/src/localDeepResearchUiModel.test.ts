@@ -222,10 +222,14 @@ describe("localDeepResearchSetupResultModel", () => {
 
     expect(model.detailLabels).toContain("Local runtime inventory: 1 runtime; 1 running; 1 active lease");
     expect(model.detailLabels).toContain("Local runtime stop policy: In use by sub-agent Review worker.");
+    expect(model.statusLabel).toBe("Local Deep Research ready");
+    expect(model.statusTone).toBe("success");
     expect(model.diagnostics).toContainEqual(expect.objectContaining({
       code: "local-runtime-stop-blocked",
-      severity: "error",
+      severity: "warning",
+      title: "Local runtime Stop needs owner action",
       detail: "local-text-runtime: In use by sub-agent Review worker.",
+      nextAction: expect.stringContaining("does not block Local Deep Research readiness"),
     }));
   });
 

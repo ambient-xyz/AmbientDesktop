@@ -21,6 +21,7 @@ import {
   pastedComposerDraft,
 } from "./AppComposerInteractionControls";
 import type { PendingSubmittedPrompt } from "./AppConversationDisplayModel";
+import { slashCommandTriggerFromDraft } from "./slashCommandUiModel";
 import type { SymphonyWorkflowBuilderDraft } from "./symphonyWorkflowBuilderUiModel";
 import type { SttDraftMetadataState } from "./sttUiModel";
 
@@ -56,7 +57,7 @@ describe("App composer interaction controls", () => {
     const controller = createController({ localDeepResearchModeArmed: true });
     const entry = slashCommandEntry();
 
-    controller.actions.selectSlashCommandEntry(entry, "/rev", "/rev migrate");
+    controller.actions.selectSlashCommandEntry(entry, "rev", "/rev migrate", slashCommandTriggerFromDraft("/rev migrate", undefined, 4));
 
     expect(controller.slashCommandSelection.value).toEqual(
       expect.objectContaining({
@@ -81,13 +82,34 @@ describe("App composer interaction controls", () => {
         command: "/plan",
         title: "Plan Mode",
       },
-      "/pl",
+      "pl",
       "/pl refactor this",
+      slashCommandTriggerFromDraft("/pl refactor this", undefined, 3),
     );
 
     expect(controller.slashCommandSelection.value).toBeUndefined();
     expect(controller.draft.value).toBe("/plan refactor this");
     expect(controller.localDeepResearchModeArmedRef.current).toBe(true);
+  });
+
+  it("selects inline slash commands without discarding surrounding prompt text", () => {
+    const controller = createController();
+    const draft = "please /reviewer this migration";
+
+    controller.actions.selectSlashCommandEntry(
+      slashCommandEntry(),
+      "reviewer",
+      draft,
+      slashCommandTriggerFromDraft(draft, undefined, "please /reviewer".length),
+    );
+
+    expect(controller.slashCommandSelection.value).toEqual(
+      expect.objectContaining({
+        entryId: "codex-plugin-skill:reviewer",
+        userQuery: "reviewer",
+      }),
+    );
+    expect(controller.draft.value).toBe("please this migration");
   });
 
   it("registers and removes pending submitted prompt previews", () => {

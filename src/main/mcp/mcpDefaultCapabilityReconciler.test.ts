@@ -156,7 +156,7 @@ describe("MCP default capability reconciler", () => {
     }
   });
 
-  it("does not mark cached Scrapling state installed when ToolHive has no running endpoint", async () => {
+  it("treats a recently endpoint-less Scrapling workload as warming up", async () => {
     const root = await mkdtemp(join(tmpdir(), "ambient-mcp-default-capability-"));
     try {
       const descriptor = scraplingDescriptor();
@@ -179,11 +179,67 @@ describe("MCP default capability reconciler", () => {
       });
 
       expect(summary).toMatchObject({
+        status: "warming_up",
+        nextAction: "none",
+        unhealthySince: "2026-05-23T20:00:00.000Z",
+        retryAfter: "2026-05-23T20:01:30.000Z",
+      });
+      expect(summary.message).toContain("giving the existing workload time to warm up");
+      expect(summary.message).not.toContain("is installed");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("promotes Scrapling warm-up to a stable repair state after grace expires", async () => {
+    const root = await mkdtemp(join(tmpdir(), "ambient-mcp-default-capability-"));
+    const statePath = join(root, "default-capabilities.json");
+    try {
+      const descriptor = scraplingDescriptor();
+      const [warming] = await reconcileMcpDefaultCapabilities({
+        statePath,
+        runtime: runtimeProbe("ready"),
+        defaultCatalog: [descriptor],
+        installedServers: [
+          installedScrapling({
+            serverId: descriptor.serverId,
+            workloadName: descriptor.defaultCapability!.workloadName,
+            endpoint: undefined,
+            workloadStatus: "starting",
+            defaultCatalogDescriptorHash: mcpDefaultCatalogDescriptorHash(descriptor),
+          }),
+        ],
+        appVersion: "0.1.25",
+        now: () => new Date("2026-05-23T20:00:00.000Z"),
+      });
+
+      const [summary] = await reconcileMcpDefaultCapabilities({
+        statePath,
+        runtime: runtimeProbe("ready"),
+        defaultCatalog: [descriptor],
+        installedServers: [
+          installedScrapling({
+            serverId: descriptor.serverId,
+            workloadName: descriptor.defaultCapability!.workloadName,
+            endpoint: undefined,
+            workloadStatus: "starting",
+            defaultCatalogDescriptorHash: mcpDefaultCatalogDescriptorHash(descriptor),
+          }),
+        ],
+        appVersion: "0.1.25",
+        now: () => new Date("2026-05-23T20:01:31.000Z"),
+      });
+
+      expect(warming).toMatchObject({
+        status: "warming_up",
+        retryAfter: "2026-05-23T20:01:30.000Z",
+      });
+      expect(summary).toMatchObject({
         status: "failed",
         nextAction: "install-default-capability",
+        installedWorkloadStatus: "starting",
       });
       expect(summary.message).toContain("does not report a running workload endpoint");
-      expect(summary.message).not.toContain("is installed");
     } finally {
       await rm(root, { recursive: true, force: true });
     }

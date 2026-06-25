@@ -208,3 +208,9 @@ export function sourceForStableKey(board, reference) {
 export function projectBoardSourceKind(source) {
   return source?.kind ?? source?.sourceKind;
 }
+
+export function isTransientAmbientDogfoodError(message) {
+  return /\b(?:408|409|425|429|500|502|503|504)\b|rate limit|temporar|try again|timeout|timed out|upstream|econnreset|socket hang up/i.test(
+    String(message ?? ""),
+  );
+}

@@ -14099,6 +14099,62 @@ button.inline-media-preview {
   font-size: 11px;
 }
 
+.slash-command-description-wrap {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.slash-command-description-wrap .slash-command-description {
+  flex: 1 1 auto;
+}
+
+.slash-command-description-affordance {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 5px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.slash-command-description-popover {
+  position: absolute;
+  z-index: 90;
+  left: 0;
+  bottom: calc(100% + 8px);
+  width: min(360px, 72vw);
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--text-primary);
+  background: var(--surface-elevated);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.18);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: normal;
+  pointer-events: none;
+}
+
+.slash-command-description-popover strong,
+.slash-command-description-popover span,
+.slash-command-description-popover em {
+  overflow: visible;
+  text-overflow: initial;
+  white-space: normal;
+}
+
+.slash-command-description-popover em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
 .slash-command-availability {
   min-width: 64px;
   border: 1px solid var(--line);
@@ -18964,6 +19020,73 @@ button.inline-media-preview {
   line-height: 1.45;
 }
 
+.plugin-capability-description-wrap {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  outline: none;
+}
+
+.plugin-capability-description-wrap:focus-visible {
+  border-radius: 5px;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ambient-cyan) 36%, transparent);
+}
+
+.plugin-capability-description-wrap .plugin-capability-description {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.plugin-capability-description-affordance {
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  padding: 1px 5px;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.plugin-capability-description-popover {
+  position: absolute;
+  z-index: 80;
+  left: 0;
+  top: calc(100% + 8px);
+  width: min(380px, 72vw);
+  display: grid;
+  gap: 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface-elevated);
+  color: var(--text-primary);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.18);
+  padding: 9px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  pointer-events: auto;
+}
+
+.plugin-capability-description-popover strong,
+.plugin-capability-description-popover span,
+.plugin-capability-description-popover em {
+  overflow: visible;
+  text-overflow: initial;
+  white-space: normal;
+}
+
+.plugin-capability-description-popover em {
+  color: var(--muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
 .plugin-detail-panel {
   min-width: 0;
   max-width: 100%;
@@ -19435,6 +19558,25 @@ button.inline-media-preview {
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.message-history-pagination {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  padding: 7px 8px;
+  backdrop-filter: blur(8px);
+}
+
+.message-history-pagination span {
+  color: var(--muted);
+  font-size: 11px;
 }
 
 .google-setup-output {

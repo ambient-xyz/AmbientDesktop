@@ -69,11 +69,12 @@ export interface AgentRuntimeSendPreparationControllerOptions {
   store: Pick<
     ProjectStore,
     | "addMessage"
+    | "countMessages"
+    | "getMessage"
     | "getModelRuntimeSettings"
     | "getThread"
     | "getWorkflowAgentThreadSummary"
     | "getWorkspace"
-    | "listMessages"
     | "markThreadRead"
     | "updateThreadSettings"
   >;
@@ -136,7 +137,7 @@ export class AgentRuntimeSendPreparationController {
       modelRuntimeSettingsForRun,
     );
     const retryUserMessage = input.retryOfMessageId
-      ? this.options.store.listMessages(input.threadId).find((message) => message.id === input.retryOfMessageId)
+      ? this.retryTargetMessage(input.threadId, input.retryOfMessageId)
       : undefined;
     if (input.retryOfMessageId && (!retryUserMessage || retryUserMessage.role !== "user")) {
       throw new Error("Retry target user message was not found.");
@@ -145,9 +146,8 @@ export class AgentRuntimeSendPreparationController {
     let promptContent = runtimeInput.modelContentOverride ?? this.modelContentForSendInput(input);
     if (!usesDedicatedReviewSession) promptContent = appendSearchRoutingGuidance(promptContent, this.options.readSearchSettings?.());
     if (!usesDedicatedReviewSession) promptContent = appendMcpInstallRouteGuidance(promptContent, visibleUserContent);
-    const messagesBeforePrompt = this.options.store.listMessages(input.threadId);
     const shouldInjectBootstrap =
-      !input.retryOfMessageId && !thread.piSessionFile && messagesBeforePrompt.length === 0 && input.delivery !== "follow-up";
+      !input.retryOfMessageId && !thread.piSessionFile && this.options.store.countMessages(input.threadId) === 0 && input.delivery !== "follow-up";
     let retrySourceUserMessageId = retryUserMessage?.id;
 
     if (retryUserMessage) {
@@ -232,6 +232,15 @@ export class AgentRuntimeSendPreparationController {
       interruptedToolCallRecoveryAttemptsUsed,
       canScheduleInterruptedToolCallRecovery,
     };
+  }
+
+  private retryTargetMessage(threadId: string, messageId: string): ChatMessage | undefined {
+    try {
+      const message = this.options.store.getMessage(messageId);
+      return message.threadId === threadId ? message : undefined;
+    } catch {
+      return undefined;
+    }
   }
 }
 

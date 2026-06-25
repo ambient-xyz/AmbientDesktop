@@ -27,6 +27,7 @@ export interface RuntimeToolContextSetupInput {
   isRunStoreActive: () => boolean;
   retrySourceUserMessageId: () => string | undefined;
   listMessages: () => readonly ChatMessage[];
+  getMessage: RuntimeToolMessageControllerInput["getMessage"];
   addToolMessage: RuntimeToolMessageControllerInput["addToolMessage"];
   replaceMessage: RuntimeToolMessageControllerInput["replaceMessage"];
   updateRunDiagnostics: RuntimeToolRecoveryContextInput["updateRunDiagnostics"];
@@ -56,6 +57,7 @@ export function createRuntimeToolContextSetup(
     progressForToolCall: (toolCallId) => toolArgumentProgress.current(toolCallId),
     startedToolCallIds,
     listMessages: input.listMessages,
+    getMessage: input.getMessage,
     addToolMessage: input.addToolMessage,
     replaceMessage: input.replaceMessage,
     emitRunEvent: input.emitRunEvent,

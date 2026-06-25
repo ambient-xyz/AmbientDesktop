@@ -92,7 +92,7 @@ export type AppComposerShellProps = {
   onComposerChange: (value: string) => void;
   onComposerPaste: (event: ReactClipboardEvent<HTMLTextAreaElement>) => void;
   onComposerKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => void;
-  onSelectSlashCommandEntry: (entry: SlashCommandCatalogEntry, query: string, draft: string) => void;
+  onSelectSlashCommandEntry: Parameters<typeof useAppComposerSlashCommandPicker>[0]["onSelectSlashCommandEntry"];
   onRemoveSlashCommand: () => void;
   onUnavailableSlashCommand: (entry: SlashCommandCatalogEntry) => void;
   onSelectSymphonyPattern: (patternId: SymphonyWorkflowPatternId) => void;
@@ -274,6 +274,7 @@ export function AppComposerShell({
         <div className="composer-input-wrap">
           <ChatComposerInput
             ref={composerInputRef}
+            composerDraftStore={composerDraftStore}
             onChange={onComposerChange}
             onPaste={onComposerPaste}
             onKeyDown={slashCommandPicker.onComposerInputKeyDown}

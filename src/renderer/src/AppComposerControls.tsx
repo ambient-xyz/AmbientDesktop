@@ -11,7 +11,9 @@ import {
   ClipboardEvent as ReactClipboardEvent,
   forwardRef,
   KeyboardEvent as ReactKeyboardEvent,
+  SyntheticEvent,
   useImperativeHandle,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -34,21 +36,42 @@ export type ChatComposerInputHandle = {
   focusEnd: () => void;
 };
 
+export type ComposerDraftSelection = {
+  start: number;
+  end: number;
+};
+
 export type ComposerDraftStore = {
   getSnapshot: () => string;
+  getSelectionSnapshot: () => ComposerDraftSelection;
   set: (value: string) => void;
+  setSelection: (selection: ComposerDraftSelection) => void;
   subscribe: (listener: () => void) => () => void;
 };
 
 export function createComposerDraftStore(initialValue = ""): ComposerDraftStore {
   let value = initialValue;
+  let selection: ComposerDraftSelection = { start: initialValue.length, end: initialValue.length };
   const listeners = new Set<() => void>();
+  function notify() {
+    listeners.forEach((listener) => listener());
+  }
   return {
     getSnapshot: () => value,
+    getSelectionSnapshot: () => selection,
     set: (nextValue: string) => {
       if (nextValue === value) return;
       value = nextValue;
-      listeners.forEach((listener) => listener());
+      const nextCaret = Math.min(selection.end, nextValue.length);
+      selection = { start: nextCaret, end: nextCaret };
+      notify();
+    },
+    setSelection: (nextSelection: ComposerDraftSelection) => {
+      const start = Math.max(0, Math.min(nextSelection.start, value.length));
+      const end = Math.max(start, Math.min(nextSelection.end, value.length));
+      if (selection.start === start && selection.end === end) return;
+      selection = { start, end };
+      notify();
     },
     subscribe: (listener: () => void) => {
       listeners.add(listener);
@@ -61,25 +84,57 @@ export function useComposerDraftValue(store: ComposerDraftStore): string {
   return useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 }
 
+export function useComposerDraftSelection(store: ComposerDraftStore): ComposerDraftSelection {
+  return useSyncExternalStore(store.subscribe, store.getSelectionSnapshot, store.getSelectionSnapshot);
+}
+
+export function resizeComposerTextarea(textarea: HTMLTextAreaElement): void {
+  textarea.style.height = "auto";
+  const maxHeight = parsedPixelValue(window.getComputedStyle(textarea).maxHeight);
+  const nextHeight = maxHeight ? Math.min(textarea.scrollHeight, maxHeight) : textarea.scrollHeight;
+  textarea.style.height = `${nextHeight}px`;
+  textarea.style.overflowY = maxHeight && textarea.scrollHeight > maxHeight ? "auto" : "hidden";
+}
+
 export const ChatComposerInput = forwardRef<
   ChatComposerInputHandle,
   {
+    composerDraftStore: ComposerDraftStore;
     placeholder: string;
     disabled?: boolean;
     onChange: (value: string) => void;
     onPaste: (event: ReactClipboardEvent<HTMLTextAreaElement>) => void;
     onKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => void;
   }
->(function ChatComposerInput({ placeholder, disabled = false, onChange, onPaste, onKeyDown }, ref) {
+>(function ChatComposerInput({ composerDraftStore, placeholder, disabled = false, onChange, onPaste, onKeyDown }, ref) {
   const [value, setValue] = useState("");
   const valueRef = useRef("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function updateSelectionFromTextarea(textarea: HTMLTextAreaElement): void {
+    composerDraftStore.setSelection({ start: textarea.selectionStart, end: textarea.selectionEnd });
+  }
+
+  function handleSelectionEvent(event: SyntheticEvent<HTMLTextAreaElement>): void {
+    updateSelectionFromTextarea(event.currentTarget);
+  }
+
+  function resizeCurrentTextarea(): void {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    resizeComposerTextarea(textarea);
+  }
+
+  useLayoutEffect(() => {
+    resizeCurrentTextarea();
+  }, [value]);
 
   useImperativeHandle(ref, () => ({
     getValue: () => valueRef.current,
     setValue: (nextValue: string) => {
       valueRef.current = nextValue;
       setValue(nextValue);
+      composerDraftStore.setSelection({ start: nextValue.length, end: nextValue.length });
     },
     focusEnd: () => {
       const textarea = textareaRef.current;
@@ -87,8 +142,9 @@ export const ChatComposerInput = forwardRef<
       textarea.focus();
       textarea.selectionStart = textarea.value.length;
       textarea.selectionEnd = textarea.value.length;
+      updateSelectionFromTextarea(textarea);
     },
-  }), []);
+  }), [composerDraftStore]);
 
   return (
     <textarea
@@ -98,10 +154,15 @@ export const ChatComposerInput = forwardRef<
         const nextValue = event.target.value;
         valueRef.current = nextValue;
         setValue(nextValue);
+        composerDraftStore.set(nextValue);
+        updateSelectionFromTextarea(event.target);
         onChange(nextValue);
       }}
+      onClick={handleSelectionEvent}
       onPaste={onPaste}
       onKeyDown={onKeyDown}
+      onKeyUp={handleSelectionEvent}
+      onSelect={handleSelectionEvent}
       placeholder={placeholder}
       disabled={disabled}
       rows={1}
@@ -118,6 +179,12 @@ export function contextUsageRingMetrics(percent: number | undefined, radius = 7)
     ringFill,
     ringRemainder: circumference - ringFill,
   };
+}
+
+function parsedPixelValue(value: string): number | undefined {
+  if (!value || value === "none") return undefined;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 export function mergeContextAttachments(

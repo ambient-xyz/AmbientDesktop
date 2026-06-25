@@ -184,6 +184,7 @@ function baseInput(
       metadata,
     })),
     listMessages: vi.fn(() => []),
+    getMessage: vi.fn((messageId) => messageId === assistantMessage.id ? assistantMessage : undefined),
     updateRunStatus: vi.fn(),
     updateRunDiagnostics: vi.fn(),
     finishRun: vi.fn(),
@@ -254,6 +255,7 @@ function runtimeAdapterInput(overrides: {
     finishRun: vi.fn(),
     getThread: vi.fn(() => thread),
     getThreadGoal: vi.fn(() => threadGoal("active")),
+    getMessage: vi.fn((messageId: string) => messageId === assistantMessage.id ? assistantMessage : undefined),
     getWorkspace: vi.fn(() => ({
       path: "/workspace",
       statePath: "/workspace/.ambient",

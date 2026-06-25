@@ -333,6 +333,7 @@ export function createAppShellSurfacePropsForApp({
     runActivityState,
     runDerivedState,
     shellUiState,
+    setState: actions.setState,
     state,
     subagentParentClusterActions,
     subagentShellControls,

@@ -1,5 +1,7 @@
 export function subagentPiToolsTestCoverage(files) {
-  return [files.subagentPiToolsTest, files.subagentPiToolsWaitSynthesisTest].filter(Boolean).join("\n");
+  return [files.subagentPiToolsTest, files.subagentPiToolsLaunchToolScopeTest, files.subagentPiToolsWaitSynthesisTest]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function sourceAnchorCheck(input) {

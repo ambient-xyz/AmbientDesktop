@@ -11,26 +11,41 @@ export interface SlashCommandDraftTrigger {
   active: boolean;
   query: string;
   token: string;
+  start: number;
+  end: number;
 }
 
-export function slashCommandTriggerFromDraft(draft: string, selected?: SlashCommandSelection): SlashCommandDraftTrigger {
-  if (selected) return { active: false, query: "", token: "" };
-  const firstLine = draft.split(/\r?\n/, 1)[0] ?? "";
-  if (!firstLine.startsWith("/")) return { active: false, query: "", token: "" };
-  if (/\s/.test(firstLine)) return { active: false, query: "", token: "" };
+export function slashCommandTriggerFromDraft(
+  draft: string,
+  selected?: SlashCommandSelection,
+  caretIndex = draft.length,
+): SlashCommandDraftTrigger {
+  if (selected) return inactiveSlashCommandTrigger();
+  const caret = Math.min(Math.max(caretIndex, 0), draft.length);
+  const tokenRange = slashCommandTokenRangeAtCaret(draft, caret);
+  if (!tokenRange) return inactiveSlashCommandTrigger(caret);
+  const token = draft.slice(tokenRange.start, tokenRange.end);
+  if (!token.startsWith("/")) return inactiveSlashCommandTrigger(caret);
+  if (token.slice(1).includes("/")) return inactiveSlashCommandTrigger(caret);
   return {
     active: true,
-    query: firstLine.slice(1),
-    token: firstLine,
+    query: token.slice(1),
+    token,
+    start: tokenRange.start,
+    end: tokenRange.end,
   };
 }
 
-export function slashCommandDraftAfterSelection(draft: string, entry: SlashCommandCatalogEntry): string {
-  const trimmed = draft.trimStart();
-  if (!trimmed.startsWith("/")) return draft;
-  const remainder = draft.slice(draft.indexOf(trimmed) + firstTokenLength(trimmed)).trimStart();
-  if (entry.kind === "app") return remainder ? `${entry.command} ${remainder}` : `${entry.command} `;
-  return remainder;
+export function slashCommandDraftAfterSelection(
+  draft: string,
+  entry: SlashCommandCatalogEntry,
+  trigger: SlashCommandDraftTrigger = firstSlashCommandTokenTrigger(draft),
+): string {
+  if (!trigger.active) return draft;
+  const before = draft.slice(0, trigger.start);
+  const after = draft.slice(trigger.end);
+  if (entry.kind === "app") return replaceSlashToken(before, entry.command, after);
+  return removeSlashToken(before, after);
 }
 
 export function slashCommandComposerCanSubmit(draft: string, selected?: SlashCommandSelection): boolean {
@@ -103,7 +118,53 @@ export function slashCommandCatalogNeedsRefreshEvent(event: DesktopEvent): boole
   return event.type === "plugin-catalog-updated";
 }
 
-function firstTokenLength(value: string): number {
-  const match = value.match(/^\S+/);
-  return match?.[0].length ?? 0;
+function inactiveSlashCommandTrigger(caret = 0): SlashCommandDraftTrigger {
+  return { active: false, query: "", token: "", start: caret, end: caret };
+}
+
+function firstSlashCommandTokenTrigger(draft: string): SlashCommandDraftTrigger {
+  const match = draft.match(/(^|\s)(\/\S+)/);
+  if (!match?.[2]) return inactiveSlashCommandTrigger(draft.length);
+  const token = match[2];
+  const start = match.index === undefined ? 0 : match.index + match[1].length;
+  if (token.slice(1).includes("/")) return inactiveSlashCommandTrigger(start);
+  return {
+    active: true,
+    query: token.slice(1),
+    token,
+    start,
+    end: start + token.length,
+  };
+}
+
+function slashCommandTokenRangeAtCaret(draft: string, caret: number): { start: number; end: number } | undefined {
+  const probeIndex = nonWhitespaceProbeIndex(draft, caret);
+  if (probeIndex === undefined) return undefined;
+  let start = probeIndex;
+  while (start > 0 && !/\s/.test(draft[start - 1]!)) start -= 1;
+  let end = probeIndex + 1;
+  while (end < draft.length && !/\s/.test(draft[end]!)) end += 1;
+  return { start, end };
+}
+
+function nonWhitespaceProbeIndex(draft: string, caret: number): number | undefined {
+  if (caret < draft.length && !/\s/.test(draft[caret]!)) return caret;
+  if (caret > 0 && !/\s/.test(draft[caret - 1]!)) return caret - 1;
+  return undefined;
+}
+
+function removeSlashToken(before: string, after: string): string {
+  const beforeText = before.trimEnd();
+  const afterText = after.trimStart();
+  if (!beforeText) return afterText;
+  if (!afterText) return beforeText;
+  return `${beforeText} ${afterText}`;
+}
+
+function replaceSlashToken(before: string, command: string, after: string): string {
+  const beforeText = before.trimEnd();
+  const afterText = after.trimStart();
+  const prefix = beforeText ? `${beforeText} ` : "";
+  const suffix = afterText ? ` ${afterText}` : " ";
+  return `${prefix}${command}${suffix}`;
 }

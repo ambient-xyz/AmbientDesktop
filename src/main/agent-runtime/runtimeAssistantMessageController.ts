@@ -5,7 +5,6 @@ import {
   piAssistantMessageMetadata,
   piThinkingMessageMetadata,
 } from "../agent-runtime/agentRuntimeAssistantMessageMetadata";
-import { runtimeMessageContentOrFallback } from "../agent-runtime/agentRuntimeMessageContent";
 
 type AssistantStatus = "done" | "error" | "aborted";
 type ThinkingStatus = "done" | "error" | "aborted";
@@ -18,6 +17,7 @@ export interface RuntimeAssistantMessageControllerInput {
   resetAssistantStreamState: () => void;
   resetThinkingStreamState: () => void;
   listMessages: () => readonly ListedMessage[];
+  getMessage: (messageId: string) => ListedMessage | undefined;
   addAssistantMessage: (input: { threadId: string; content: string; metadata: Record<string, unknown> }) => ChatMessage;
   appendToMessage: (messageId: string, delta: string) => ChatMessage;
   replaceMessage: (messageId: string, content: string, metadata?: Record<string, unknown>) => ChatMessage;
@@ -67,13 +67,17 @@ export function createRuntimeAssistantMessageController(
     input.emitRunEvent({ type: "message-delta", messageId, delta, threadId: input.threadId });
   };
 
-  const listedMessages = () => input.listMessages();
-
-  const currentMessage = (messageId: string | undefined): ListedMessage | undefined =>
-    messageId ? listedMessages().find((message) => message.id === messageId) : undefined;
+  const currentMessage = (messageId: string | undefined): ListedMessage | undefined => {
+    if (!messageId) return undefined;
+    try {
+      return input.getMessage(messageId);
+    } catch {
+      return undefined;
+    }
+  };
 
   const currentMessageContent = (messageId: string | undefined, fallbackContent: string) =>
-    runtimeMessageContentOrFallback(listedMessages(), messageId, fallbackContent);
+    currentMessage(messageId)?.content || fallbackContent;
 
   const metadataWithPromptCache = (metadata?: Record<string, unknown>) => ({
     ...(metadata ?? {}),

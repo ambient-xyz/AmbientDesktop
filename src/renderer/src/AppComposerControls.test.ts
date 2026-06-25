@@ -1,9 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
-import { contextUsageRingMetrics, createComposerDraftStore, mergeContextAttachments } from "./AppComposerControls";
+import {
+  contextUsageRingMetrics,
+  createComposerDraftStore,
+  mergeContextAttachments,
+  resizeComposerTextarea,
+} from "./AppComposerControls";
 
 describe("composer controls helpers", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("keeps context usage ring metrics clamped to the rendered circle", () => {
     const empty = contextUsageRingMetrics(undefined);
     expect(empty.ringFill).toBe(0);
@@ -54,6 +63,34 @@ describe("composer controls helpers", () => {
     expect(store.getSnapshot()).toBe("ignored");
     expect(snapshots).toEqual(["next"]);
   });
+
+  it("tracks draft selection inside the local composer store", () => {
+    const store = createComposerDraftStore("initial");
+
+    store.setSelection({ start: 2, end: 5 });
+    expect(store.getSelectionSnapshot()).toEqual({ start: 2, end: 5 });
+
+    store.set("short");
+    expect(store.getSelectionSnapshot()).toEqual({ start: 5, end: 5 });
+  });
+
+  it("sizes the composer textarea to content while honoring the CSS maximum", () => {
+    vi.stubGlobal("window", {
+      getComputedStyle: vi.fn(() => ({ maxHeight: "180px" })),
+    });
+    const textarea = textareaElement(320);
+
+    resizeComposerTextarea(textarea);
+
+    expect(textarea.style.height).toBe("180px");
+    expect(textarea.style.overflowY).toBe("auto");
+
+    textarea.scrollHeight = 72;
+    resizeComposerTextarea(textarea);
+
+    expect(textarea.style.height).toBe("72px");
+    expect(textarea.style.overflowY).toBe("hidden");
+  });
 });
 
 function contextRef(
@@ -67,4 +104,14 @@ function contextRef(
     kind,
     ...options,
   };
+}
+
+function textareaElement(scrollHeight: number): HTMLTextAreaElement & { scrollHeight: number } {
+  return {
+    scrollHeight,
+    style: {
+      height: "",
+      overflowY: "",
+    },
+  } as unknown as HTMLTextAreaElement & { scrollHeight: number };
 }

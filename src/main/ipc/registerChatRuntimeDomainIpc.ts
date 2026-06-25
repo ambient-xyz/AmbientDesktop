@@ -44,6 +44,7 @@ export interface ChatRuntimeStore {
   getThread(threadId: string): ThreadSummary;
   getWorkspace(): { path: string };
   listMessages(threadId: string): ChatMessage[];
+  getMessage(messageId: string): ChatMessage;
   deleteMessagesAfter(threadId: string, messageId: string): unknown;
   getThreadGoal(threadId: string): ThreadGoal | undefined;
   setThreadGoal(input: {
@@ -205,9 +206,7 @@ export function registerChatRuntimeDomainIpc<Host extends ChatRuntimeDomainHost>
           )
         : undefined;
       if (input.retryOfMessageId) {
-        const retryTarget = targetStore
-          .listMessages(input.threadId)
-          .find((message) => message.id === input.retryOfMessageId);
+        const retryTarget = messageForThread(targetStore, input.threadId, input.retryOfMessageId);
         if (!retryTarget || !isHiddenTranscriptMessage(retryTarget)) {
           targetStore.deleteMessagesAfter(input.threadId, input.retryOfMessageId);
           emitProjectStateIfActive(host, stateThreadId);
@@ -272,4 +271,13 @@ export function registerChatRuntimeDomainIpc<Host extends ChatRuntimeDomainHost>
       return requireProjectRuntimeHostForThread(input.threadId).runtime.recoverThreadContext(input);
     },
   });
+}
+
+function messageForThread(store: ChatRuntimeStore, threadId: string, messageId: string): ChatMessage | undefined {
+  try {
+    const message = store.getMessage(messageId);
+    return message.threadId === threadId ? message : undefined;
+  } catch {
+    return undefined;
+  }
 }

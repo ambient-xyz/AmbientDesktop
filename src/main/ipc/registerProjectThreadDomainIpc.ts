@@ -22,6 +22,7 @@ import {
   registerThreadArchiveIpc,
   registerThreadForkIpc,
   registerThreadMarkUnreadIpc,
+  registerThreadMessageReadIpc,
   registerThreadOpenMiniWindowIpc,
   registerThreadPermissionModeChangeIpc,
   registerThreadRevealIpc,
@@ -30,6 +31,7 @@ import {
   threadArchiveIpcChannels,
   threadForkIpcChannels,
   threadMarkUnreadIpcChannels,
+  threadMessageReadIpcChannels,
   threadOpenMiniWindowIpcChannels,
   threadPermissionModeChangeIpcChannels,
   threadRevealIpcChannels,
@@ -50,6 +52,7 @@ export const projectThreadDomainIpcChannels = [
   ...threadRevealIpcChannels,
   ...threadForkIpcChannels,
   ...threadOpenMiniWindowIpcChannels,
+  ...threadMessageReadIpcChannels,
   ...threadUpdateSettingsIpcChannels,
   ...threadPermissionModeChangeIpcChannels,
   ...plannerPlanUpdateIpcChannels,
@@ -240,6 +243,11 @@ export function registerProjectThreadDomainIpc({
     requireProjectRuntimeHostForThreadAction,
     threadWorkingDirectory,
     openThreadMiniWindow,
+  });
+
+  registerThreadMessageReadIpc<any, any, any>({
+    handleIpc,
+    requireProjectRuntimeHostForThread,
   });
 
   registerThreadUpdateSettingsIpc<any, any, any>({

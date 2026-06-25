@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AmbientPluginCapabilitySummary } from "../../shared/pluginTypes";
 import {
+  pluginCapabilityDescriptionMetadata,
   RightPanelPluginCapabilitiesPane,
   type RightPanelPluginCapabilitiesPaneProps,
 } from "./RightPanelPluginCapabilitiesPane";
@@ -103,6 +104,8 @@ describe("RightPanelPluginCapabilitiesPane", () => {
 
     expect(html).toContain("Document Sync");
     expect(html).toContain("Connects document workflows");
+    expect(html).toContain("plugin-capability-description-wrap");
+    expect(html).not.toContain('title="Connects document workflows');
     expect(html).toContain("Reconnect");
     expect(html).toContain("Details");
     expect(html).toContain("Open source");
@@ -117,5 +120,25 @@ describe("RightPanelPluginCapabilitiesPane", () => {
     expect(html).toContain("Validate");
     expect(html).toContain("Plan update");
     expect(html).toContain("Plan removal");
+  });
+
+  it("formats capability description popover metadata from plugin, status, source, and command fields", () => {
+    const capability = {
+      ...generatedAppCapability(),
+      kind: "mcp-tool" as const,
+      availability: "available" as const,
+      serverName: "documents",
+      toolName: "sync_documents",
+      connectorId: undefined,
+    };
+
+    expect(pluginCapabilityDescriptionMetadata(capability)).toEqual([
+      "Doc Tools",
+      "Available",
+      "MCP tool",
+      "Codex workspace",
+      "MCP documents",
+      "Tool sync_documents",
+    ]);
   });
 });

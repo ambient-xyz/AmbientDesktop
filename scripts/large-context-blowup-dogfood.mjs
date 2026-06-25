@@ -218,29 +218,27 @@ async function runCaseC(cdpClient, threadId, expectedInventoryArtifactPath) {
   assert(typeof expectedInventoryArtifactPath === "string" && expectedInventoryArtifactPath.trim(), "Case C missing expected inventory artifact path from Case B.");
   const turn = await runChatTurn(cdpClient, threadId, [
     "Live large-context blowup dogfood Case C.",
-    "Use long_context_process exactly once against the materialized filtered inventory artifact from the latest scoped ambient_capability_builder_list_files result.",
+    "Use long-context processing against the materialized filtered inventory artifact from the latest scoped ambient_capability_builder_list_files result.",
     `Pass taskType "qa", maxModelCalls 4, and workspacePaths containing exactly this artifact path: ${JSON.stringify(expectedInventoryArtifactPath)}.`,
     "Ask it this targeted question: Which files in huge_dep look related to tokenizers, and what Builder sourcePath did the inventory come from?",
     "Do not paste the inventory into chat and do not use bash or generic filesystem tools.",
-    "After long_context_process returns, answer concisely with CASE_C_RLM_HANDOFF_OK, the artifact path you used, and the tokenizer-related filenames.",
+    "After long-context processing returns, answer concisely with CASE_C_RLM_HANDOFF_OK, the artifact path you used, and the tokenizer-related filenames.",
   ].join("\n"));
   assertNoForbiddenLargeContextTools(turn, "Case C");
   assertNoToolErrors(turn, "Case C");
-  assertToolMessageCount(turn, "long_context_process", 1, "Case C");
-  assert(turn.toolNames.includes("long_context_process"), `Case C did not use long_context_process. Tools: ${turn.toolNames.join(", ")}`);
-  const rlmMessage = lastToolMessage(turn, "long_context_process");
-  assert(rlmMessage, `Case C did not produce a long_context_process tool message. Tools: ${turn.toolNames.join(", ")}`);
-  const rlmInput = normalizedToolInput(rlmMessage, "long_context_process");
+  const longContext = longContextCaseCToolUsage(turn);
+  assert(longContext, `Case C did not use a recognized long-context tool contract. Tools: ${turn.toolNames.join(", ")}`);
+  const rlmInput = normalizedToolInput(longContext.inputMessage, longContext.inputToolName);
   const workspacePaths = arrayOfStrings(rlmInput?.workspacePaths);
   assert(
     workspacePaths.includes(expectedInventoryArtifactPath),
-    `Case C long_context_process did not receive the expected workspacePaths artifact. Expected ${expectedInventoryArtifactPath}; input=${JSON.stringify(rlmInput)}`,
+    `Case C long-context processing did not receive the expected workspacePaths artifact. Expected ${expectedInventoryArtifactPath}; input=${JSON.stringify(rlmInput)}`,
   );
   const pastedText = typeof rlmInput?.text === "string" ? rlmInput.text : "";
-  assert(!pastedText.includes(generatedPathPrefix), "Case C pasted generated inventory text into long_context_process instead of using workspacePaths.");
-  assert(rlmMessage.metadata?.status !== "error", `Case C long_context_process failed: ${rlmMessage.content.slice(0, 1000)}`);
-  assert(!/ENOENT|no such file|failed/i.test(rlmMessage.content), `Case C long_context_process did not successfully process the artifact: ${rlmMessage.content.slice(0, 1000)}`);
-  const tokenizerEvidence = `${turn.assistantText}\n${rlmMessage.content}`;
+  assert(!pastedText.includes(generatedPathPrefix), "Case C pasted generated inventory text into long-context processing instead of using workspacePaths.");
+  assert(longContext.resultMessage.metadata?.status !== "error", `Case C long-context processing failed: ${longContext.resultMessage.content.slice(0, 1000)}`);
+  assert(!/ENOENT|no such file|failed/i.test(longContext.resultMessage.content), `Case C long-context processing did not successfully process the artifact: ${longContext.resultMessage.content.slice(0, 1000)}`);
+  const tokenizerEvidence = `${turn.assistantText}\n${longContext.resultMessage.content}`;
   assert(
     tokenizerEvidence.includes("tokenizer_config.json") && tokenizerEvidence.includes("tokenizer.model"),
     `Case C did not verify the tokenizer filenames. Evidence: ${tokenizerEvidence.slice(-1200)}`,
@@ -252,10 +250,48 @@ async function runCaseC(cdpClient, threadId, expectedInventoryArtifactPath) {
     status: "passed",
     toolNames: turn.toolNames,
     assistantTail: turn.assistantText.slice(-1200),
-    longContextToolCalls: turn.toolNames.filter((name) => name === "long_context_process").length,
+    longContextContract: longContext.contract,
+    longContextToolCalls: longContext.toolNames.length,
     inventoryArtifactPath: expectedInventoryArtifactPath,
     longContextWorkspacePaths: workspacePaths,
   };
+}
+
+function longContextCaseCToolUsage(turn) {
+  const processMessage = lastToolMessage(turn, "long_context_process");
+  if (processMessage) {
+    assertToolMessageCount(turn, "long_context_process", 1, "Case C");
+    return {
+      contract: "process",
+      inputMessage: processMessage,
+      inputToolName: "long_context_process",
+      resultMessage: processMessage,
+      toolNames: ["long_context_process"],
+    };
+  }
+
+  const startMessage = lastToolMessage(turn, "long_context_start");
+  const asyncMessage = lastToolMessage(turn, "long_context_async");
+  const pollMessage = lastToolMessage(turn, "long_context_poll");
+  if (!startMessage || (!asyncMessage && !pollMessage)) return undefined;
+  assertToolMessageCount(turn, "long_context_start", 1, "Case C");
+  const resultMessage = [...toolMessages(turn, "long_context_async"), ...toolMessages(turn, "long_context_poll")]
+    .reverse()
+    .find(longContextAsyncMessageCompleted);
+  if (!resultMessage) return undefined;
+  return {
+    contract: "async",
+    inputMessage: startMessage,
+    inputToolName: "long_context_start",
+    resultMessage,
+    toolNames: ["long_context_start", ...(asyncMessage ? ["long_context_async"] : []), ...(pollMessage ? ["long_context_poll"] : [])],
+  };
+}
+
+function longContextAsyncMessageCompleted(message) {
+  const detailStatus = String(message?.metadata?.toolResultDetails?.status ?? "");
+  if (detailStatus === "completed") return true;
+  return /\bstatus:\s*completed\b/i.test(String(message?.content ?? ""));
 }
 
 async function runCaseD(cdpClient, threadId, workspacePath) {

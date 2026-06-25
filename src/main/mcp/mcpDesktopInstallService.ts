@@ -383,15 +383,6 @@ async function installMcpDefaultCapabilityForDesktop(
       defaultCapabilities: defaultCapabilitiesBefore,
     };
   }
-  if (existing) {
-    if (existing.workloadStatus) {
-      await toolHive.removeWorkload(existing.workloadName).catch((error) => {
-        console.warn(`[mcp-default-capabilities] stale workload cleanup failed for ${existing.workloadName}: ${error instanceof Error ? error.message : String(error)}`);
-      });
-    } else {
-      await toolHive.removeInstalledServerState(existing.workloadName);
-    }
-  }
 
   const preflight = runtimeProbe.toolHive.preflight;
   if (runtimeProbe.status !== "ready" || !preflight) {
@@ -408,12 +399,13 @@ async function installMcpDefaultCapabilityForDesktop(
   }
 
   const preview = await catalog.previewDefaultCapabilityInstall({ capabilityId: input.capabilityId });
+  const isRepair = Boolean(existing);
   if (!preview.runPlan || !preview.toolHiveRunSource || preview.review.blockers.length) {
     return {
       status: "blocked",
       serverId: preview.serverId,
       workloadName: preview.runPlan?.workloadName,
-      message: `Default MCP capability install is blocked.\n\n${mcpDefaultCapabilityInstallApprovalDetail({ preview, workspace: { path: host.workspacePath }, preflight: preflight.command })}`,
+      message: `Default MCP capability install is blocked.\n\n${mcpDefaultCapabilityInstallApprovalDetail({ preview, workspace: { path: host.workspacePath }, preflight: preflight.command, existing })}`,
       defaultCapabilities: defaultCapabilitiesBefore,
       installed: installedBefore,
       permissionProfile: {
@@ -427,7 +419,7 @@ async function installMcpDefaultCapabilityForDesktop(
     title: preview.defaultDescriptor.title,
     workloadName: preview.runPlan.workloadName,
     phase: "approval-requested",
-    message: `Waiting for approval to set up ${preview.defaultDescriptor.title}.`,
+    message: `Waiting for approval to ${isRepair ? "repair" : "set up"} ${preview.defaultDescriptor.title}.`,
     image: preview.toolHiveRunSource,
   });
 
@@ -435,17 +427,19 @@ async function installMcpDefaultCapabilityForDesktop(
     preview,
     workspace: { path: host.workspacePath },
     preflight: preflight.command,
+    existing,
   });
   const resolution = await requestPermissionWithGrantRegistry({
     threadId: targetThreadId,
     workspacePath: thread.workspacePath,
     toolName: "ambient_mcp_default_capability_install",
-    title: `Set up default MCP capability "${preview.defaultDescriptor.title}"?`,
-    message:
-      "Ambient will install and start the reviewed pinned Scrapling OCI image through ToolHive as a global default capability. Individual Scrapling tool calls remain separately reviewed.",
+    title: `${isRepair ? "Repair" : "Set up"} default MCP capability "${preview.defaultDescriptor.title}"?`,
+    message: isRepair
+      ? "Ambient will repair the existing default Scrapling ToolHive workload by removing or replacing unhealthy local install state, then start the reviewed pinned OCI image. Individual Scrapling tool calls remain separately reviewed."
+      : "Ambient will install and start the reviewed pinned Scrapling OCI image through ToolHive as a global default capability. Individual Scrapling tool calls remain separately reviewed.",
     detail,
     risk: "plugin-tool",
-    grantTargetLabel: `Set up default MCP capability ${preview.defaultDescriptor.title}`,
+    grantTargetLabel: `${isRepair ? "Repair" : "Set up"} default MCP capability ${preview.defaultDescriptor.title}`,
     grantTargetHash: permissionGrantTargetHash(
       "plugin_tool_execute",
       "tool",
@@ -464,9 +458,13 @@ async function installMcpDefaultCapabilityForDesktop(
     title: preview.defaultDescriptor.title,
     workloadName: preview.runPlan.workloadName,
     phase: "approval-granted",
-    message: `Approval received. Preparing ${preview.defaultDescriptor.title} install.`,
+    message: `Approval received. Preparing ${preview.defaultDescriptor.title} ${isRepair ? "repair" : "install"}.`,
     image: preview.toolHiveRunSource,
   });
+
+  if (existing) {
+    await cleanupExistingDefaultCapabilityWorkload(toolHive, existing);
+  }
 
   const installingCapability = defaultCapabilitiesBefore.find((capability) => capability.capabilityId === input.capabilityId);
   if (installingCapability) {
@@ -583,8 +581,17 @@ function mcpDefaultCapabilityInstallApprovalDetail(input: {
   preview: InstallMcpDefaultCapabilityResult["preview"];
   workspace: { path: string };
   preflight: ToolHiveCommandResult;
+  existing?: McpInstalledServerSummary;
 }): string {
   const runPlan = input.preview.runPlan;
+  const cleanup = input.existing
+    ? [
+        "- Repair cleanup: after approval, Ambient may remove or replace the existing unhealthy ToolHive workload before starting the reviewed default capability.",
+        `- Existing workload: ${input.existing.workloadName}`,
+        input.existing.workloadStatus ? `- Existing runtime status: ${input.existing.workloadStatus}` : undefined,
+        input.existing.endpoint ? `- Existing endpoint: ${input.existing.endpoint}` : "- Existing endpoint: none reported.",
+      ].filter(Boolean)
+    : ["- Repair cleanup: none; no existing default workload or install state matched."];
   return [
     input.preview.review.title,
     "",
@@ -605,8 +612,22 @@ function mcpDefaultCapabilityInstallApprovalDetail(input: {
       : "- Command shape: unavailable",
     `- Default descriptor hash: ${mcpDefaultCatalogDescriptorHash(input.preview.defaultDescriptor)}`,
     "- Install scope: global Ambient MCP default capability state.",
+    ...cleanup,
     "- Tool use: Scrapling tool calls remain separately reviewed through ambient_mcp_tool_call.",
   ].join("\n");
+}
+
+async function cleanupExistingDefaultCapabilityWorkload(
+  toolHive: ToolHiveRuntimeService,
+  existing: McpInstalledServerSummary,
+): Promise<void> {
+  if (existing.workloadStatus) {
+    await toolHive.removeWorkload(existing.workloadName).catch((error) => {
+      console.warn(`[mcp-default-capabilities] stale workload cleanup failed for ${existing.workloadName}: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  } else {
+    await toolHive.removeInstalledServerState(existing.workloadName);
+  }
 }
 
 function mcpDefaultCapabilityInstallResultText(result: InstallMcpDefaultCapabilityResult): string {

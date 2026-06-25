@@ -10,8 +10,9 @@ async function readDogfoodE2eContractSource() {
   const e2e = await readText("src/main/subagents/subagentDesktopDogfood.e2e.test.ts");
   const support = await readText("src/main/subagents/subagentDesktopDogfoodE2eSupport.ts");
   const inspectors = await readText("src/main/subagents/subagentDesktopDogfoodUiInspectors.ts");
+  const lifecycleRuntimeInspectors = await readText("src/main/subagents/subagentDesktopDogfoodLifecycleRuntimeInspectors.ts");
   const assertions = await readText("src/main/subagents/subagentDesktopDogfoodAssertions.ts");
-  return { e2e, e2eContractSource: `${e2e}\n${support}\n${inspectors}\n${assertions}` };
+  return { e2e, e2eContractSource: `${e2e}\n${support}\n${inspectors}\n${lifecycleRuntimeInspectors}\n${assertions}` };
 }
 
 describe("sub-agent Desktop dogfood harness wiring", () => {

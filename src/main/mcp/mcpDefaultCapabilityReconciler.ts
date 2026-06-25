@@ -13,6 +13,7 @@ export type McpDefaultCapabilityStatus =
   | "blocked_runtime"
   | "blocked_descriptor"
   | "blocked_approval"
+  | "warming_up"
   | "installing"
   | "installed"
   | "needs_review"
@@ -41,6 +42,8 @@ export interface McpDefaultCapabilitySummary {
   runtimeStatus: ContainerRuntimeProbeStatus;
   installedWorkloadStatus?: string;
   installedEndpoint?: string;
+  unhealthySince?: string;
+  retryAfter?: string;
   lastReconciledAt: string;
   appVersion: string;
 }
@@ -60,6 +63,8 @@ export interface ReconcileMcpDefaultCapabilitiesOptions {
   appVersion: string;
   now?: () => Date;
 }
+
+export const MCP_DEFAULT_CAPABILITY_WARMUP_GRACE_MS = 90_000;
 
 export async function reconcileMcpDefaultCapabilities(
   options: ReconcileMcpDefaultCapabilitiesOptions,
@@ -193,6 +198,13 @@ function reconcileScraplingDefaultCapability(input: ReconcileMcpDefaultCapabilit
   }
 
   if (!isMcpDefaultCapabilityInstalledServerAvailable(installed)) {
+    const warmup = warmingScraplingSummary({
+      base,
+      installed,
+      existing: input.existing,
+      nowIso: input.nowIso,
+    });
+    if (warmup) return warmup;
     return {
       ...base,
       status: "failed",
@@ -236,6 +248,35 @@ function reconcileScraplingDefaultCapability(input: ReconcileMcpDefaultCapabilit
     installedWorkloadStatus: installed.workloadStatus,
     installedEndpoint: installed.endpoint,
     message: `Scrapling is installed globally as ToolHive workload ${installed.workloadName}.`,
+  };
+}
+
+function warmingScraplingSummary(input: {
+  base: Omit<McpDefaultCapabilitySummary, "status" | "nextAction" | "message">;
+  installed: McpInstalledServerSummary;
+  existing?: McpDefaultCapabilitySummary;
+  nowIso: string;
+}): McpDefaultCapabilitySummary | undefined {
+  const nowMs = Date.parse(input.nowIso);
+  if (!Number.isFinite(nowMs)) return undefined;
+  const previousUnhealthySince = validIso(input.existing?.unhealthySince);
+  const firstObservedAt = previousUnhealthySince ?? input.nowIso;
+  const retryAfter = previousUnhealthySince
+    ? validIso(input.existing?.retryAfter) ?? new Date(Date.parse(firstObservedAt) + MCP_DEFAULT_CAPABILITY_WARMUP_GRACE_MS).toISOString()
+    : new Date(nowMs + MCP_DEFAULT_CAPABILITY_WARMUP_GRACE_MS).toISOString();
+  if (nowMs >= Date.parse(retryAfter)) return undefined;
+  return {
+    ...input.base,
+    status: "warming_up",
+    nextAction: "none",
+    installedWorkloadStatus: input.installed.workloadStatus,
+    installedEndpoint: input.installed.endpoint,
+    unhealthySince: firstObservedAt,
+    retryAfter,
+    message: [
+      "Scrapling has Ambient install state, but ToolHive has not reported a running endpoint yet.",
+      `Ambient is giving the existing workload time to warm up until ${retryAfter}.`,
+    ].join(" "),
   };
 }
 
@@ -287,6 +328,8 @@ function normalizeCapabilitySummary(value: unknown): McpDefaultCapabilitySummary
     runtimeStatus,
     ...(stringValue(value.installedWorkloadStatus) ? { installedWorkloadStatus: stringValue(value.installedWorkloadStatus) } : {}),
     ...(stringValue(value.installedEndpoint) ? { installedEndpoint: stringValue(value.installedEndpoint) } : {}),
+    ...(validIso(stringValue(value.unhealthySince)) ? { unhealthySince: validIso(stringValue(value.unhealthySince)) } : {}),
+    ...(validIso(stringValue(value.retryAfter)) ? { retryAfter: validIso(stringValue(value.retryAfter)) } : {}),
     lastReconciledAt,
     appVersion,
   };
@@ -305,6 +348,7 @@ function defaultCapabilityStatus(value: unknown): McpDefaultCapabilityStatus | u
     value === "blocked_runtime" ||
     value === "blocked_descriptor" ||
     value === "blocked_approval" ||
+    value === "warming_up" ||
     value === "installing" ||
     value === "installed" ||
     value === "needs_review" ||
@@ -313,6 +357,12 @@ function defaultCapabilityStatus(value: unknown): McpDefaultCapabilityStatus | u
     return value;
   }
   return undefined;
+}
+
+function validIso(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : undefined;
 }
 
 function defaultCapabilityNextAction(value: unknown): McpDefaultCapabilityNextAction | undefined {

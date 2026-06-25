@@ -463,6 +463,22 @@ export abstract class ProjectStoreCoreFacadeMethods extends ProjectStoreWorkflow
     return this.repos.messages().listMessages(threadId);
   }
 
+  listRecentMessages(threadId: string, limit: number): ChatMessage[] {
+    return this.repos.messages().listRecentMessages(threadId, limit);
+  }
+
+  countMessages(threadId: string): number {
+    return this.repos.messages().countMessages(threadId);
+  }
+
+  listMessagesBefore(threadId: string, beforeMessageId: string | undefined, limit: number): { messages: ChatMessage[]; hasMoreBefore: boolean } {
+    return this.repos.messages().listMessagesBefore(threadId, beforeMessageId, limit);
+  }
+
+  getMessage(messageId: string): ChatMessage {
+    return this.repos.messages().getMessage(messageId);
+  }
+
   listMessageVoiceStates(threadId: string): MessageVoiceState[] {
     return this.repos.messageVoices().listMessageVoiceStates(threadId);
   }

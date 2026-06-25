@@ -1,4 +1,6 @@
 import { CheckCircle2, FolderOpen, RefreshCw, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 
 import type {
   AmbientGeneratedCapabilitySummary,
@@ -241,7 +243,7 @@ function RightPanelPluginCapabilityRow({
           <span>{formatAmbientAvailability(capability.availability)}</span>
         </div>
       </div>
-      {capability.description && <p>{capability.description}</p>}
+      {capability.description && <PluginCapabilityDescriptionDisclosure capability={capability} />}
       <div className="plugin-badges">
         <span>{formatAmbientCapabilityKind(capability.kind)}</span>
         <span>{capability.pluginDisplayName ?? capability.pluginName}</span>
@@ -353,4 +355,80 @@ function RightPanelPluginCapabilityRow({
       )}
     </section>
   );
+}
+
+function PluginCapabilityDescriptionDisclosure({ capability }: { capability: AmbientPluginCapabilitySummary }) {
+  const descriptionRef = useRef<HTMLParagraphElement>(null);
+  const [clipped, setClipped] = useState(false);
+  const [open, setOpen] = useState(false);
+  const popoverId = `plugin-capability-description-${capability.id.replace(/[^A-Za-z0-9_-]/g, "-")}`;
+
+  useEffect(() => {
+    function updateClipped(): void {
+      const description = descriptionRef.current;
+      if (!description) {
+        setClipped(false);
+        return;
+      }
+      setClipped(description.scrollWidth > description.clientWidth || description.scrollHeight > description.clientHeight + 1);
+    }
+    updateClipped();
+    window.addEventListener("resize", updateClipped);
+    return () => window.removeEventListener("resize", updateClipped);
+  }, [capability.description]);
+
+  function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>): void {
+    if (!clipped) return;
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      setOpen(false);
+      return;
+    }
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      setOpen((current) => !current);
+    }
+  }
+
+  const show = clipped && open;
+  return (
+    <div
+      className="plugin-capability-description-wrap"
+      tabIndex={clipped ? 0 : undefined}
+      role={clipped ? "button" : undefined}
+      aria-expanded={clipped ? show : undefined}
+      aria-describedby={show ? popoverId : undefined}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+      }}
+      onKeyDown={onKeyDown}
+    >
+      <p ref={descriptionRef} className="plugin-capability-description">
+        {capability.description}
+      </p>
+      {clipped && <span className="plugin-capability-description-affordance" aria-hidden="true">More</span>}
+      {show && (
+        <span className="plugin-capability-description-popover" id={popoverId} role="tooltip">
+          <strong>{capability.displayName ?? capability.name}</strong>
+          <span>{capability.description}</span>
+          <em>{pluginCapabilityDescriptionMetadata(capability).join(" · ")}</em>
+        </span>
+      )}
+    </div>
+  );
+}
+
+export function pluginCapabilityDescriptionMetadata(capability: AmbientPluginCapabilitySummary): string[] {
+  return [
+    capability.pluginDisplayName ?? capability.pluginName,
+    formatAmbientAvailability(capability.availability),
+    formatAmbientCapabilityKind(capability.kind),
+    formatAmbientPluginSourceKind(capability.sourceKind),
+    capability.serverName ? `MCP ${capability.serverName}` : undefined,
+    capability.connectorId ? `Connector ${capability.connectorId}` : undefined,
+    capability.toolName ? `Tool ${capability.toolName}` : undefined,
+  ].filter((item): item is string => Boolean(item));
 }

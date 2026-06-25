@@ -1,6 +1,10 @@
 import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ProjectStoreContextUsageRepository } from "./contextUsageRepository";
+import {
+  CONTEXT_USAGE_EXACT_SNAPSHOT_RETENTION,
+  CONTEXT_USAGE_TOTAL_SNAPSHOT_RETENTION,
+  ProjectStoreContextUsageRepository,
+} from "./contextUsageRepository";
 
 describe("ProjectStoreContextUsageRepository", () => {
   let db: Database.Database;
@@ -75,5 +79,50 @@ describe("ProjectStoreContextUsageRepository", () => {
 
     expect(repository.listContextUsageSnapshots(0)).toHaveLength(1);
     expect(repository.listContextUsageSnapshots(1_000)).toHaveLength(1);
+  });
+
+  it("retains exact latest snapshots and sampled older snapshots per thread", () => {
+    for (let index = 0; index < 260; index += 1) {
+      repository.recordContextUsageSnapshot({
+        threadId: "thread-1",
+        source: "estimate",
+        tokens: index,
+        compactionCount: 0,
+        updatedAt: new Date(Date.UTC(2026, 5, 16, 0, 0, index)).toISOString(),
+      });
+    }
+    for (let index = 0; index < 3; index += 1) {
+      repository.recordContextUsageSnapshot({
+        threadId: "thread-2",
+        source: "estimate",
+        tokens: index,
+        compactionCount: 0,
+        updatedAt: new Date(Date.UTC(2026, 5, 17, 0, 0, index)).toISOString(),
+      });
+    }
+
+    const rows = db
+      .prepare(`
+        SELECT tokens
+        FROM context_usage_snapshots
+        WHERE thread_id = 'thread-1'
+        ORDER BY updated_at DESC, rowid DESC
+      `)
+      .all() as Array<{ tokens: number }>;
+    const retainedTokens = rows.map((row) => row.tokens);
+
+    expect(rows.length).toBeLessThanOrEqual(CONTEXT_USAGE_TOTAL_SNAPSHOT_RETENTION);
+    expect(retainedTokens.slice(0, CONTEXT_USAGE_EXACT_SNAPSHOT_RETENTION)).toEqual(
+      Array.from({ length: CONTEXT_USAGE_EXACT_SNAPSHOT_RETENTION }, (_, index) => 259 - index),
+    );
+    expect(retainedTokens).toContain(235);
+    expect(retainedTokens.filter((token) => token < 236)).toHaveLength(
+      rows.length - CONTEXT_USAGE_EXACT_SNAPSHOT_RETENTION,
+    );
+    expect(retainedTokens.filter((token) => token < 236).length).toBeLessThan(236);
+    expect(repository.getLatestContextUsageSnapshot("thread-1")).toMatchObject({ tokens: 259 });
+    expect(db.prepare("SELECT COUNT(*) AS count FROM context_usage_snapshots WHERE thread_id = 'thread-2'").get()).toMatchObject({
+      count: 3,
+    });
   });
 });

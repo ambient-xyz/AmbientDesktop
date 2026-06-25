@@ -28,6 +28,7 @@ function setup() {
     resetAssistantStreamState: vi.fn(),
     resetThinkingStreamState: vi.fn(),
     listMessages: () => [...messages.values()],
+    getMessage: (messageId) => messages.get(messageId),
     addAssistantMessage: vi.fn((input) => {
       const created = message({
         id: `created-${nextId}`,

@@ -1568,21 +1568,31 @@ export function mcpDefaultCapabilityInstallActionState(
     };
   }
   const busy = input.busyKey === `default-capability:${capability.capabilityId}`;
-  if (busy || capability.status === "installing") {
+  if (busy || capability.status === "installing" || capability.status === "warming_up") {
+    const checking = capability.status === "warming_up" || mcpDefaultCapabilityHasExistingInstallEvidence(capability);
     return {
-      label: "Setting up",
+      label: checking ? "Checking" : "Setting up",
       disabled: true,
       visible: true,
-      title: `Installing ${capability.title} through the Ambient default ToolHive runtime path.`,
+      title: checking
+        ? `${capability.title} is being checked with existing Ambient default capability state.`
+        : `Installing ${capability.title} through the Ambient default ToolHive runtime path.`,
     };
   }
   if (capability.nextAction === "approve-default-capability" || capability.nextAction === "install-default-capability") {
+    const hasExistingInstallEvidence = mcpDefaultCapabilityHasExistingInstallEvidence(capability);
     return {
-      label: `Set up ${capability.title}`,
+      label: capability.status === "failed"
+        ? `Repair ${capability.title}`
+        : hasExistingInstallEvidence
+          ? `Retry ${capability.title}`
+          : `Set up ${capability.title}`,
       disabled: input.runtimeReady !== true,
       visible: true,
       title: input.runtimeReady === true
-        ? `Install ${capability.title} as the Ambient default capability ${capability.workloadName}.`
+        ? hasExistingInstallEvidence
+          ? `Retry ${capability.title} as the Ambient default capability ${capability.workloadName} using the existing install state.`
+          : `Install ${capability.title} as the Ambient default capability ${capability.workloadName}.`
         : `${capability.title} is waiting for the isolated MCP runtime to become ready.`,
     };
   }
@@ -1603,11 +1613,22 @@ export function mcpDefaultCapabilityInstallActionState(
     };
   }
   return {
-    label: "Inspect",
+    label: capability.status === "failed" || capability.nextAction === "inspect-failure" ? `Repair ${capability.title}` : "Inspect",
     disabled: true,
     visible: true,
     title: capability.message,
   };
+}
+
+function mcpDefaultCapabilityHasExistingInstallEvidence(capability: AmbientMcpDefaultCapabilitySummary): boolean {
+  return Boolean(
+    capability.installedEndpoint ||
+      capability.installedWorkloadStatus ||
+      capability.status === "installing" ||
+      capability.status === "warming_up" ||
+      capability.status === "failed" ||
+      capability.nextAction === "inspect-failure",
+  );
 }
 
 export function mcpContainerRuntimeDiagnosticsActionState(

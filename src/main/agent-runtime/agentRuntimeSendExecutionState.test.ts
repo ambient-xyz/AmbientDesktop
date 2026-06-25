@@ -124,6 +124,7 @@ function baseInput(): {
     markRunActivity: () => true,
     updateRunStatus: vi.fn(),
     listMessages: () => messages,
+    getMessage: (messageId) => messages.find((message) => message.id === messageId),
     addAssistantMessage: (messageInput) => {
       const message = assistantMessage({
         id: `assistant-${messages.length + 1}`,
@@ -181,6 +182,7 @@ function baseInput(): {
     isRunStoreActive: vi.fn(() => true),
     markRunActivity: vi.fn(() => true),
     listMessages: () => messages,
+    getMessage: (messageId) => messages.find((message) => message.id === messageId),
     addToolMessage: (messageInput) => {
       const message = toolMessage({
         id: `tool-${messages.length + 1}`,

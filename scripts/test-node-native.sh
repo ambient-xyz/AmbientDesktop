@@ -11,6 +11,7 @@ if [[ ${#test_files[@]} -eq 0 ]]; then
     src/main/workflow/workflowRunService.test.ts
     src/main/workflow/workflowDogfood.test.ts
     src/main/plugins/pluginDogfood.test.ts
+    src/main/plugins/pluginProviderCatalogDogfood.test.ts
   )
 fi
 

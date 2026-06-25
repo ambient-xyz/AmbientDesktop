@@ -21,16 +21,83 @@ export class ProjectStoreMessageRepository {
     return rows.map(mapMessageRow);
   }
 
+  listRecentMessages(threadId: string, limit: number): ChatMessage[] {
+    const boundedLimit = Math.max(0, Math.min(Math.floor(limit), 1000));
+    if (boundedLimit === 0) return [];
+    const rows = this.db
+      .prepare(`
+        SELECT id, thread_id, role, content, created_at, metadata_json
+        FROM (
+          SELECT rowid AS message_rowid, *
+          FROM messages
+          WHERE thread_id = ?
+          ORDER BY created_at DESC, rowid DESC
+          LIMIT ?
+        )
+        ORDER BY created_at ASC, message_rowid ASC
+      `)
+      .all(threadId, boundedLimit) as MessageRow[];
+    return rows.map(mapMessageRow);
+  }
+
+  countMessages(threadId: string): number {
+    const row = this.db.prepare("SELECT COUNT(*) AS count FROM messages WHERE thread_id = ?").get(threadId) as { count: number };
+    return row.count;
+  }
+
+  listMessagesBefore(
+    threadId: string,
+    beforeMessageId: string | undefined,
+    limit: number,
+  ): { messages: ChatMessage[]; hasMoreBefore: boolean } {
+    const boundedLimit = Math.max(0, Math.min(Math.floor(limit), 1000));
+    if (boundedLimit === 0) return { messages: [], hasMoreBefore: false };
+    const cursor = beforeMessageId
+      ? this.db
+        .prepare("SELECT rowid AS message_rowid, created_at FROM messages WHERE thread_id = ? AND id = ?")
+        .get(threadId, beforeMessageId) as { message_rowid: number; created_at: string } | undefined
+      : undefined;
+    if (beforeMessageId && !cursor) throw new Error(`Message not found in thread: ${beforeMessageId}`);
+    const rows = cursor
+      ? this.db
+        .prepare(`
+          SELECT id, thread_id, role, content, created_at, metadata_json
+          FROM messages
+          WHERE thread_id = ?
+            AND (created_at < ? OR (created_at = ? AND rowid < ?))
+          ORDER BY created_at DESC, rowid DESC
+          LIMIT ?
+        `)
+        .all(threadId, cursor.created_at, cursor.created_at, cursor.message_rowid, boundedLimit + 1) as MessageRow[]
+      : this.db
+        .prepare(`
+          SELECT id, thread_id, role, content, created_at, metadata_json
+          FROM messages
+          WHERE thread_id = ?
+          ORDER BY created_at DESC, rowid DESC
+          LIMIT ?
+        `)
+        .all(threadId, boundedLimit + 1) as MessageRow[];
+    const hasMoreBefore = rows.length > boundedLimit;
+    return {
+      messages: rows.slice(0, boundedLimit).reverse().map(mapMessageRow),
+      hasMoreBefore,
+    };
+  }
+
   deleteMessagesAfter(threadId: string, messageId: string): ChatMessage[] {
-    const messages = this.listMessages(threadId);
-    const index = messages.findIndex((message) => message.id === messageId);
-    if (index < 0) throw new Error(`Message not found in thread: ${messageId}`);
-    const removeIds = messages.slice(index + 1).map((message) => message.id);
-    if (removeIds.length > 0) {
-      const placeholders = removeIds.map(() => "?").join(", ");
-      this.db.prepare(`DELETE FROM messages WHERE id IN (${placeholders})`).run(...removeIds);
-    }
-    const remaining = messages.slice(0, index + 1);
+    const cursor = this.db
+      .prepare("SELECT rowid AS message_rowid, created_at FROM messages WHERE thread_id = ? AND id = ?")
+      .get(threadId, messageId) as { message_rowid: number; created_at: string } | undefined;
+    if (!cursor) throw new Error(`Message not found in thread: ${messageId}`);
+    this.db
+      .prepare(`
+        DELETE FROM messages
+        WHERE thread_id = ?
+          AND (created_at > ? OR (created_at = ? AND rowid > ?))
+      `)
+      .run(threadId, cursor.created_at, cursor.created_at, cursor.message_rowid);
+    const remaining = this.listMessages(threadId);
     this.touchThread(threadId, chooseThreadPreview(remaining));
     return remaining;
   }
@@ -78,11 +145,11 @@ export class ProjectStoreMessageRepository {
     const update = this.db.prepare("UPDATE threads SET last_message_preview = ? WHERE id = ?");
 
     for (const thread of threads) {
-      update.run(chooseThreadPreview(this.listMessages(thread.id)), thread.id);
+      update.run(this.previewForThread(thread.id), thread.id);
     }
   }
 
-  private getMessage(messageId: string): ChatMessage {
+  getMessage(messageId: string): ChatMessage {
     const row = this.db.prepare("SELECT * FROM messages WHERE id = ?").get(messageId) as MessageRow | undefined;
     if (!row) throw new Error(`Message not found: ${messageId}`);
     return mapMessageRow(row);
@@ -95,7 +162,32 @@ export class ProjectStoreMessageRepository {
   }
 
   private refreshThreadPreview(threadId: string): void {
-    this.touchThread(threadId, chooseThreadPreview(this.listMessages(threadId)));
+    this.touchThread(threadId, this.previewForThread(threadId));
+  }
+
+  private previewForThread(threadId: string): string {
+    const preferred = this.latestPreviewCandidate(threadId, { includeTool: false });
+    if (preferred) return formatThreadPreview(preferred.content);
+    const fallback = this.latestPreviewCandidate(threadId, { includeTool: true });
+    return formatThreadPreview(fallback?.content ?? "");
+  }
+
+  private latestPreviewCandidate(threadId: string, input: { includeTool: boolean }): ChatMessage | undefined {
+    const roleFilter = input.includeTool ? "" : "AND role != 'tool'";
+    const row = this.db
+      .prepare(`
+        SELECT *
+        FROM messages
+        WHERE thread_id = ?
+          AND length(trim(content)) > 0
+          AND (metadata_json IS NULL OR json_extract(metadata_json, '$.hiddenFromTranscript') IS NOT 1)
+          AND (role != 'assistant' OR json_extract(metadata_json, '$.kind') IS NOT 'thinking')
+          ${roleFilter}
+        ORDER BY created_at DESC, rowid DESC
+        LIMIT 1
+      `)
+      .get(threadId) as MessageRow | undefined;
+    return row ? mapMessageRow(row) : undefined;
   }
 }
 

@@ -1,10 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { providerCatalogSettingsState } from "../../main/provider/providerCatalog";
-import type { ProviderCatalogSettingsCard } from "../../shared/desktopTypes";
-import type { AmbientMcpContainerRuntimeLifecyclePreview, AmbientMcpContainerRuntimeLifecycleProgress, AmbientMcpContainerRuntimeLifecycleResult, AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilitySummary, AmbientPluginAppAuthSummary, AmbientPluginCapabilitySummary, AmbientPluginRegistry, AmbientPluginSummary, CapabilityBuilderHistoryEntry, CodexPluginSummary, FirstPartyGoogleIntegrationState } from "../../shared/pluginTypes";
+import type {
+  AmbientMcpContainerRuntimeLifecyclePreview,
+  AmbientMcpContainerRuntimeLifecycleProgress,
+  AmbientMcpContainerRuntimeLifecycleResult,
+  AmbientMcpContainerRuntimeStatus,
+  AmbientMcpDefaultCapabilitySummary,
+  AmbientPluginAppAuthSummary,
+  AmbientPluginCapabilitySummary,
+  AmbientPluginRegistry,
+  AmbientPluginSummary,
+  CapabilityBuilderHistoryEntry,
+  CodexPluginSummary,
+  FirstPartyGoogleIntegrationState,
+} from "../../shared/pluginTypes";
 import {
   buildCapabilityBuilderPrompt,
-  buildFirstRunCapabilityOnboardingPrompt,
+  providerCatalogSettingsCardView,
   buildProviderCatalogCardOnboardingPrompt,
   buildRemoteSurfaceActivationPrompt,
   buildVoiceProviderCapabilityPrompt,
@@ -74,50 +86,10 @@ import {
   piPrivilegedUninstallActionState,
   pluginAuthCompleteActionState,
   pluginDetailsActionState,
-  providerCatalogSettingsCardsForArea,
-  providerCatalogSettingsCardView,
   recommendVoiceProviders,
   voiceProviderGuidanceCards,
   workflowPluginRequirementRows,
 } from "./pluginUiModel";
-
-function providerSettingsCard(patch: Partial<ProviderCatalogSettingsCard> = {}): ProviderCatalogSettingsCard {
-  return {
-    id: "voice.piper",
-    displayName: "Piper",
-    capabilityArea: "voice-generation",
-    installerShape: "tts-provider",
-    providerKind: "local",
-    sourceModel: "open-source",
-    recommendationTier: "recommended",
-    recommendationSummary: "Reliable local/offline provider.",
-    deploymentRole: "primary",
-    recommendation: "Use Piper as the default local baseline.",
-    bestFor: ["Offline voice"],
-    tradeoffs: ["Less expressive than hosted voices"],
-    avoidWhen: ["The user needs high-fidelity expressive speech immediately"],
-    platforms: ["macos-arm64", "linux-x64"],
-    hardwareFit: ["CPU-friendly"],
-    firstPartyTemplate: { available: true, templateId: "tts-provider:piper" },
-    capabilityBuilderDefaults: { provider: "Piper", locality: "local", outputFileArtifacts: ["wav"] },
-    ambientContract: {
-      commandContract: "TTS command writes a WAV artifact.",
-      descriptorRequirements: ["installerShape tts-provider", "voiceProvider command metadata"],
-      artifactPolicy: "Write audio artifacts to user-visible workspace paths.",
-      validationTarget: "Generate a tiny WAV through Ambient.",
-    },
-    secrets: [],
-    networkHosts: [],
-    modelAssets: [],
-    costPrivacyNotes: ["No cloud upload."],
-    maintenanceNotes: ["Pin model assets."],
-    safetyBoundaries: ["No voice cloning unless declared."],
-    knownQuirks: ["Voice quality varies by model."],
-    researchStatus: "live-dogfooded",
-    docs: [{ label: "Piper repository", url: "https://github.com/rhasspy/piper" }],
-    ...patch,
-  };
-}
 
 describe("plugin UI model", () => {
   it("builds a chat-first Capability Builder launcher prompt", () => {
@@ -173,14 +145,20 @@ describe("plugin UI model", () => {
     expect(prompt).toContain("Cartesia: good option");
     expect(prompt).toContain("Custom repo/API/model: custom only");
     expect(prompt).toContain("Required first response shape when no provider is already selected:");
-    expect(prompt).toContain("Present exactly three choices: Local baseline (Piper), Cloud quality/latency (ElevenLabs or Cartesia), and Custom/advanced provider.");
+    expect(prompt).toContain(
+      "Present exactly three choices: Local baseline (Piper), Cloud quality/latency (ElevenLabs or Cartesia), and Custom/advanced provider.",
+    );
     expect(prompt).toContain("Do not call ambient_capability_builder_plan until the user has selected one of these paths");
     expect(prompt).toContain("Local baseline or Piper: immediately call ambient_capability_builder_plan");
-    expect(prompt).toContain("Kokoro ONNX: immediately call ambient_capability_builder_plan for the first-party Kokoro ONNX tts-provider template");
+    expect(prompt).toContain(
+      "Kokoro ONNX: immediately call ambient_capability_builder_plan for the first-party Kokoro ONNX tts-provider template",
+    );
     expect(prompt).toContain("ElevenLabs: call ambient_capability_builder_plan with installerShape tts-provider, locality network");
     expect(prompt).toContain("Cartesia: call ambient_capability_builder_plan with installerShape tts-provider, locality network");
     expect(prompt).toContain("Custom/advanced: before planning, inspect upstream README/install/example docs");
-    expect(prompt).toContain("Existing generated TTS/audio artifact package: do not validate, register, or re-register it as-is for chat voicing.");
+    expect(prompt).toContain(
+      "Existing generated TTS/audio artifact package: do not validate, register, or re-register it as-is for chat voicing.",
+    );
     expect(prompt).toContain("Piper fast path requirements:");
     expect(prompt).toContain("Use the first-party Piper tts-provider scaffold/template");
     expect(prompt).toContain("en_US-lessac-medium.onnx");
@@ -233,281 +211,6 @@ describe("plugin UI model", () => {
     expect(prompt).toContain("repair it into the tts-provider contract before validation or registration");
   });
 
-  it("filters and presents provider catalog settings cards", () => {
-    const piper = providerSettingsCard({ id: "voice.piper", displayName: "Piper", recommendationTier: "recommended" });
-    const search = providerSettingsCard({
-      id: "search.brave",
-      displayName: "Brave Search",
-      capabilityArea: "web-search",
-      installerShape: "search-provider",
-    });
-
-    expect(providerCatalogSettingsCardsForArea([piper, search], "voice-generation")).toEqual([piper]);
-    expect(providerCatalogSettingsCardView(piper)).toEqual({
-      id: "voice.piper",
-      title: "Piper",
-      subtitle: "Reliable local/offline provider.",
-      tone: "recommended",
-      meta: ["role primary", "local / open-source", "tts-provider", "first-party template"],
-      actionLabel: "Set up",
-      actionTitle: "Start provider setup for Piper",
-    });
-  });
-
-  it("routes non-installable catalog cards through read-only review instead of setup", () => {
-    const card = providerSettingsCard({
-      id: "search.visible-browser-reference",
-      displayName: "Visible Browser Search",
-      capabilityArea: "web-search",
-      installerShape: "browser-tooling",
-      providerKind: "browser-mediated",
-      sourceModel: "closed-source",
-      recommendationSummary: "Existing visible browser search fallback, not an installable provider.",
-      installability: {
-        status: "not-installable",
-        reason: "This path uses existing browser/web research tooling and cannot be installed as a provider.",
-        actionLabel: "Review",
-        actionTitle: "Review visible browser search guidance.",
-      },
-      tradeoffs: ["Not an installed provider"],
-      ambientContract: {
-        commandContract: "Use existing browser-mediated search tools.",
-        descriptorRequirements: ["Use approved browser tooling", "Do not claim installed-provider status"],
-        artifactPolicy: "Return bounded snippets only.",
-        validationTarget: "Run a visible smoke only after user approval.",
-      },
-    });
-
-    const view = providerCatalogSettingsCardView(card);
-    const prompt = buildProviderCatalogCardOnboardingPrompt(card);
-
-    expect(view.actionLabel).toBe("Review");
-    expect(view.actionTitle).toBe("Review visible browser search guidance.");
-    expect(view.meta).toContain("not installable");
-    expect(prompt).toContain("Installability: not-installable.");
-    expect(prompt).toContain("This catalog card is not installable");
-    expect(prompt).toContain("web_research_status");
-    expect(prompt).toContain("Do not call ambient_capability_builder_plan");
-    expect(prompt).toContain("ambient_cli_package_install");
-    expect(prompt).not.toContain("Then call ambient_capability_builder_plan for this selected card");
-    expect(prompt).not.toContain("Use installed-provider status tools before claiming active state");
-  });
-
-  it("uses supplied provider catalog cards in the generic voice onboarding prompt", () => {
-    const piper = providerSettingsCard({ id: "voice.piper", displayName: "Piper" });
-    const prompt = buildVoiceProviderCapabilityPrompt(undefined, [piper]);
-
-    expect(prompt).toContain("Known provider catalog cards:");
-    expect(prompt).toContain("Piper (voice.piper, recommended): Reliable local/offline provider.");
-    expect(prompt).toContain("validation: Generate a tiny WAV through Ambient.");
-    expect(prompt).not.toContain("Known local/open-source provider cards:");
-  });
-
-  it("builds a selected provider catalog card onboarding prompt", () => {
-    const card = providerSettingsCard({
-      id: "voice.piper",
-      displayName: "Piper",
-      capabilityBuilderDefaults: {
-        provider: "Piper",
-        locality: "local",
-        outputFileArtifacts: ["wav"],
-        modelAssets: ["Piper voice model"],
-      },
-      modelAssets: [{ name: "Piper voice model", expectedSize: "about 63 MB", cachePolicy: "Provider-local models directory." }],
-    });
-    const prompt = buildProviderCatalogCardOnboardingPrompt(card, {
-      os: {
-        platform: "darwin",
-        release: "25.5.0",
-        arch: "arm64",
-        appMode: "development",
-      },
-      hardware: {
-        cpuModel: "Apple M3 Max",
-        cpuCount: 16,
-        memoryBytes: 48 * 1024 * 1024 * 1024,
-        accelerator: "Apple Silicon",
-      },
-      runtimes: [
-        { name: "Node.js", command: "node", available: true, version: "v25.2.1" },
-        { name: "uv", command: "uv", available: true, version: "uv 0.9.0" },
-      ],
-    });
-
-    expect(prompt).toContain("Ambient provider catalog onboarding request.");
-    expect(prompt).toContain("Launch source: Settings provider catalog card.");
-    expect(prompt).toContain("Selected catalog card id: voice.piper.");
-    expect(prompt).toContain("Machine facts:");
-    expect(prompt).toContain("OS/arch: darwin 25.5.0 / arm64.");
-    expect(prompt).toContain("Installability: installable.");
-    expect(prompt).toContain("Ambient contract:");
-    expect(prompt).toContain("Descriptor requirement: installerShape tts-provider");
-    expect(prompt).toContain("Validation target: Generate a tiny WAV through Ambient.");
-    expect(prompt).toContain("Avoid when: The user needs high-fidelity expressive speech immediately");
-    expect(prompt).toContain("Capability Builder defaults:");
-    expect(prompt).toContain("Output file artifacts: wav");
-    expect(prompt).toContain("Model assets: Piper voice model");
-    expect(prompt).toContain("ambient_tool_call to run ambient_provider_catalog with capabilityArea voice-generation");
-    expect(prompt).toContain("Then call ambient_capability_builder_plan for this selected card");
-    expect(prompt).toContain("ambient_voice_status for TTS");
-    expect(prompt).toContain("ambient_stt_status for STT");
-    expect(prompt).toContain("ambient_search_preference_status or ambient_cli_search for search providers");
-    expect(prompt).toContain("Settings did not install anything.");
-    expect(prompt).not.toMatch(/paste your API key/i);
-  });
-
-  it("builds selected STT and search catalog card onboarding prompts", () => {
-    const qwen = providerSettingsCard({
-      id: "stt.qwen-asr",
-      displayName: "Qwen ASR",
-      capabilityArea: "voice-recognition",
-      installerShape: "stt-provider",
-      recommendationSummary: "Favored local ASR path.",
-      capabilityBuilderDefaults: {
-        provider: "Qwen ASR",
-        locality: "local",
-        responseFormats: ["json", "text"],
-        modelAssets: ["Qwen ASR model assets"],
-      },
-      ambientContract: {
-        commandContract: "STT command accepts an audio file and returns transcript text plus structured metadata.",
-        descriptorRequirements: ["installerShape stt-provider", "audio input declaration", "transcript response format"],
-        artifactPolicy: "Preserve input audio path and transcript metadata.",
-        validationTarget: "Transcribe a small known WAV through Ambient STT.",
-      },
-    });
-    const brave = providerSettingsCard({
-      id: "search.brave",
-      displayName: "Brave Search API",
-      capabilityArea: "web-search",
-      installerShape: "search-provider",
-      providerKind: "cloud",
-      sourceModel: "closed-source",
-      recommendationSummary: "API-backed web search provider.",
-      capabilityBuilderDefaults: {
-        provider: "Brave Search",
-        locality: "network",
-        responseFormats: ["json"],
-        envNames: ["BRAVE_API_KEY"],
-        networkHosts: ["api.search.brave.com"],
-      },
-      secrets: [{ envName: "BRAVE_API_KEY", required: true, capture: "ambient_capability_builder_secret_request" }],
-      networkHosts: ["api.search.brave.com"],
-      ambientContract: {
-        commandContract: "Search command returns bounded JSON/text results.",
-        descriptorRequirements: ["installerShape search-provider", "required env declaration", "response format declaration"],
-        artifactPolicy: "No user file artifact required for a tiny search smoke test.",
-        validationTarget: "Run one tiny query through Ambient CLI/provider wrappers.",
-      },
-    });
-
-    const qwenPrompt = buildProviderCatalogCardOnboardingPrompt(qwen);
-    const bravePrompt = buildProviderCatalogCardOnboardingPrompt(brave);
-
-    expect(qwenPrompt).toContain("capabilityArea voice-recognition");
-    expect(qwenPrompt).toContain("installerShape stt-provider");
-    expect(qwenPrompt).toContain("ambient_stt_status for STT");
-    expect(qwenPrompt).toContain("Transcribe a small known WAV through Ambient STT.");
-    expect(bravePrompt).toContain("capabilityArea web-search");
-    expect(bravePrompt).toContain("installerShape search-provider");
-    expect(bravePrompt).toContain("BRAVE_API_KEY: required via ambient_capability_builder_secret_request");
-    expect(bravePrompt).toContain("Network hosts: api.search.brave.com");
-    expect(bravePrompt).toContain("ambient_search_preference_status or ambient_cli_search for search providers");
-    expect(bravePrompt).not.toMatch(/paste your API key/i);
-  });
-
-  it("routes selected HyperFrames catalog onboarding through bundled Ambient CLI", () => {
-    const hyperframes = providerSettingsCard({
-      id: "video.hyperframes-authored-motion",
-      displayName: "HyperFrames authored-motion video",
-      capabilityArea: "video-generation",
-      installerShape: "artifact-generator",
-      recommendationSummary: "Bundled Ambient CLI path for deterministic authored video.",
-      firstPartyTemplate: { available: true, templateId: "ambient-cli:ambient-hyperframes" },
-      ambientContract: {
-        commandContract: "Ambient CLI package ambient-hyperframes exposes doctor, setup-plan, init, inspect, and render commands.",
-        descriptorRequirements: ["Ambient CLI package ambient-hyperframes", "source project path", "video artifact output"],
-        artifactPolicy: "Save source files, rendered media, first-frame preview, render logs, and media metadata.",
-        validationTarget: "Render one tiny scene through ambient_cli hyperframes_render.",
-      },
-    });
-
-    const prompt = buildProviderCatalogCardOnboardingPrompt(hyperframes);
-
-    expect(prompt).toContain("capabilityArea video-generation");
-    expect(prompt).toContain("First-party template: ambient-cli:ambient-hyperframes");
-    expect(prompt).toContain("call ambient_cli_search for packageName ambient-hyperframes");
-    expect(prompt).toContain("hyperframes_doctor");
-    expect(prompt).toContain("hyperframes_setup_plan");
-    expect(prompt).toContain("hyperframes_render");
-    expect(prompt).toContain("do not install FFmpeg, browser runtime, Node, or npm packages silently");
-    expect(prompt).toContain("Do not route HyperFrames through Capability Builder scaffolding or the Scrapling/default MCP capability lane");
-  });
-
-  it("routes selected MiniCPM-V visual catalog onboarding through typed visual tools", () => {
-    const minicpm = providerSettingsCard({
-      id: "vision.minicpm-v",
-      displayName: "MiniCPM-V",
-      capabilityArea: "visual-understanding",
-      installerShape: "vision-analysis-provider",
-      recommendationTier: "recommended",
-      recommendationSummary: "Local visual analyzer for screenshots and UI/game frames.",
-      ambientContract: {
-        commandContract: "Visual analyzer accepts bounded image files and returns structured observations.",
-        descriptorRequirements: ["installerShape vision-analysis-provider", "structured JSON output schema"],
-        artifactPolicy: "Preserve redacted request/response artifacts and workspace-relative image paths.",
-        validationTarget: "Analyze a real Ambient Desktop screenshot through the typed visual tool.",
-      },
-      capabilityBuilderDefaults: {
-        provider: "MiniCPM-V",
-        locality: "local",
-        responseFormats: ["json"],
-        modelAssets: ["MiniCPM-V 4.5 Q4_K_M GGUF", "MiniCPM-V multimodal projector"],
-      },
-      platformSupport: [
-        {
-          platform: "macos-arm64",
-          status: "supported",
-          runtime: "llama.cpp Metal",
-          installMode: "Recommended managed runtime plus Ambient model cache.",
-          evidence: ["Mac llama.cpp smoke"],
-          caveats: ["Apple Silicon scoped support."],
-        },
-        {
-          platform: "windows-x64",
-          status: "experimental",
-          runtime: "llama.cpp Windows x64",
-          installMode: "User-managed runtime only.",
-          evidence: ["Upstream support only"],
-          caveats: ["No real Windows smoke evidence yet."],
-        },
-      ],
-    });
-
-    const prompt = buildProviderCatalogCardOnboardingPrompt(minicpm);
-
-    expect(prompt).toContain("capabilityArea visual-understanding");
-    expect(prompt).toContain("installerShape vision-analysis-provider");
-    expect(prompt).toContain("Recommendation tier: recommended");
-    expect(prompt).toContain("Platform support: macos-arm64: supported");
-    expect(prompt).toContain("windows-x64: experimental");
-    expect(prompt).toContain("No real Windows smoke evidence yet");
-    expect(prompt).toContain("ambient_visual_minicpm_setup with action install, validate, repair, stop, or uninstall");
-    expect(prompt).toContain("returned runtimeContract as authoritative");
-    expect(prompt).toContain("default managed runtime download");
-    expect(prompt).toContain("user-managed llama-server");
-    expect(prompt).toContain("user-approved local archive");
-    expect(prompt).toContain("Windows default download remains disabled");
-    expect(prompt).toContain("pass endpointUrl only when the user approved a local localhost");
-    expect(prompt).toContain("allowed hosts, user consent, media privacy, secret handling, request redaction, artifact retention, network egress controls, ui copy");
-    expect(prompt).toContain("do not add an extra provider argument");
-    expect(prompt).toContain("ambient_visual_analyze with a bounded workspace screenshot");
-    expect(prompt).toContain("video/videoPath plus frameTimestampMs");
-    expect(prompt).toContain("task preset such as ui_review");
-    expect(prompt).toContain("or fall back to raw ambient_cli for ordinary setup");
-    expect(prompt).not.toContain("Then call ambient_capability_builder_plan for this selected card");
-  });
-
   it("release-gates the real recommended MiniCPM-V settings card and onboarding prompt", () => {
     const minicpm = providerCatalogSettingsState(new Date("2026-05-12T12:00:00.000Z")).cards.find((card) => card.id === "vision.minicpm-v");
     expect(minicpm).toBeDefined();
@@ -546,7 +249,9 @@ describe("plugin UI model", () => {
   });
 
   it("release-gates the Local Deep Research provider catalog card and typed onboarding prompt", () => {
-    const localDeepResearch = providerCatalogSettingsState(new Date("2026-05-28T12:00:00.000Z")).cards.find((card) => card.id === "deep.literesearcher-4b");
+    const localDeepResearch = providerCatalogSettingsState(new Date("2026-05-28T12:00:00.000Z")).cards.find(
+      (card) => card.id === "deep.literesearcher-4b",
+    );
     expect(localDeepResearch).toBeDefined();
     const card = localDeepResearch!;
     const view = providerCatalogSettingsCardView(card);
@@ -584,7 +289,9 @@ describe("plugin UI model", () => {
   });
 
   it("routes the TinyStyler settings card through Ambient CLI package setup", () => {
-    const tinystyler = providerCatalogSettingsState(new Date("2026-06-17T12:00:00.000Z")).cards.find((card) => card.id === "writing.tinystyler");
+    const tinystyler = providerCatalogSettingsState(new Date("2026-06-17T12:00:00.000Z")).cards.find(
+      (card) => card.id === "writing.tinystyler",
+    );
     expect(tinystyler).toBeDefined();
     const card = tinystyler!;
     const view = providerCatalogSettingsCardView(card);
@@ -640,142 +347,26 @@ describe("plugin UI model", () => {
     }
   });
 
-  it("builds a chat-first first-run capability onboarding prompt", () => {
-    const prompt = buildFirstRunCapabilityOnboardingPrompt(
-      {
-        os: {
-          platform: "darwin",
-          release: "25.5.0",
-          arch: "arm64",
-          appMode: "packaged",
-        },
-        hardware: {
-          cpuModel: "Apple M3 Max",
-          cpuCount: 16,
-          memoryBytes: 48 * 1024 * 1024 * 1024,
-          accelerator: "Apple Silicon; Metal acceleration likely available for MLX-compatible local providers.",
-        },
-        runtimes: [
-          { name: "Node.js", command: "node", available: true, version: "v25.2.1" },
-          { name: "Python 3", command: "python3", available: true, version: "Python 3.12.0" },
-          { name: "uv", command: "uv", available: true, version: "uv 0.9.0" },
-        ],
-      },
-      [
-        providerSettingsCard({ id: "voice.piper", displayName: "Piper" }),
-        providerSettingsCard({
-          id: "stt.qwen-asr",
-          displayName: "Qwen ASR",
-          capabilityArea: "voice-recognition",
-          installerShape: "stt-provider",
-          recommendationSummary: "Primary local speech recognition card.",
-          ambientContract: {
-            commandContract: "STT command accepts an audio file and returns a transcript.",
-            descriptorRequirements: ["installerShape stt-provider"],
-            artifactPolicy: "Preserve transcript metadata.",
-            validationTarget: "Transcribe a small WAV through Ambient STT.",
-          },
-        }),
-        providerSettingsCard({
-          id: "search.brave",
-          displayName: "Brave Search",
-          capabilityArea: "web-search",
-          installerShape: "search-provider",
-          providerKind: "cloud",
-          sourceModel: "closed-source",
-          recommendationSummary: "Primary API-backed web search card.",
-          capabilityBuilderDefaults: {
-            provider: "Brave Search",
-            locality: "network",
-            responseFormats: ["json"],
-            envNames: ["BRAVE_API_KEY"],
-            networkHosts: ["api.search.brave.com"],
-          },
-          secrets: [{ envName: "BRAVE_API_KEY", required: true, capture: "ambient_capability_builder_secret_request" }],
-          networkHosts: ["api.search.brave.com"],
-        }),
-        providerSettingsCard({
-          id: "vision.minicpm",
-          displayName: "MiniCPM-V",
-          capabilityArea: "visual-understanding",
-          installerShape: "visual-understanding-provider",
-          recommendationSummary: "Local visual understanding card.",
-        }),
-        providerSettingsCard({
-          id: "docs.office",
-          displayName: "Office Parser",
-          capabilityArea: "rich-documents",
-          installerShape: "rich-documents-provider",
-          recommendationSummary: "Local rich-document parser card.",
-        }),
-        providerSettingsCard({
-          id: "writing.tinystyler",
-          displayName: "TinyStyler",
-          capabilityArea: "writing-style-transfer",
-          installerShape: "custom-cli",
-          recommendationSummary: "Local writing-style transfer card.",
-        }),
-      ],
-    );
-    expect(prompt).toContain("Ambient first-run capability onboarding request.");
-    expect(prompt).toContain("Launch source: first-run macro onboarding.");
-    expect(prompt).toContain("Machine facts:");
-    expect(prompt).toContain("OS/arch: darwin 25.5.0 / arm64.");
-    expect(prompt).toContain("Catalog-backed setup cards:");
-    expect(prompt).toContain("Voice Output catalog cards:");
-    expect(prompt).toContain("Piper (voice.piper, recommended): Reliable local/offline provider.");
-    expect(prompt).toContain("Speech Input catalog cards:");
-    expect(prompt).toContain("Qwen ASR (stt.qwen-asr, recommended): Primary local speech recognition card.");
-    expect(prompt).toContain("Search, Web, and Research catalog cards:");
-    expect(prompt).toContain("Brave Search (search.brave, recommended): Primary API-backed web search card.");
-    expect(prompt).toContain("Media and Vision catalog cards:");
-    expect(prompt).toContain("MiniCPM-V (vision.minicpm, recommended): Local visual understanding card.");
-    expect(prompt).toContain("Documents and Office catalog cards:");
-    expect(prompt).toContain("Office Parser (docs.office, recommended): Local rich-document parser card.");
-    expect(prompt).toContain("Writing Style catalog cards:");
-    expect(prompt).toContain("TinyStyler (writing.tinystyler, recommended): Local writing-style transfer card.");
-    expect(prompt).toContain("do not invent a separate first-run recommendation list");
-    expect(prompt).toContain("Initial setup areas:");
-    expect(prompt).toContain("Voice/TTS: use installer shape tts-provider and the voice-generation catalog cards above.");
-    expect(prompt).toContain("Speech input/STT: use installer shape stt-provider and the voice-recognition catalog cards above.");
-    expect(prompt).toContain("Search, web, and research: use the web-search, web-scraping, retrieval, and deep-research catalog cards above.");
-    expect(prompt).toContain("Media and vision: use visual-understanding, image-generation, video-generation, and svg-animation catalog cards.");
-    expect(prompt).toContain("Documents and Office: use rich-documents catalog cards");
-    expect(prompt).toContain("Writing Style: use writing-style-transfer catalog cards.");
-    expect(prompt).toContain("MCP runtime and default web research: treat container runtime recovery and the default Scrapling ToolHive capability as core setup.");
-    expect(prompt).toContain("Remote access: use Remote Ambient Surface, not Messaging Connector.");
-    expect(prompt).toContain("Advanced services: social-media, agentic-services, and chat-bridging cards are core product setup");
-    expect(prompt).toContain("API-backed providers and secrets: use Ambient-managed secret flows only.");
-    expect(prompt).toContain("Present compact choices: Set up voice, Set up speech input, Set up search/web/research, Set up media/vision, Set up documents, Set up writing style, Set up remote access, or Skip/resume later.");
-    expect(prompt).toContain("Do not call ambient_capability_builder_plan until the user chooses one setup area");
-    expect(prompt).toContain("If the user chooses voice, use the TTS provider onboarding rules");
-    expect(prompt).toContain("If the user chooses speech input, run ambient_provider_catalog through ambient_tool_search");
-    expect(prompt).toContain("If the user chooses search/web/research, run ambient_provider_catalog through ambient_tool_search");
-    expect(prompt).toContain("If the user chooses media/vision, run ambient_provider_catalog through ambient_tool_search");
-    expect(prompt).toContain("If the user chooses documents, run ambient_provider_catalog through ambient_tool_search");
-    expect(prompt).toContain("If the user chooses writing style, run ambient_provider_catalog through ambient_tool_search");
-    expect(prompt).toContain("If the user chooses remote access, call ambient_messaging_remote_surface_activation_plan first");
-    expect(prompt).toContain("If Signal or another unsupported provider is selected, surface the unsupported-provider repair/status prompts");
-    expect(prompt).toContain("All mutation is approval-gated");
-    expect(prompt).toContain("preserve full large outputs as artifacts with bounded previews");
-    expect(prompt).not.toMatch(/paste your API key/i);
-    expect(prompt).not.toMatch(/send me your API key/i);
-  });
-
   it("builds Settings Remote Ambient Surface activation prompts for reviewed and unsupported providers", () => {
     const telegramPrompt = buildRemoteSurfaceActivationPrompt("telegram");
     expect(telegramPrompt).toContain("Ambient Remote Ambient Surface setup request.");
     expect(telegramPrompt).toContain("Launch source: Settings Remote control.");
     expect(telegramPrompt).toContain("Provider preference: Telegram.");
-    expect(telegramPrompt).toContain("Call ambient_messaging_remote_surface_activation_plan first with requestText exactly: set up Telegram remote control for Ambient Desktop projects");
+    expect(telegramPrompt).toContain(
+      "Call ambient_messaging_remote_surface_activation_plan first with requestText exactly: set up Telegram remote control for Ambient Desktop projects",
+    );
     expect(telegramPrompt).toContain("call ambient_messaging_telegram_owner_loop_activation_plan next");
     expect(telegramPrompt).toContain("not external Messaging Connector chat-with-others");
     expect(telegramPrompt).toContain("do not send provider messages during setup planning");
 
     const signalPrompt = buildRemoteSurfaceActivationPrompt("signal");
     expect(signalPrompt).toContain("Provider preference: Signal.");
-    expect(signalPrompt).toContain("Call ambient_messaging_remote_surface_activation_plan first with requestText exactly: set up Signal remote control for Ambient Desktop projects");
-    expect(signalPrompt).toContain("if the product shortcut returns unsupported_provider, surface the repair/status prompt in chat and stop");
+    expect(signalPrompt).toContain(
+      "Call ambient_messaging_remote_surface_activation_plan first with requestText exactly: set up Signal remote control for Ambient Desktop projects",
+    );
+    expect(signalPrompt).toContain(
+      "if the product shortcut returns unsupported_provider, surface the repair/status prompt in chat and stop",
+    );
     expect(signalPrompt).toContain("Do not call Signal low-level tools");
     expect(signalPrompt).toContain("generic Messaging Connector setup");
     expect(signalPrompt).toContain("provider message reads");
@@ -889,7 +480,9 @@ describe("plugin UI model", () => {
       envNames: ["CARTESIA_API_KEY"],
       networkHosts: ["api.cartesia.ai"],
     });
-    expect(voiceProviderGuidanceCards.find((card) => card.id === "mlx-audio")?.setupNotes).toContain("optional text-processing dependencies");
+    expect(voiceProviderGuidanceCards.find((card) => card.id === "mlx-audio")?.setupNotes).toContain(
+      "optional text-processing dependencies",
+    );
     expect(voiceProviderGuidanceCards.find((card) => card.id === "kokoro-mlx")?.tradeoffs).toContain("NumPy/Thinc ABI failure");
     expect(voiceProviderGuidanceCards.find((card) => card.id === "kokoro-onnx")?.setupNotes).toContain("Dogfood succeeded");
     expect(voiceProviderGuidanceCards.find((card) => card.id === "kokoro-onnx")?.setupNotes).toContain("1,000 characters or less");
@@ -964,7 +557,9 @@ describe("plugin UI model", () => {
       disabled: false,
       visible: true,
     });
-    expect(codexImportActionState({ compatibilityTier: "supported", imported: false, sourceKind: "remote-marketplace", updateAvailable: true })).toMatchObject({
+    expect(
+      codexImportActionState({ compatibilityTier: "supported", imported: false, sourceKind: "remote-marketplace", updateAvailable: true }),
+    ).toMatchObject({
       label: "Update",
       disabled: false,
       title: expect.stringContaining("Update"),
@@ -1070,7 +665,9 @@ describe("plugin UI model", () => {
       visible: false,
       disabled: true,
     });
-    expect(piPackageEnableActionState({ ...declarative, resourceCounts: { extension: 1, skill: 1, prompt: 0, theme: 0 } }, false)).toMatchObject({
+    expect(
+      piPackageEnableActionState({ ...declarative, resourceCounts: { extension: 1, skill: 1, prompt: 0, theme: 0 } }, false),
+    ).toMatchObject({
       disabled: true,
       title: expect.stringContaining("extensions"),
     });
@@ -1476,41 +1073,45 @@ describe("plugin UI model", () => {
       },
     });
 
-    expect(rows).toEqual(expect.arrayContaining([
-      "Runtime: Not detected",
-      "ToolHive: Ready",
-      "Next: Install Runtime",
-      "Setup: Open Podman Desktop download",
-      "Prompt: Install Launched",
-      "Last setup action: podman-desktop-macos",
-      "Last setup runtime: Podman",
-      "Scrapling: Blocked",
-      "Scrapling Reconcile: Blocked Runtime",
-    ]));
-    expect(mcpContainerRuntimeSetupResumeRows({
-      schemaVersion: "ambient-container-runtime-probe-v1",
-      status: "missing",
-      platform: "darwin",
-      arch: "arm64",
-      checkedAt: "2026-05-23T20:00:00.000Z",
-      durationMs: 12,
-      message: "No container runtime detected.",
-      nextAction: "install-runtime",
-      toolHive: { status: "ready", message: "ToolHive is ready." },
-      hosts: [],
-      setup: {
-        userDecision: "install-launched",
-        shouldPrompt: false,
-        promptSuppressed: true,
-        reason: "install-launched",
-        lastDecisionAt: "2026-05-23T20:10:00.000Z",
-        installActionId: "podman-desktop-macos",
-        installRuntime: "podman",
-        installUrl: "https://podman-desktop.io/downloads",
-      },
-      postInstallQueue: [],
-      defaultCapabilities: [],
-    })).toEqual([
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        "Runtime: Not detected",
+        "ToolHive: Ready",
+        "Next: Install Runtime",
+        "Setup: Open Podman Desktop download",
+        "Prompt: Install Launched",
+        "Last setup action: podman-desktop-macos",
+        "Last setup runtime: Podman",
+        "Scrapling: Blocked",
+        "Scrapling Reconcile: Blocked Runtime",
+      ]),
+    );
+    expect(
+      mcpContainerRuntimeSetupResumeRows({
+        schemaVersion: "ambient-container-runtime-probe-v1",
+        status: "missing",
+        platform: "darwin",
+        arch: "arm64",
+        checkedAt: "2026-05-23T20:00:00.000Z",
+        durationMs: 12,
+        message: "No container runtime detected.",
+        nextAction: "install-runtime",
+        toolHive: { status: "ready", message: "ToolHive is ready." },
+        hosts: [],
+        setup: {
+          userDecision: "install-launched",
+          shouldPrompt: false,
+          promptSuppressed: true,
+          reason: "install-launched",
+          lastDecisionAt: "2026-05-23T20:10:00.000Z",
+          installActionId: "podman-desktop-macos",
+          installRuntime: "podman",
+          installUrl: "https://podman-desktop.io/downloads",
+        },
+        postInstallQueue: [],
+        defaultCapabilities: [],
+      }),
+    ).toEqual([
       "Last setup action: podman-desktop-macos",
       "Runtime: Podman",
       "Opened URL: https://podman-desktop.io/downloads",
@@ -1569,9 +1170,58 @@ describe("plugin UI model", () => {
       disabled: true,
       visible: true,
     });
-    expect(mcpDefaultCapabilityInstallActionState(capability, { runtimeReady: true, busyKey: "default-capability:scrapling" })).toMatchObject({
+    expect(
+      mcpDefaultCapabilityInstallActionState(capability, { runtimeReady: true, busyKey: "default-capability:scrapling" }),
+    ).toMatchObject({
       label: "Setting up",
       disabled: true,
+      visible: true,
+    });
+    expect(
+      mcpDefaultCapabilityInstallActionState(
+        {
+          ...capability,
+          status: "warming_up",
+          nextAction: "none",
+          installedWorkloadStatus: "starting",
+          unhealthySince: "2026-05-23T20:10:00.000Z",
+          retryAfter: "2026-05-23T20:11:30.000Z",
+        },
+        { runtimeReady: true },
+      ),
+    ).toMatchObject({
+      label: "Checking",
+      disabled: true,
+      visible: true,
+    });
+    expect(
+      mcpDefaultCapabilityInstallActionState(
+        {
+          ...capability,
+          status: "failed",
+          nextAction: "install-default-capability",
+          installedWorkloadStatus: "exited",
+        },
+        { runtimeReady: true },
+      ),
+    ).toMatchObject({
+      label: "Repair Scrapling",
+      disabled: false,
+      visible: true,
+    });
+    expect(
+      mcpDefaultCapabilityInstallActionState(
+        {
+          ...capability,
+          status: "not_configured",
+          nextAction: "install-default-capability",
+          installedWorkloadStatus: "starting",
+        },
+        { runtimeReady: true },
+      ),
+    ).toMatchObject({
+      label: "Retry Scrapling",
+      disabled: false,
       visible: true,
     });
     expect(mcpDefaultCapabilityInstallActionState({ ...capability, status: "installed", nextAction: "none" })).toMatchObject({
@@ -1619,15 +1269,35 @@ describe("plugin UI model", () => {
     };
 
     expect(mcpDefaultCapabilityRuntimeHandoffCandidate(status)).toBe(capability);
-    expect(mcpDefaultCapabilityRuntimeHandoffCandidate({ ...status, status: "missing", defaultCapabilities: [capability] })).toBeUndefined();
-    expect(mcpDefaultCapabilityRuntimeHandoffCandidate({
-      ...status,
-      defaultCapabilities: [{ ...capability, status: "installed", nextAction: "none" }],
-    })).toBeUndefined();
-    expect(mcpDefaultCapabilityRuntimeHandoffCandidate({
-      ...status,
-      defaultCapabilities: [{ ...capability, status: "needs_review", nextAction: "review-descriptor" }],
-    })).toBeUndefined();
+    expect(
+      mcpDefaultCapabilityRuntimeHandoffCandidate({ ...status, status: "missing", defaultCapabilities: [capability] }),
+    ).toBeUndefined();
+    expect(
+      mcpDefaultCapabilityRuntimeHandoffCandidate({
+        ...status,
+        defaultCapabilities: [{ ...capability, status: "installed", nextAction: "none" }],
+      }),
+    ).toBeUndefined();
+    expect(
+      mcpDefaultCapabilityRuntimeHandoffCandidate({
+        ...status,
+        defaultCapabilities: [{ ...capability, status: "needs_review", nextAction: "review-descriptor" }],
+      }),
+    ).toBeUndefined();
+    expect(
+      mcpDefaultCapabilityRuntimeHandoffCandidate({
+        ...status,
+        defaultCapabilities: [
+          {
+            ...capability,
+            status: "warming_up",
+            nextAction: "none",
+            installedWorkloadStatus: "starting",
+            retryAfter: "2026-05-23T20:11:30.000Z",
+          },
+        ],
+      }),
+    ).toBeUndefined();
   });
 
   it("opens the MCP startup panel for runtime prompts or ready default capability handoff", () => {
@@ -1669,26 +1339,50 @@ describe("plugin UI model", () => {
     };
 
     expect(mcpContainerRuntimeShouldOpenStartupPanel(baseStatus)).toBe(true);
-    expect(mcpContainerRuntimeShouldOpenStartupPanel({
-      ...baseStatus,
-      setup: { ...baseStatus.setup, shouldPrompt: false, promptSuppressed: true, reason: "user-deferred" },
-    })).toBe(false);
-    expect(mcpContainerRuntimeShouldOpenStartupPanel({
-      ...baseStatus,
-      status: "ready",
-      message: "Runtime ready.",
-      nextAction: "none",
-      setup: { ...baseStatus.setup, shouldPrompt: false, reason: "runtime-ready" },
-      defaultCapabilities: [handoffCapability],
-    })).toBe(true);
-    expect(mcpContainerRuntimeShouldOpenStartupPanel({
-      ...baseStatus,
-      status: "ready",
-      message: "Runtime ready.",
-      nextAction: "none",
-      setup: { ...baseStatus.setup, shouldPrompt: false, reason: "runtime-ready" },
-      defaultCapabilities: [{ ...handoffCapability, status: "installed", nextAction: "none" }],
-    })).toBe(false);
+    expect(
+      mcpContainerRuntimeShouldOpenStartupPanel({
+        ...baseStatus,
+        setup: { ...baseStatus.setup, shouldPrompt: false, promptSuppressed: true, reason: "user-deferred" },
+      }),
+    ).toBe(false);
+    expect(
+      mcpContainerRuntimeShouldOpenStartupPanel({
+        ...baseStatus,
+        status: "ready",
+        message: "Runtime ready.",
+        nextAction: "none",
+        setup: { ...baseStatus.setup, shouldPrompt: false, reason: "runtime-ready" },
+        defaultCapabilities: [handoffCapability],
+      }),
+    ).toBe(true);
+    expect(
+      mcpContainerRuntimeShouldOpenStartupPanel({
+        ...baseStatus,
+        status: "ready",
+        message: "Runtime ready.",
+        nextAction: "none",
+        setup: { ...baseStatus.setup, shouldPrompt: false, reason: "runtime-ready" },
+        defaultCapabilities: [{ ...handoffCapability, status: "installed", nextAction: "none" }],
+      }),
+    ).toBe(false);
+    expect(
+      mcpContainerRuntimeShouldOpenStartupPanel({
+        ...baseStatus,
+        status: "ready",
+        message: "Runtime ready.",
+        nextAction: "none",
+        setup: { ...baseStatus.setup, shouldPrompt: false, reason: "runtime-ready" },
+        defaultCapabilities: [
+          {
+            ...handoffCapability,
+            status: "warming_up",
+            nextAction: "none",
+            installedWorkloadStatus: "starting",
+            retryAfter: "2026-05-23T20:11:30.000Z",
+          },
+        ],
+      }),
+    ).toBe(false);
   });
 
   it("models MCP runtime diagnostic export action state", () => {
@@ -1977,7 +1671,13 @@ describe("plugin UI model", () => {
     const actions = mcpContainerRuntimeLifecycleActionViews(wedgedStatus);
     expect(actions).toEqual([
       expect.objectContaining({ action: "restart", label: "Preview restart", primary: true, danger: false, disabled: false }),
-      expect.objectContaining({ action: "force-quit-and-restart", label: "Preview force quit", primary: false, danger: true, disabled: false }),
+      expect.objectContaining({
+        action: "force-quit-and-restart",
+        label: "Preview force quit",
+        primary: false,
+        danger: true,
+        disabled: false,
+      }),
       expect.objectContaining({ action: "open-recovery", label: "Preview recovery", primary: false, danger: false, disabled: false }),
     ]);
     expect(actions[1]?.title).toContain("including non-Ambient containers");
@@ -1986,12 +1686,14 @@ describe("plugin UI model", () => {
       expect.objectContaining({ action: "force-quit-and-restart", disabled: true }),
       expect.objectContaining({ action: "open-recovery", disabled: true }),
     ]);
-    expect(mcpContainerRuntimeLifecycleActionViews({
-      ...wedgedStatus,
-      status: "blocked-by-permissions",
-      reason: "permission-denied",
-      nextAction: "repair-permissions",
-    }).map((action) => action.action)).toEqual(["open-recovery"]);
+    expect(
+      mcpContainerRuntimeLifecycleActionViews({
+        ...wedgedStatus,
+        status: "blocked-by-permissions",
+        reason: "permission-denied",
+        nextAction: "repair-permissions",
+      }).map((action) => action.action),
+    ).toEqual(["open-recovery"]);
   });
 
   it("models MCP runtime lifecycle preview, confirmation, progress, and result status", () => {
@@ -2020,7 +1722,7 @@ describe("plugin UI model", () => {
       commands: [
         {
           exe: "osascript",
-          args: ["-e", "tell application \"Docker\" to quit"],
+          args: ["-e", 'tell application "Docker" to quit'],
           rationale: "Ask Docker Desktop to quit.",
           destructive: true,
         },
@@ -2050,18 +1752,20 @@ describe("plugin UI model", () => {
       durationMs: 1200,
     };
 
-    expect(mcpContainerRuntimeLifecyclePreviewRows(preview)).toEqual(expect.arrayContaining([
-      "Action: Force Quit And Restart",
-      "Runtime: Docker",
-      "Interruption: Restarting Docker can interrupt all containers using that runtime, including non-Ambient containers.",
-      "Targets: 1",
-      "Commands: 1",
-    ]));
+    expect(mcpContainerRuntimeLifecyclePreviewRows(preview)).toEqual(
+      expect.arrayContaining([
+        "Action: Force Quit And Restart",
+        "Runtime: Docker",
+        "Interruption: Restarting Docker can interrupt all containers using that runtime, including non-Ambient containers.",
+        "Targets: 1",
+        "Commands: 1",
+      ]),
+    );
     expect(mcpContainerRuntimeLifecycleWarnings(preview)).toEqual([
       mcpContainerRuntimeLifecycleForceWarningText,
       "Force quit may terminate Docker Desktop before it can stop containers cleanly.",
     ]);
-    expect(mcpContainerRuntimeLifecycleCommandPreview(preview.commands[0]!)).toBe("osascript -e tell application \"Docker\" to quit");
+    expect(mcpContainerRuntimeLifecycleCommandPreview(preview.commands[0]!)).toBe('osascript -e tell application "Docker" to quit');
     expect(mcpContainerRuntimeLifecycleRunActionState(preview)).toMatchObject({
       label: "Confirm force quit and restart",
       disabled: false,
@@ -2074,7 +1778,10 @@ describe("plugin UI model", () => {
     expect(mcpContainerRuntimeLifecycleStatusView({ preview })).toEqual({ kind: "info", message: preview.summary });
     expect(mcpContainerRuntimeLifecycleStatusView({ progress })).toEqual({ kind: "info", message: progress.message });
     expect(mcpContainerRuntimeLifecycleStatusView({ result })).toEqual({ kind: "success", message: result.message });
-    expect(mcpContainerRuntimeLifecycleStatusView({ error: "Lifecycle IPC failed" })).toEqual({ kind: "error", message: "Lifecycle IPC failed" });
+    expect(mcpContainerRuntimeLifecycleStatusView({ error: "Lifecycle IPC failed" })).toEqual({
+      kind: "error",
+      message: "Lifecycle IPC failed",
+    });
   });
 
   it("models preserved generated capability history actions and prompts", () => {
@@ -2460,7 +2167,9 @@ describe("plugin UI model", () => {
     expect(googleWorkspaceActionState({ ...integration, setup: { status: "running" } }, "validate")).toMatchObject({
       disabled: true,
     });
-    expect(googleWorkspaceValidationFeedbackForAccount({ accountId: "travis@example.test", status: "validated" }, "travis@example.test")).toMatchObject({
+    expect(
+      googleWorkspaceValidationFeedbackForAccount({ accountId: "travis@example.test", status: "validated" }, "travis@example.test"),
+    ).toMatchObject({
       status: "validated",
     });
     expect(googleWorkspaceValidationFeedbackForAccount({ accountId: "travis@example.test", status: "validated" }, "other")).toBeUndefined();

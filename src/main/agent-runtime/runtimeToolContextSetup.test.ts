@@ -80,6 +80,7 @@ function createInput(
     isRunStoreActive: vi.fn(() => true),
     retrySourceUserMessageId: vi.fn(() => "user-1"),
     listMessages: vi.fn(() => [chatMessage()]),
+    getMessage: vi.fn((messageId) => chatMessage({ id: messageId })),
     addToolMessage: vi.fn((messageInput) => chatMessage({
       threadId: messageInput.threadId,
       content: messageInput.content,
@@ -109,6 +110,7 @@ describe("createRuntimeToolContextSetup", () => {
         permissionMode: "workspace",
         startedToolCallIds: setup.startedToolCallIds,
         listMessages: input.listMessages,
+        getMessage: input.getMessage,
         addToolMessage: input.addToolMessage,
         replaceMessage: input.replaceMessage,
         emitRunEvent: input.emitRunEvent,

@@ -240,6 +240,12 @@ export const PROJECT_STORE_SCHEMA_BOOTSTRAP_SQL = `
         FOREIGN KEY(thread_id) REFERENCES threads(id) ON DELETE CASCADE,
         FOREIGN KEY(assistant_message_id) REFERENCES messages(id) ON DELETE CASCADE
       );
+      CREATE TABLE IF NOT EXISTS run_diagnostic_payloads (
+        run_id TEXT PRIMARY KEY,
+        diagnostics_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE
+      );
       CREATE TABLE IF NOT EXISTS context_usage_snapshots (
         id TEXT PRIMARY KEY,
         thread_id TEXT NOT NULL,

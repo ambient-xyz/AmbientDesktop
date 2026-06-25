@@ -64,6 +64,7 @@ export interface AgentRuntimeSendRunStateInput<Session extends AgentRuntimeSendE
   appendToMessage: AgentRuntimeSendPromptStateInput<Session>["appendToMessage"];
   replaceMessage: AgentRuntimeSendPromptStateInput<Session>["replaceMessage"];
   listMessages: AgentRuntimeSendExecutionStateInput<Session>["listMessages"];
+  getMessage: AgentRuntimeSendExecutionStateInput<Session>["getMessage"];
   updateRunStatus: AgentRuntimeSendPromptStateInput<Session>["updateRunStatus"];
   updateRunDiagnostics: (runId: string, diagnostics: RunDiagnostics) => void;
   finishRun: (runId: string, status: RuntimeFinishableRunStatus, errorMessage?: string) => void;
@@ -129,6 +130,7 @@ export interface AgentRuntimeSendRunStateRuntimeAdapterInput<Session extends Age
     | "finishRun"
     | "getThread"
     | "getThreadGoal"
+    | "getMessage"
     | "getWorkspace"
     | "listCallableWorkflowTasksForParentRun"
     | "listMessages"
@@ -198,6 +200,7 @@ export function createAgentRuntimeSendRunState<Session extends AgentRuntimeSendE
     markRunActivity: input.runEventScope.markRunActivity,
     updateRunStatus: input.updateRunStatus,
     listMessages: input.listMessages,
+    getMessage: input.getMessage,
     addAssistantMessage: input.addAssistantMessage,
     appendToMessage: input.appendToMessage,
     replaceMessage: input.replaceMessage,
@@ -229,6 +232,7 @@ export function createAgentRuntimeSendRunState<Session extends AgentRuntimeSendE
     isRunStoreActive: input.runEventScope.isRunStoreActive,
     markRunActivity: input.runEventScope.markRunActivity,
     listMessages: input.listMessages,
+    getMessage: input.getMessage,
     addToolMessage: input.addToolMessage,
     replaceMessage: input.replaceMessage,
     updateRunDiagnostics: (diagnostics) => input.updateRunDiagnostics(run.id, diagnostics),
@@ -313,6 +317,13 @@ export function createAgentRuntimeSendRunStateForRuntime<Session extends AgentRu
     appendToMessage: (messageId, delta) => input.store.appendToMessage(messageId, delta),
     replaceMessage: (messageId, content, metadata) => input.store.replaceMessage(messageId, content, metadata),
     listMessages: () => input.store.listMessages(threadId),
+    getMessage: (messageId) => {
+      try {
+        return input.store.getMessage(messageId);
+      } catch {
+        return undefined;
+      }
+    },
     updateRunStatus: (runId, status) => {
       input.store.updateRunStatus(runId, status);
     },

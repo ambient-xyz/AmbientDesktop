@@ -3,6 +3,7 @@ import type { DesktopState } from "../../shared/desktopTypes";
 import type { RunStatus } from "../../shared/threadTypes";
 import {
   createDesktopStateSnapshotService,
+  DESKTOP_STATE_MESSAGE_WINDOW_LIMIT,
   type DesktopStateSnapshotStore,
 } from "./desktopStateSnapshotService";
 
@@ -93,6 +94,9 @@ function createHarness(options: {
   const subagentRunsByParentThread = options.subagentRunsByParentThread ?? {};
   const subagentRunById = options.subagentRunById ?? {};
   const messagesByThread = options.messagesByThread ?? {};
+  const listMessages = vi.fn((threadId: string) => messagesByThread[threadId] ?? []);
+  const listRecentMessages = vi.fn((threadId: string, limit: number) => (messagesByThread[threadId] ?? []).slice(-limit));
+  const countMessages = vi.fn((threadId: string) => (messagesByThread[threadId] ?? []).length);
   const store: DesktopStateSnapshotStore = {
     listThreads: () => threads,
     listAutomationThreadChatIds: () => options.automationThreadChatIds ?? [],
@@ -119,7 +123,9 @@ function createHarness(options: {
     getSubagentRepairDiagnostics: () => ({}) as DesktopState["subagentRepairDiagnostics"],
     getFeatureFlagSettings: () => ({}) as DesktopState["settings"]["featureFlags"],
     listAutomationFolders: () => [],
-    listMessages: (threadId) => messagesByThread[threadId] ?? [],
+    listMessages,
+    listRecentMessages,
+    countMessages,
     listMessageVoiceStates: () => [],
     listPlannerPlanArtifacts: () => [],
     getMemorySettings: () => ({}) as DesktopState["settings"]["memory"],
@@ -185,6 +191,9 @@ function createHarness(options: {
   });
   return {
     activeProjectSummary,
+    countMessages,
+    listMessages,
+    listRecentMessages,
     markThreadRead,
     service,
     setActiveThreadId,
@@ -256,6 +265,73 @@ describe("desktopStateSnapshotService", () => {
 
     expect(state.subagentRuns).toEqual([run]);
     expect(state.childMessagesByThreadId).toEqual({ child: childMessages });
+  });
+
+  it("uses a bounded recent message window for DesktopState payloads", () => {
+    const messages = Array.from({ length: DESKTOP_STATE_MESSAGE_WINDOW_LIMIT + 10 }, (_, index) => ({
+      id: `message-${index}`,
+      threadId: "thread-1",
+      role: "user",
+      content: `Message ${index}`,
+      createdAt: `2026-06-19T00:${String(index).padStart(2, "0")}:00.000Z`,
+    })) as DesktopState["messages"];
+    const { countMessages, listMessages, listRecentMessages, service } = createHarness({
+      messagesByThread: { "thread-1": messages },
+    });
+
+    const state = service.readState("thread-1");
+
+    expect(listMessages).not.toHaveBeenCalled();
+    expect(listRecentMessages).toHaveBeenCalledWith("thread-1", DESKTOP_STATE_MESSAGE_WINDOW_LIMIT);
+    expect(countMessages).toHaveBeenCalledWith("thread-1");
+    expect(state.messages).toEqual(messages.slice(-DESKTOP_STATE_MESSAGE_WINDOW_LIMIT));
+    expect(state.messageWindow).toEqual({
+      threadId: "thread-1",
+      order: "latest",
+      limit: DESKTOP_STATE_MESSAGE_WINDOW_LIMIT,
+      loadedCount: DESKTOP_STATE_MESSAGE_WINDOW_LIMIT,
+      hasMoreBefore: true,
+    });
+  });
+
+  it("keeps DesktopState payloads bounded for 10k message threads", () => {
+    const messages = Array.from({ length: 10_000 }, (_, index) => ({
+      id: `message-${index}`,
+      threadId: "thread-1",
+      role: "user",
+      content: `Large thread message ${index}`,
+      createdAt: new Date(Date.UTC(2026, 5, 19, 0, 0, index)).toISOString(),
+    })) as DesktopState["messages"];
+    const { countMessages, listMessages, listRecentMessages, service } = createHarness({
+      messagesByThread: { "thread-1": messages },
+    });
+
+    const state = service.readState("thread-1");
+
+    expect(listMessages).not.toHaveBeenCalled();
+    expect(listRecentMessages).toHaveBeenCalledTimes(1);
+    expect(countMessages).toHaveBeenCalledTimes(1);
+    expect(state.messages).toHaveLength(DESKTOP_STATE_MESSAGE_WINDOW_LIMIT);
+    expect(state.messages[0]?.id).toBe(`message-${10_000 - DESKTOP_STATE_MESSAGE_WINDOW_LIMIT}`);
+    expect(state.messageWindow?.hasMoreBefore).toBe(true);
+  });
+
+  it("does not report earlier history for an exactly full bounded message window", () => {
+    const messages = Array.from({ length: DESKTOP_STATE_MESSAGE_WINDOW_LIMIT }, (_, index) => ({
+      id: `message-${index}`,
+      threadId: "thread-1",
+      role: "user",
+      content: `Message ${index}`,
+      createdAt: `2026-06-19T00:${String(index).padStart(2, "0")}:00.000Z`,
+    })) as DesktopState["messages"];
+    const { service } = createHarness({
+      messagesByThread: { "thread-1": messages },
+    });
+
+    const state = service.readState("thread-1");
+
+    expect(state.messages).toHaveLength(DESKTOP_STATE_MESSAGE_WINDOW_LIMIT);
+    expect(state.messageWindow?.hasMoreBefore).toBe(false);
   });
 
   it("reports only user-visible active run statuses and increments state revisions per read", () => {

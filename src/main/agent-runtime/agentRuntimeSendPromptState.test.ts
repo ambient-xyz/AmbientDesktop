@@ -68,6 +68,7 @@ function baseStateInput(overrides: Partial<AgentRuntimeSendPromptStateInput<Runt
     markRunActivity: () => true,
     updateRunStatus: vi.fn(),
     listMessages: () => messages,
+    getMessage: (messageId) => messages.find((message) => message.id === messageId),
     addAssistantMessage: (messageInput) => {
       const message = assistantMessage({
         id: `assistant-${messages.length + 1}`,

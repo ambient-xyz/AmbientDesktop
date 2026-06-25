@@ -598,6 +598,13 @@ export interface DesktopState {
   activeThreadId: string;
   threadRunStatuses?: Record<string, RunStatus>;
   messages: ChatMessage[];
+  messageWindow?: {
+    threadId: string;
+    order: "latest";
+    limit: number;
+    loadedCount: number;
+    hasMoreBefore: boolean;
+  };
   childMessagesByThreadId?: Record<string, ChatMessage[]>;
   messageVoiceStates: Record<string, MessageVoiceState>;
   voiceSettingsAudit: VoiceSettingsAuditEntry[];
@@ -747,6 +754,31 @@ export interface UpdateThreadSettingsInput {
   model?: string;
   thinkingLevel?: ThinkingLevel;
   memoryEnabled?: boolean;
+}
+
+export interface ThreadMessagePageInput {
+  threadId: string;
+  beforeMessageId?: string;
+  limit?: number;
+}
+
+export interface ThreadMessagePage {
+  threadId: string;
+  beforeMessageId?: string;
+  order: "ascending";
+  limit: number;
+  messages: ChatMessage[];
+  hasMoreBefore: boolean;
+}
+
+export interface ThreadMessageDetailInput {
+  threadId: string;
+  messageId: string;
+}
+
+export interface ThreadMessageDetail {
+  threadId: string;
+  message: ChatMessage;
 }
 
 export interface RequestThreadPermissionModeChangeInput {
@@ -1097,6 +1129,8 @@ export interface AmbientDesktopApi {
   revealThread(input: ThreadActionInput): Promise<void>;
   forkThread(input: ForkThreadInput): Promise<DesktopState>;
   openThreadMiniWindow(input: ThreadActionInput): Promise<void>;
+  listThreadMessagesBefore(input: ThreadMessagePageInput): Promise<ThreadMessagePage>;
+  getThreadMessageDetail(input: ThreadMessageDetailInput): Promise<ThreadMessageDetail>;
   updateThreadSettings(input: UpdateThreadSettingsInput): Promise<ThreadSummary>;
   requestThreadPermissionModeChange(input: RequestThreadPermissionModeChangeInput): Promise<ThreadSummary>;
   updatePlannerPlanArtifact(input: UpdatePlannerPlanArtifactInput): Promise<PlannerPlanArtifact>;

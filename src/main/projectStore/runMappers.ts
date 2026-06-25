@@ -14,6 +14,7 @@ export interface RunRow {
   completed_at: string | null;
   error_message: string | null;
   diagnostics_json: string | null;
+  diagnostics_detail_json?: string | null;
 }
 
 export interface RunRecord {
@@ -38,7 +39,11 @@ export function mapRunRow(row: RunRow): RunRecord {
     updatedAt: row.updated_at,
     completedAt: row.completed_at ?? undefined,
     errorMessage: row.error_message ?? undefined,
-    diagnostics: row.diagnostics_json ? parseJsonObject<RunDiagnostics | undefined>(row.diagnostics_json, undefined) : undefined,
+    diagnostics: row.diagnostics_detail_json
+      ? parseJsonObject<RunDiagnostics | undefined>(row.diagnostics_detail_json, undefined)
+      : row.diagnostics_json
+        ? parseJsonObject<RunDiagnostics | undefined>(row.diagnostics_json, undefined)
+        : undefined,
   };
 }
 

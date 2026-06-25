@@ -248,6 +248,17 @@ export async function waitForState(cdp, read, label, timeoutMs) {
   throw new Error(`Timed out waiting for ${label}.`);
 }
 
+export async function waitFor(cdp, predicate, label, timeoutMs = 10_000) {
+  const expression = `(${predicate.toString()})()`;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await evaluate(cdp, expression)) return;
+    await delay(250);
+  }
+  const bodyTail = await evaluate(cdp, "document.body.innerText.slice(-2000)").catch(() => "");
+  throw new Error(`Timed out waiting for ${label}.\n\nBody tail:\n${bodyTail}`);
+}
+
 export async function evaluate(cdp, expression) {
   const result = await cdp.send("Runtime.evaluate", {
     expression,

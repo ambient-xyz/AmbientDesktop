@@ -50,6 +50,7 @@ export interface AgentRuntimeSendExecutionStateInput<Session extends AgentRuntim
   isRunStoreActive: () => boolean;
   markRunActivity: () => boolean;
   listMessages: () => readonly ChatMessage[];
+  getMessage: (messageId: string) => ChatMessage | undefined;
   addToolMessage: (messageInput: { threadId: string; content: string; metadata: Record<string, unknown> }) => ChatMessage;
   replaceMessage: (messageId: string, content: string, metadata?: Record<string, unknown>) => ChatMessage;
   updateRunDiagnostics: (diagnostics: RunDiagnostics) => void;
@@ -120,6 +121,7 @@ export function createAgentRuntimeSendExecutionState<Session extends AgentRuntim
     isRunStoreActive: input.isRunStoreActive,
     retrySourceUserMessageId: () => input.retrySourceUserMessageId,
     listMessages: input.listMessages,
+    getMessage: input.getMessage,
     addToolMessage: input.addToolMessage,
     replaceMessage: input.replaceMessage,
     updateRunDiagnostics: input.updateRunDiagnostics,

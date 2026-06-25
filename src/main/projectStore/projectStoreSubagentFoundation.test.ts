@@ -5,23 +5,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createAmbientModelRuntimeSnapshot } from "../../shared/ambientModels";
 import { AMBIENT_SUBAGENTS_FEATURE_FLAG, resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import { SUBAGENT_LIVE_EVIDENCE_LABELS } from "../../shared/subagentLiveEvidenceLanes";
-import { effectiveSubagentRoleSnapshot } from "../../shared/subagentPatternGraph";
-import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
-import {
-  SYMPHONY_CHILD_LAUNCH_CONTRACT_BUNDLE_SCHEMA_VERSION,
-  SYMPHONY_CHILD_LAUNCH_POLICY_SCHEMA_VERSION,
-  SYMPHONY_MODE_POLICY_SNAPSHOT_SCHEMA_VERSION,
-  SYMPHONY_MUTATION_WORKSPACE_LEASE_SCHEMA_VERSION,
-  SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
-  type MutationWorkspaceLease,
-  type SymphonyChildLaunchContractBundle,
-} from "../../shared/symphonyFineGrainedContracts";
 import { ProjectStore } from "./projectStore";
-import {
-  createSubagentBatchJobPlan,
-  createSubagentBatchResultReport,
-  type SubagentBatchJobPlan,
-} from "./projectStoreSubagentsFacade";
+import { createSubagentBatchJobPlan, createSubagentBatchResultReport, type SubagentBatchJobPlan } from "./projectStoreSubagentsFacade";
 import {
   cancelPendingParentToChildMailboxEvents,
   consumeDeliveredParentToChildMailboxEvents,
@@ -81,93 +66,6 @@ function upsertBatchJobPlan(store: ProjectStore, plan: SubagentBatchJobPlan) {
   return store.upsertSubagentBatchJobPlan(plan, {
     featureFlagSnapshot: enabledSubagentFeatureFlags(plan.createdAt),
   });
-}
-
-function symphonyLaunchBundle(input: {
-  featureFlagSnapshot: ReturnType<typeof enabledSubagentFeatureFlags>;
-  parentThreadId: string;
-  parentRunId: string;
-  role: string;
-}): SymphonyChildLaunchContractBundle {
-  return {
-    schemaVersion: SYMPHONY_CHILD_LAUNCH_CONTRACT_BUNDLE_SCHEMA_VERSION,
-    patternSelection: {
-      schemaVersion: SYMPHONY_PATTERN_SELECTION_SCHEMA_VERSION,
-      selectionId: "selection-1",
-      parentRunId: input.parentRunId,
-      pattern: "map_reduce",
-      confidence: "high",
-      childRolePlan: [
-        { role: input.role, count: 1, purpose: "Map the assigned evidence slice." },
-      ],
-      requiredArtifacts: ["mapped-evidence"],
-      reducerContract: "Reduce only from mapped child evidence.",
-      failurePolicy: "require_all",
-      tokenAndTimeBudget: { maxChildren: 1, maxMinutes: 10 },
-    },
-    modePolicySnapshot: {
-      schemaVersion: SYMPHONY_MODE_POLICY_SNAPSHOT_SCHEMA_VERSION,
-      snapshotId: "mode-policy-1",
-      parentThreadId: input.parentThreadId,
-      parentRunId: input.parentRunId,
-      enabled: true,
-      parentAllowedActions: [
-        "detect_pattern",
-        "plan",
-        "spawn_child",
-        "inspect_run_graph",
-        "inspect_child_evidence",
-        "request_decision",
-        "retry_child",
-        "synthesize",
-      ],
-      observationPolicy: "full_runtime_observability",
-      directExecutionPolicy: "deny_substantive_tools",
-      featureFlagSnapshot: input.featureFlagSnapshot,
-    },
-    childLaunchPolicySnapshot: {
-      schemaVersion: SYMPHONY_CHILD_LAUNCH_POLICY_SCHEMA_VERSION,
-      policyId: "child-policy-1",
-      childRunId: "planned-child-run",
-      role: input.role,
-      pattern: "map_reduce",
-      inheritedAuthorityRoots: ["/workspace"],
-      writableRoots: [],
-      allowedToolIds: ["workspace.read", "artifact.read"],
-      deniedToolIds: ["workspace.write", "browser.interactive"],
-      webProviderOrder: {
-        search: ["brave-search"],
-        staticFetchExtract: ["scrapling-static"],
-        dynamicHeadlessBrowser: ["scrapling-dynamic"],
-        interactiveBrowser: {
-          providers: ["ambient-browser"],
-          fallback: "approval_required",
-        },
-      },
-      mutation: "none",
-    },
-  };
-}
-
-function symphonyMutationWorkspaceLease(input: {
-  parentThreadId: string;
-}): MutationWorkspaceLease {
-  return {
-    schemaVersion: SYMPHONY_MUTATION_WORKSPACE_LEASE_SCHEMA_VERSION,
-    leaseId: "mutation-lease-1",
-    parentThreadId: input.parentThreadId,
-    childThreadId: "planned-child-thread",
-    childRunId: "planned-child-run",
-    kind: "scratch_overlay",
-    rootPath: "/tmp/symphony/lease-1",
-    sourceRoots: ["/workspace"],
-    readOnlyBaseRoots: ["/workspace"],
-    declaredWritableRoots: ["/workspace/out"],
-    writableRoots: ["/tmp/symphony/lease-1/out"],
-    status: "active",
-    acquiredAt: "2026-06-16T00:00:00.000Z",
-    lastHeartbeatAt: "2026-06-16T00:00:01.000Z",
-  };
 }
 
 function batchArtifact(runId: string, status: SubagentResultArtifact["status"], childThreadId = `${runId}-thread`): SubagentResultArtifact {
@@ -248,13 +146,7 @@ describe("ProjectStore sub-agent foundation settings", () => {
         schemaVersion: "ambient-subagent-maturity-v1",
         status: "blocked",
         defaultCanBeEnabled: false,
-        blockedGateIds: expect.arrayContaining([
-          "live_dogfood_count",
-          "live_smoke",
-          "failure_rate",
-          "restart_recovery",
-          "security_review",
-        ]),
+        blockedGateIds: expect.arrayContaining(["live_dogfood_count", "live_smoke", "failure_rate", "restart_recovery", "security_review"]),
         gates: expect.arrayContaining([
           expect.objectContaining({
             id: "feature_flag_guarded",
@@ -329,504 +221,29 @@ describe("ProjectStore sub-agent foundation settings", () => {
         }),
       ]);
       expect(serializedSettings).not.toContain("sk-test-secret");
-      expect(catalog.providers).toContainEqual(expect.objectContaining({
-        id: "customer-router",
-        label: "Customer Router",
-      }));
-      expect(catalog.profiles).toContainEqual(expect.objectContaining({
-        profileId: "customer-router:CUSTOM/Router Model v2",
-        modelId: "CUSTOM/Router Model v2",
-        selectableAsMain: true,
-        selectableAsSubagent: true,
-      }));
-      expect(catalog.selectableMainModelOptions.map((option) => option.id)).toEqual(expect.arrayContaining([
-        "zai-org/GLM-5.2-FP8",
-        "CUSTOM/Router Model v2",
-      ]));
-      expect(catalog.selectableSubagentProfiles.map((profile) => profile.modelId)).toEqual(expect.arrayContaining([
-        "zai-org/GLM-5.2-FP8",
-        "CUSTOM/Router Model v2",
-      ]));
+      expect(catalog.providers).toContainEqual(
+        expect.objectContaining({
+          id: "customer-router",
+          label: "Customer Router",
+        }),
+      );
+      expect(catalog.profiles).toContainEqual(
+        expect.objectContaining({
+          profileId: "customer-router:CUSTOM/Router Model v2",
+          modelId: "CUSTOM/Router Model v2",
+          selectableAsMain: true,
+          selectableAsSubagent: true,
+        }),
+      );
+      expect(catalog.selectableMainModelOptions.map((option) => option.id)).toEqual(
+        expect.arrayContaining(["zai-org/GLM-5.2-FP8", "CUSTOM/Router Model v2"]),
+      );
+      expect(catalog.selectableSubagentProfiles.map((profile) => profile.modelId)).toEqual(
+        expect.arrayContaining(["zai-org/GLM-5.2-FP8", "CUSTOM/Router Model v2"]),
+      );
     } finally {
       store.close();
       reopened.close();
-    }
-  });
-
-  it("creates a child thread and run metadata only when ambient.subagents is enabled", async () => {
-    const workspacePath = await tempWorkspace();
-    const store = new ProjectStore();
-    const disabledFlags = resolveAmbientFeatureFlags({ generatedAt: "2026-06-05T00:00:00.000Z" });
-    const enabledFlags = resolveAmbientFeatureFlags({
-      startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
-      generatedAt: "2026-06-05T00:00:00.000Z",
-    });
-
-    try {
-      store.openWorkspace(workspacePath);
-      const parent = store.createThread("Parent");
-
-      expect(() => store.createSubagentRun({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        title: "Explorer child",
-        roleId: "explorer",
-        canonicalTaskPath: "root/0:explorer",
-        featureFlagSnapshot: disabledFlags,
-        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
-      })).toThrow(/disabled/);
-      expect(() => store.createSubagentRun({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        title: "Mismatched role child",
-        roleId: "explorer",
-        roleProfileSnapshot: getDefaultSubagentRoleProfile("reviewer"),
-        canonicalTaskPath: "root/bad:explorer",
-        featureFlagSnapshot: enabledFlags,
-        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
-      })).toThrow(/does not match requested role/);
-      const threadIdsBeforeBadEffectiveRole = store.listThreads().map((thread) => thread.id);
-      expect(() => store.createSubagentRun({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        title: "Mismatched effective role child",
-        roleId: "explorer",
-        effectiveRoleSnapshot: effectiveSubagentRoleSnapshot({
-          baseRole: "reviewer",
-          patternRole: "verifier",
-          overlayLabels: ["acceptance checks"],
-        }),
-        canonicalTaskPath: "root/bad-effective-role:explorer",
-        featureFlagSnapshot: enabledFlags,
-        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
-      })).toThrow(/effective role snapshot does not match requested role/);
-      expect(store.listThreads().map((thread) => thread.id)).toEqual(threadIdsBeforeBadEffectiveRole);
-      const threadIdsBeforeBadLease = store.listThreads().map((thread) => thread.id);
-      expect(() => store.createSubagentRun({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        title: "Bad lease child",
-        roleId: "explorer",
-        canonicalTaskPath: "root/bad-lease:explorer",
-        featureFlagSnapshot: enabledFlags,
-        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
-        capacityLeaseSnapshot: { schemaVersion: "legacy-capacity-lease" } as never,
-      })).toThrow(/capacity lease snapshot must use schema/);
-      expect(store.listThreads().map((thread) => thread.id)).toEqual(threadIdsBeforeBadLease);
-      const effectiveRoleSnapshot = effectiveSubagentRoleSnapshot({
-        baseRole: "explorer",
-        patternRole: "mapper",
-        overlayLabels: ["slice assignment", "extraction schema", "citation requirement"],
-        outputContract: "schema-valid mapped evidence",
-      });
-
-      const run = store.createSubagentRun({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        parentMessageId: "parent-message",
-        title: "Explorer child",
-        roleId: "explorer",
-        effectiveRoleSnapshot,
-        canonicalTaskPath: "root/0:explorer",
-        featureFlagSnapshot: enabledFlags,
-        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
-        symphonyLaunchContracts: symphonyLaunchBundle({
-          featureFlagSnapshot: enabledFlags,
-          parentThreadId: parent.id,
-          parentRunId: "parent-run",
-          role: "explorer",
-        }),
-        symphonyMutationWorkspaceLease: symphonyMutationWorkspaceLease({ parentThreadId: parent.id }),
-        dependencyMode: "required",
-      });
-
-      const child = store.getThread(run.childThreadId);
-      expect(child).toMatchObject({
-        kind: "subagent_child",
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        parentMessageId: "parent-message",
-        subagentRunId: run.id,
-        canonicalTaskPath: "root/0:explorer",
-        collapsedByDefault: true,
-        childStatus: "reserved",
-      });
-      expect(run).toMatchObject({
-        parentThreadId: parent.id,
-        childThreadId: child.id,
-        dependencyMode: "required",
-        status: "reserved",
-        capacityLeaseSnapshot: expect.objectContaining({
-          schemaVersion: "ambient-subagent-capacity-lease-v1",
-          status: "reserved",
-          parentThreadId: parent.id,
-          parentRunId: "parent-run",
-          childRunId: run.id,
-          childThreadId: child.id,
-          canonicalTaskPath: "root/0:explorer",
-          blockingReasons: [],
-        }),
-        roleProfileSnapshot: expect.objectContaining({
-          schemaVersion: "ambient-subagent-role-profile-v1",
-          id: "explorer",
-          guardPolicy: expect.objectContaining({
-            structuredOutputRequired: true,
-          }),
-        }),
-        roleProfileSnapshotSource: "resolved",
-        effectiveRoleSnapshot,
-        symphonyLaunchContracts: expect.objectContaining({
-          patternSelection: expect.objectContaining({
-            pattern: "map_reduce",
-            parentRunId: "parent-run",
-          }),
-          modePolicySnapshot: expect.objectContaining({
-            parentThreadId: parent.id,
-            parentRunId: "parent-run",
-          }),
-          childLaunchPolicySnapshot: expect.objectContaining({
-            childRunId: run.id,
-            role: "explorer",
-            mutation: "none",
-          }),
-        }),
-        symphonyMutationWorkspaceLease: expect.objectContaining({
-          parentThreadId: parent.id,
-          childThreadId: child.id,
-          childRunId: run.id,
-          status: "active",
-        }),
-      });
-      expect(store.getSubagentRun(run.id).effectiveRoleSnapshot).toEqual(effectiveRoleSnapshot);
-      expect(store.getSubagentRun(run.id).symphonyLaunchContracts?.childLaunchPolicySnapshot.childRunId).toBe(run.id);
-      expect(store.getSubagentRun(run.id).symphonyMutationWorkspaceLease?.childThreadId).toBe(child.id);
-      expect(store.listSubagentRunsForParentThread(parent.id).map((item) => item.id)).toEqual([run.id]);
-      expect(store.listSubagentRunEvents(run.id)).toEqual([
-        expect.objectContaining({
-          runId: run.id,
-          sequence: 1,
-          type: "subagent.reserved",
-          preview: expect.objectContaining({
-            effectiveRole: {
-              displayLabel: "Explorer + Mapper",
-              patternRole: "mapper",
-              roleOverlayIds: [
-                "mapper.slice-assignment",
-                "mapper.extraction-schema",
-                "mapper.citation-requirement",
-              ],
-            },
-            capacityLease: expect.objectContaining({
-              status: "reserved",
-              projectedOpenRunCount: 1,
-            }),
-            symphonyLaunch: {
-              pattern: "map_reduce",
-              selectionId: "selection-1",
-              policyId: "child-policy-1",
-            },
-          }),
-        }),
-        expect.objectContaining({
-          runId: run.id,
-          sequence: 2,
-          type: "subagent.lifecycle_started",
-          preview: expect.objectContaining({
-            schemaVersion: "ambient-subagent-lifecycle-hook-v1",
-            hook: "SubagentStart",
-            parentTranscriptPath: `ambient://threads/${parent.id}/transcript`,
-            childTranscriptPath: `ambient://threads/${child.id}/transcript`,
-          }),
-        }),
-      ]);
-      const promptSnapshot = store.recordSubagentPromptSnapshot(run.id, {
-        prompt: "Child prompt text",
-        snapshot: { inheritedRefs: [], strippedRefs: [{ sourceMessageId: "m-tool", reason: "tool_message" }] },
-        createdAt: "2026-06-05T00:00:20.000Z",
-      });
-      expect(promptSnapshot).toMatchObject({
-        runId: run.id,
-        sequence: 1,
-        promptPreview: "Child prompt text",
-        snapshot: { inheritedRefs: [], strippedRefs: [{ sourceMessageId: "m-tool", reason: "tool_message" }] },
-      });
-      expect(promptSnapshot.promptSha256).toHaveLength(64);
-      const toolScopeSnapshot = store.recordSubagentToolScopeSnapshot(run.id, {
-        scope: {
-          schemaVersion: "ambient-subagent-tool-scope-v1",
-          loadedCategories: ["workspace.read"],
-          piVisibleCategories: ["workspace.read"],
-          deniedCategories: [{ id: "subagent.spawn", reason: "Nested fanout disabled." }],
-          loadedTools: [{
-            source: "built_in",
-            id: "workspace.read",
-            categoryId: "workspace.read",
-            piVisible: true,
-            mutatesState: false,
-            requiresApproval: false,
-          }],
-          piVisibleTools: [{
-            source: "built_in",
-            id: "workspace.read",
-            categoryId: "workspace.read",
-            piVisible: true,
-            mutatesState: false,
-            requiresApproval: false,
-          }],
-          deniedTools: [{
-            source: "fanout",
-            id: "subagent.spawn",
-            categoryId: "subagent.spawn",
-            reason: "Nested fanout disabled.",
-          }],
-          approvalMode: "interactive",
-          worktreeIsolated: false,
-          fanoutAvailable: false,
-        },
-        resolverInputs: { roleId: "explorer", requestedCategories: ["workspace.read", "subagent.spawn"] },
-        createdAt: "2026-06-05T00:00:25.000Z",
-      });
-      expect(toolScopeSnapshot).toMatchObject({
-        runId: run.id,
-        sequence: 1,
-        scope: {
-          loadedCategories: ["workspace.read"],
-          piVisibleCategories: ["workspace.read"],
-          fanoutAvailable: false,
-        },
-        resolverInputs: { roleId: "explorer", requestedCategories: ["workspace.read", "subagent.spawn"] },
-      });
-      const waitBarrier = store.createSubagentWaitBarrier({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        childRunIds: [run.id],
-        dependencyMode: "required_all",
-        failurePolicy: "ask_user",
-        timeoutMs: 30_000,
-        createdAt: "2026-06-05T00:00:27.000Z",
-      });
-      expect(waitBarrier).toMatchObject({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        childRunIds: [run.id],
-        dependencyMode: "required_all",
-        status: "waiting_on_children",
-        failurePolicy: "ask_user",
-        timeoutMs: 30_000,
-      });
-      const resolvedBarrier = store.updateSubagentWaitBarrierStatus(waitBarrier.id, "satisfied", {
-        resolutionArtifact: waitBarrierResolutionArtifact({
-          childRunIds: [run.id],
-          synthesisAllowed: true,
-          transitionKind: "child_terminal",
-          reason: "completed",
-        }),
-        now: "2026-06-05T00:00:28.000Z",
-      });
-      expect(resolvedBarrier).toMatchObject({
-        id: waitBarrier.id,
-        status: "satisfied",
-        resolvedAt: "2026-06-05T00:00:28.000Z",
-        resolutionArtifact: {
-          childRunIds: [run.id],
-          synthesisAllowed: true,
-        },
-      });
-      expect(store.listSubagentWaitBarriersForParentRun("parent-run").map((barrier) => barrier.id)).toEqual([waitBarrier.id]);
-
-      const missingEvidenceBarrier = store.createSubagentWaitBarrier({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        childRunIds: [run.id],
-        dependencyMode: "required_all",
-        failurePolicy: "ask_user",
-      });
-      expect(() => store.updateSubagentWaitBarrierStatus(missingEvidenceBarrier.id, "satisfied", {
-        resolutionArtifact: {
-          schemaVersion: "ambient-subagent-wait-barrier-resolution-v1",
-          childRunIds: [run.id],
-          synthesisAllowed: true,
-        },
-      })).toThrow(/requires durable transitionEvidence/);
-
-      const progressEvidenceBarrier = store.createSubagentWaitBarrier({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        childRunIds: [run.id],
-        dependencyMode: "required_all",
-        failurePolicy: "ask_user",
-      });
-      expect(() => store.updateSubagentWaitBarrierStatus(progressEvidenceBarrier.id, "timed_out", {
-        resolutionArtifact: waitBarrierResolutionArtifact({
-          childRunIds: [run.id],
-          synthesisAllowed: false,
-          transitionKind: "progress_return",
-          transitionSource: "parent_wait_session",
-          reason: "parent_wait_window_elapsed",
-        }),
-      })).toThrow(/cannot use progress_return as terminal evidence/);
-
-      const mismatchedEvidenceBarrier = store.createSubagentWaitBarrier({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        childRunIds: [run.id],
-        dependencyMode: "required_all",
-        failurePolicy: "ask_user",
-      });
-      expect(() => store.updateSubagentWaitBarrierStatus(mismatchedEvidenceBarrier.id, "satisfied", {
-        resolutionArtifact: waitBarrierResolutionArtifact({
-          childRunIds: [run.id],
-          childStatuses: [{ childRunId: run.id, status: "timed_out" }],
-          synthesisAllowed: false,
-          transitionKind: "child_runtime_timeout",
-          transitionSource: "child_runtime",
-          reason: "runtime_idle_timeout",
-        }),
-      })).toThrow(/status satisfied cannot use transition evidence kind child_runtime_timeout/);
-
-      const backgroundRunA = store.createSubagentRun({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        parentMessageId: "parent-message",
-        title: "Summary child A",
-        roleId: "summarizer",
-        canonicalTaskPath: "root/1:summarizer",
-        featureFlagSnapshot: enabledFlags,
-        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
-        dependencyMode: "optional_background",
-      });
-      const backgroundRunB = store.createSubagentRun({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        parentMessageId: "parent-message",
-        title: "Summary child B",
-        roleId: "summarizer",
-        canonicalTaskPath: "root/2:summarizer",
-        featureFlagSnapshot: enabledFlags,
-        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
-        dependencyMode: "optional_background",
-      });
-      const groupedA = store.upsertSubagentGroupedCompletionNotification({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        child: {
-          runId: backgroundRunA.id,
-          childThreadId: backgroundRunA.childThreadId,
-          canonicalTaskPath: backgroundRunA.canonicalTaskPath,
-          roleId: backgroundRunA.roleId,
-          status: "completed",
-          summary: "First background summary",
-        },
-        createdAt: "2026-06-05T00:00:29.000Z",
-      });
-      const groupedB = store.upsertSubagentGroupedCompletionNotification({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        child: {
-          runId: backgroundRunB.id,
-          childThreadId: backgroundRunB.childThreadId,
-          canonicalTaskPath: backgroundRunB.canonicalTaskPath,
-          roleId: backgroundRunB.roleId,
-          status: "failed",
-          summary: "Second background summary",
-        },
-        createdAt: "2026-06-05T00:00:29.500Z",
-      });
-      const groupedReplay = store.upsertSubagentGroupedCompletionNotification({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        child: {
-          runId: backgroundRunA.id,
-          childThreadId: backgroundRunA.childThreadId,
-          canonicalTaskPath: backgroundRunA.canonicalTaskPath,
-          roleId: backgroundRunA.roleId,
-          status: "completed",
-          summary: "First background summary replay",
-        },
-      });
-      expect(groupedA.id).toBe(groupedB.id);
-      expect(groupedReplay.id).toBe(groupedA.id);
-      expect(store.listSubagentParentMailboxEventsForParentRun("parent-run")).toEqual([
-        expect.objectContaining({
-          id: groupedA.id,
-          type: "subagent.grouped_completion",
-          parentMessageId: "parent-message",
-          deliveryState: "queued",
-          payload: expect.objectContaining({
-            parentMessageId: "parent-message",
-            notificationCount: 2,
-            childRuns: [
-              expect.objectContaining({ runId: backgroundRunA.id, summary: "First background summary replay" }),
-              expect.objectContaining({ runId: backgroundRunB.id, summary: "Second background summary" }),
-            ],
-          }),
-        }),
-      ]);
-
-      const running = store.markSubagentRunStatus(run.id, "running", {
-        now: "2026-06-05T00:00:30.000Z",
-      });
-      expect(running.startedAt).toBe("2026-06-05T00:00:30.000Z");
-      expect(store.getThread(child.id).childStatus).toBe("running");
-
-      store.markSubagentRunStatus(run.id, "completed", {
-        resultArtifact: { summary: "Done", childThreadId: child.id },
-        now: "2026-06-05T00:01:00.000Z",
-      });
-      const closed = store.closeSubagentRun(run.id, "2026-06-05T00:02:00.000Z");
-      expect(closed.closedAt).toBe("2026-06-05T00:02:00.000Z");
-      expect(closed.capacityLeaseSnapshot).toMatchObject({
-        status: "released",
-        releasedAt: "2026-06-05T00:02:00.000Z",
-        releaseReason: expect.stringContaining("close_agent"),
-      });
-      expect(closed.symphonyMutationWorkspaceLease).toMatchObject({
-        leaseId: "mutation-lease-1",
-        status: "released",
-        lastHeartbeatAt: "2026-06-05T00:02:00.000Z",
-      });
-      expect(store.getThread(child.id)).toMatchObject({
-        id: child.id,
-        kind: "subagent_child",
-        childStatus: "completed",
-      });
-      expect(store.listSubagentRunEvents(run.id).map((event) => event.type)).toEqual([
-        "subagent.reserved",
-        "subagent.lifecycle_started",
-        "subagent.status_changed",
-        "subagent.status_changed",
-        "subagent.lifecycle_stopped",
-        "subagent.closed",
-        "subagent.lifecycle_closed",
-      ]);
-      expect(store.listSubagentRunEvents(run.id).at(-1)?.preview).toMatchObject({
-        schemaVersion: "ambient-subagent-lifecycle-hook-v1",
-        hook: "SubagentClose",
-        parentTranscriptPath: `ambient://threads/${parent.id}/transcript`,
-        childTranscriptPath: `ambient://threads/${child.id}/transcript`,
-      });
-      expect(store.listSubagentRunEvents(run.id).find((event) => event.type === "subagent.closed")?.preview).toMatchObject({
-        capacityLease: expect.objectContaining({
-          status: "released",
-          releasedAt: "2026-06-05T00:02:00.000Z",
-        }),
-        mutationWorkspaceLease: {
-          leaseId: "mutation-lease-1",
-          kind: "scratch_overlay",
-          status: "released",
-          rootPath: "/tmp/symphony/lease-1",
-        },
-      });
-      const eventTypesAfterClose = store.listSubagentRunEvents(run.id).map((event) => event.type);
-      const closeReplay = store.closeSubagentRun(run.id, "2026-06-05T00:03:00.000Z");
-      expect(closeReplay.closedAt).toBe("2026-06-05T00:02:00.000Z");
-      expect(closeReplay.capacityLeaseSnapshot).toMatchObject({
-        status: "released",
-        releasedAt: "2026-06-05T00:02:00.000Z",
-      });
-      expect(store.listSubagentRunEvents(run.id).map((event) => event.type)).toEqual(eventTypesAfterClose);
-    } finally {
-      store.close();
     }
   });
 
@@ -838,17 +255,18 @@ describe("ProjectStore sub-agent foundation settings", () => {
     try {
       store.openWorkspace(workspacePath);
       const parent = store.createThread("Parent");
-      const createChild = (canonicalTaskPath: string, title = canonicalTaskPath) => store.createSubagentRun({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        parentMessageId: "parent-message",
-        title,
-        roleId: "explorer",
-        canonicalTaskPath,
-        featureFlagSnapshot: enabledFlags,
-        modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
-        dependencyMode: "required",
-      });
+      const createChild = (canonicalTaskPath: string, title = canonicalTaskPath) =>
+        store.createSubagentRun({
+          parentThreadId: parent.id,
+          parentRunId: "parent-run",
+          parentMessageId: "parent-message",
+          title,
+          roleId: "explorer",
+          canonicalTaskPath,
+          featureFlagSnapshot: enabledFlags,
+          modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
+          dependencyMode: "required",
+        });
       const original = createChild("root/0:explorer", "Original child");
       const barrier = store.createSubagentWaitBarrier({
         parentThreadId: parent.id,
@@ -860,16 +278,21 @@ describe("ProjectStore sub-agent foundation settings", () => {
       });
       const threadIdsBeforeDuplicate = store.listThreads().map((thread) => thread.id);
 
-      expect(() => store.assertSubagentCanonicalTaskPathAvailableForSpawn({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        canonicalTaskPath: "root/0:explorer",
-      })).toThrow(/already owned by child run .*Unresolved required wait barrier/);
+      expect(() =>
+        store.assertSubagentCanonicalTaskPathAvailableForSpawn({
+          parentThreadId: parent.id,
+          parentRunId: "parent-run",
+          canonicalTaskPath: "root/0:explorer",
+        }),
+      ).toThrow(/already owned by child run .*Unresolved required wait barrier/);
       expect(() => createChild("root/0:explorer", "Duplicate child")).toThrow(/spawning replacement child work/);
       expect(store.listThreads().map((thread) => thread.id)).toEqual(threadIdsBeforeDuplicate);
-      expect(store.listSubagentRunsForParentThread(parent.id)
-        .filter((run) => run.canonicalTaskPath === "root/0:explorer")
-        .map((run) => run.id)).toEqual([original.id]);
+      expect(
+        store
+          .listSubagentRunsForParentThread(parent.id)
+          .filter((run) => run.canonicalTaskPath === "root/0:explorer")
+          .map((run) => run.id),
+      ).toEqual([original.id]);
 
       store.updateSubagentWaitBarrierStatus(barrier.id, "satisfied", {
         now: "2026-06-05T00:00:20.000Z",
@@ -880,11 +303,13 @@ describe("ProjectStore sub-agent foundation settings", () => {
           reason: "completed",
         }),
       });
-      expect(() => store.assertSubagentCanonicalTaskPathAvailableForSpawn({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        canonicalTaskPath: "root/0:explorer",
-      })).not.toThrow();
+      expect(() =>
+        store.assertSubagentCanonicalTaskPathAvailableForSpawn({
+          parentThreadId: parent.id,
+          parentRunId: "parent-run",
+          canonicalTaskPath: "root/0:explorer",
+        }),
+      ).not.toThrow();
       const afterTerminal = createChild("root/0:explorer", "Post-terminal child");
       expect(afterTerminal.id).not.toBe(original.id);
     } finally {
@@ -920,11 +345,13 @@ describe("ProjectStore sub-agent foundation settings", () => {
         createdAt: "2026-06-05T00:00:10.000Z",
       });
 
-      expect(() => store.assertSubagentCanonicalTaskPathAvailableForSpawn({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        canonicalTaskPath: "root/background:explorer",
-      })).not.toThrow();
+      expect(() =>
+        store.assertSubagentCanonicalTaskPathAvailableForSpawn({
+          parentThreadId: parent.id,
+          parentRunId: "parent-run",
+          canonicalTaskPath: "root/background:explorer",
+        }),
+      ).not.toThrow();
       const duplicateBackground = store.createSubagentRun({
         parentThreadId: parent.id,
         parentRunId: "parent-run",
@@ -936,9 +363,12 @@ describe("ProjectStore sub-agent foundation settings", () => {
         modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
         dependencyMode: "optional_background",
       });
-      expect(store.listSubagentRunsForParentThread(parent.id)
-        .filter((run) => run.canonicalTaskPath === "root/background:explorer")
-        .map((run) => run.id)).toEqual([original.id, duplicateBackground.id]);
+      expect(
+        store
+          .listSubagentRunsForParentThread(parent.id)
+          .filter((run) => run.canonicalTaskPath === "root/background:explorer")
+          .map((run) => run.id),
+      ).toEqual([original.id, duplicateBackground.id]);
     } finally {
       store.close();
     }
@@ -998,11 +428,13 @@ describe("ProjectStore sub-agent foundation settings", () => {
         createdAt: "2026-06-05T00:00:10.000Z",
       });
 
-      expect(() => store.assertSubagentCanonicalTaskPathAvailableForSpawn({
-        parentThreadId: parent.id,
-        parentRunId: parentRun.id,
-        canonicalTaskPath: "root/background-bridge:explorer",
-      })).not.toThrow();
+      expect(() =>
+        store.assertSubagentCanonicalTaskPathAvailableForSpawn({
+          parentThreadId: parent.id,
+          parentRunId: parentRun.id,
+          canonicalTaskPath: "root/background-bridge:explorer",
+        }),
+      ).not.toThrow();
       const replacement = store.createSubagentRun({
         parentThreadId: parent.id,
         parentRunId: parentRun.id,
@@ -1014,9 +446,12 @@ describe("ProjectStore sub-agent foundation settings", () => {
         modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
         dependencyMode: "optional_background",
       });
-      expect(store.listSubagentRunsForParentThread(parent.id)
-        .filter((run) => run.canonicalTaskPath === "root/background-bridge:explorer")
-        .map((run) => run.id)).toEqual([original.id, replacement.id]);
+      expect(
+        store
+          .listSubagentRunsForParentThread(parent.id)
+          .filter((run) => run.canonicalTaskPath === "root/background-bridge:explorer")
+          .map((run) => run.id),
+      ).toEqual([original.id, replacement.id]);
     } finally {
       store.close();
     }
@@ -1102,10 +537,12 @@ describe("ProjectStore sub-agent foundation settings", () => {
           deliveredAt: "2026-06-05T00:00:03.000Z",
         }),
       ]);
-      expect(consumeDeliveredParentToChildMailboxEvents(store, {
-        runId: run.id,
-        now: "2026-06-05T00:00:06.000Z",
-      }).unchanged).toEqual([
+      expect(
+        consumeDeliveredParentToChildMailboxEvents(store, {
+          runId: run.id,
+          now: "2026-06-05T00:00:06.000Z",
+        }).unchanged,
+      ).toEqual([
         expect.objectContaining({
           id: followup.id,
           deliveryState: "consumed",
@@ -1143,10 +580,12 @@ describe("ProjectStore sub-agent foundation settings", () => {
         }),
       ]);
       expect(cancelled.events.map((event) => event.id)).not.toContain(followup.id);
-      expect(cancelPendingParentToChildMailboxEvents(store, {
-        runId: run.id,
-        now: "2026-06-05T00:00:10.000Z",
-      }).unchanged).toEqual([
+      expect(
+        cancelPendingParentToChildMailboxEvents(store, {
+          runId: run.id,
+          now: "2026-06-05T00:00:10.000Z",
+        }).unchanged,
+      ).toEqual([
         expect.objectContaining({ id: queuedMessage.id, deliveryState: "cancelled" }),
         expect.objectContaining({ id: deliveredMessage.id, deliveryState: "cancelled" }),
       ]);
@@ -1203,24 +642,28 @@ describe("ProjectStore sub-agent foundation settings", () => {
           featureFlagSnapshot: enabledFlags,
           modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
           dependencyMode: "required",
-        })
+        }),
       );
 
-      expect(() => store.createSubagentWaitBarrier({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        childRunIds: childRuns.map((run) => run.id),
-        dependencyMode: "quorum",
-        failurePolicy: "ask_user",
-      })).toThrow(/explicit integer quorumThreshold/);
-      expect(() => store.createSubagentWaitBarrier({
-        parentThreadId: parent.id,
-        parentRunId: "parent-run",
-        childRunIds: childRuns.map((run) => run.id),
-        dependencyMode: "required_any",
-        failurePolicy: "ask_user",
-        quorumThreshold: 2,
-      })).toThrow(/only valid for quorum/);
+      expect(() =>
+        store.createSubagentWaitBarrier({
+          parentThreadId: parent.id,
+          parentRunId: "parent-run",
+          childRunIds: childRuns.map((run) => run.id),
+          dependencyMode: "quorum",
+          failurePolicy: "ask_user",
+        }),
+      ).toThrow(/explicit integer quorumThreshold/);
+      expect(() =>
+        store.createSubagentWaitBarrier({
+          parentThreadId: parent.id,
+          parentRunId: "parent-run",
+          childRunIds: childRuns.map((run) => run.id),
+          dependencyMode: "required_any",
+          failurePolicy: "ask_user",
+          quorumThreshold: 2,
+        }),
+      ).toThrow(/only valid for quorum/);
 
       const barrier = store.createSubagentWaitBarrier({
         parentThreadId: parent.id,
@@ -1294,18 +737,20 @@ describe("ProjectStore sub-agent foundation settings", () => {
         },
         createdAt: "2026-06-05T00:00:30.000Z",
       });
-      expect(store.recordSubagentMaturityEvidence({
-        kind: "live_dogfood_run",
-        status: "passed",
-        evidenceKey: `dogfood:${run.id}`,
-        runId: run.id,
-        artifactPath: ".ambient/subagents/live-smoke.md",
-        notes: "Idempotent replay.",
-        details: {
-          releaseGateHistoryEntry: releaseGateHistoryEntry(run.id),
-        },
-        createdAt: "2026-06-05T00:00:31.000Z",
-      })).toMatchObject({
+      expect(
+        store.recordSubagentMaturityEvidence({
+          kind: "live_dogfood_run",
+          status: "passed",
+          evidenceKey: `dogfood:${run.id}`,
+          runId: run.id,
+          artifactPath: ".ambient/subagents/live-smoke.md",
+          notes: "Idempotent replay.",
+          details: {
+            releaseGateHistoryEntry: releaseGateHistoryEntry(run.id),
+          },
+          createdAt: "2026-06-05T00:00:31.000Z",
+        }),
+      ).toMatchObject({
         id: dogfood.id,
         notes: "Idempotent replay.",
         updatedAt: "2026-06-05T00:00:31.000Z",
@@ -1486,10 +931,12 @@ describe("ProjectStore sub-agent foundation settings", () => {
           notes: "Idempotent replay.",
         }),
       ]);
-      expect(store.getSubagentMaturitySnapshot({
-        createdAt: "2026-06-05T00:01:00.000Z",
-        criteria: { minLiveDogfoodRuns: 1, minDesktopDogfoodRuns: 1 },
-      })).toMatchObject({
+      expect(
+        store.getSubagentMaturitySnapshot({
+          createdAt: "2026-06-05T00:01:00.000Z",
+          criteria: { minLiveDogfoodRuns: 1, minDesktopDogfoodRuns: 1 },
+        }),
+      ).toMatchObject({
         status: "ready_to_graduate",
         defaultCanBeEnabled: true,
         blockedGateIds: [],
@@ -1526,32 +973,38 @@ describe("ProjectStore sub-agent foundation settings", () => {
           expect.objectContaining({
             id: "approval_routing_visibility",
             status: "passed",
-            actual: "Validated child request attribution, scoped response persistence, parent wait resumption, non-interactive failure handling, and UI/replay visibility.",
+            actual:
+              "Validated child request attribution, scoped response persistence, parent wait resumption, non-interactive failure handling, and UI/replay visibility.",
           }),
           expect.objectContaining({
             id: "production_ui_visibility",
             status: "passed",
-            actual: "Validated collapsed parent clusters, blocking-child indicators, child inspector rows, repair/replay panels, and local runtime ownership controls.",
+            actual:
+              "Validated collapsed parent clusters, blocking-child indicators, child inspector rows, repair/replay panels, and local runtime ownership controls.",
           }),
           expect.objectContaining({
             id: "event_attribution_integrity",
             status: "passed",
-            actual: "Validated runtime preview attribution, parent mailbox attribution, tool/approval/error provenance, replay diagnostics, and large-output artifact backing.",
+            actual:
+              "Validated runtime preview attribution, parent mailbox attribution, tool/approval/error provenance, replay diagnostics, and large-output artifact backing.",
           }),
           expect.objectContaining({
             id: "lifecycle_control_integrity",
             status: "passed",
-            actual: "Validated parent-stop cascade, child-cancel isolation, close capacity/history retention, lifecycle hook artifacts, and restart interruption repair.",
+            actual:
+              "Validated parent-stop cascade, child-cancel isolation, close capacity/history retention, lifecycle hook artifacts, and restart interruption repair.",
           }),
           expect.objectContaining({
             id: "retention_policy_integrity",
             status: "passed",
-            actual: "Validated close-without-delete, oldest-eligible cap cleanup, protected-child retention, summary/artifact durability, and retained-state UI.",
+            actual:
+              "Validated close-without-delete, oldest-eligible cap cleanup, protected-child retention, summary/artifact durability, and retained-state UI.",
           }),
           expect.objectContaining({
             id: "tool_scope_integrity",
             status: "passed",
-            actual: "Validated hard-deny precedence, role/task narrowing, exact tool/extension resolution, child fanout default blocking, and snapshot/inspector diagnostics.",
+            actual:
+              "Validated hard-deny precedence, role/task narrowing, exact tool/extension resolution, child fanout default blocking, and snapshot/inspector diagnostics.",
           }),
           expect.objectContaining({
             id: "security_review",
@@ -1580,10 +1033,12 @@ describe("ProjectStore sub-agent foundation settings", () => {
         "permission_bug_audit",
         "security_review",
       ]);
-      expect(reopened.getSubagentMaturitySnapshot({
-        createdAt: "2026-06-05T00:02:00.000Z",
-        criteria: { minLiveDogfoodRuns: 1, minDesktopDogfoodRuns: 1 },
-      }).defaultCanBeEnabled).toBe(true);
+      expect(
+        reopened.getSubagentMaturitySnapshot({
+          createdAt: "2026-06-05T00:02:00.000Z",
+          criteria: { minLiveDogfoodRuns: 1, minDesktopDogfoodRuns: 1 },
+        }).defaultCanBeEnabled,
+      ).toBe(true);
     } finally {
       store.close();
       reopened.close();
@@ -1634,12 +1089,14 @@ describe("ProjectStore sub-agent foundation settings", () => {
         cleanRequiredRunCount: 1,
         failedRequiredRunCount: 0,
       });
-      expect(snapshot.gates).toContainEqual(expect.objectContaining({
-        id: "live_dogfood_count",
-        status: "blocked",
-        actual: "1 clean recorded.",
-        detail: "Required-live history: 1 clean, 0 failed, 0 advisory, 0 skipped-evidence.",
-      }));
+      expect(snapshot.gates).toContainEqual(
+        expect.objectContaining({
+          id: "live_dogfood_count",
+          status: "blocked",
+          actual: "1 clean recorded.",
+          detail: "Required-live history: 1 clean, 0 failed, 0 advisory, 0 skipped-evidence.",
+        }),
+      );
     } finally {
       store.close();
     }
@@ -1745,11 +1202,14 @@ describe("ProjectStore sub-agent foundation settings", () => {
           featureFlagSnapshot: enabledFlags,
           modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:45.000Z"),
           dependencyMode: "required",
-        })
+        }),
       ).toThrow(`Sub-agent canonical task path root/0:explorer is already owned by child run ${run.id}.`);
-      expect(store.listSubagentRunsForParentThread(parent.id)
-        .filter((item) => item.canonicalTaskPath === "root/0:explorer")
-        .map((item) => item.id)).toEqual([run.id]);
+      expect(
+        store
+          .listSubagentRunsForParentThread(parent.id)
+          .filter((item) => item.canonicalTaskPath === "root/0:explorer")
+          .map((item) => item.id),
+      ).toEqual([run.id]);
     } finally {
       store.close();
     }
@@ -1842,7 +1302,7 @@ describe("ProjectStore sub-agent foundation settings", () => {
           featureFlagSnapshot: enabledFlags,
           modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:45.000Z"),
           dependencyMode: "required",
-        })
+        }),
       ).toThrow(`Sub-agent canonical task path root/0:explorer is already owned by child run ${run.id}.`);
 
       const replay = store.reconcileSubagentRestartState({
@@ -1922,13 +1382,15 @@ describe("ProjectStore sub-agent foundation settings", () => {
       expect(summary.repairedRunIds).toEqual([]);
       expect(summary.repairedBarrierIds).toEqual([]);
       expect(summary.repairedParentControlBarrierIds).toEqual([barrier.id]);
-      expect(summary.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          kind: "parent_cancel_control_unreconciled",
-          barrierId: barrier.id,
-          parentRunId: parentRun.id,
-        }),
-      ]));
+      expect(summary.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "parent_cancel_control_unreconciled",
+            barrierId: barrier.id,
+            parentRunId: parentRun.id,
+          }),
+        ]),
+      );
       expect(store.getSubagentWaitBarrier(barrier.id)).toMatchObject({
         status: "cancelled",
         resolvedAt: "2026-06-05T00:00:12.000Z",
@@ -2024,32 +1486,28 @@ describe("ProjectStore sub-agent foundation settings", () => {
       });
       store.closeSubagentRun(mismatchedEdge.id, "2026-06-05T00:00:12.000Z");
       const db = (store as unknown as { requireDb(): { prepare(sql: string): { run(...values: unknown[]): unknown } } }).requireDb();
-      db
-        .prepare("DELETE FROM subagent_spawn_edges WHERE child_run_id = ?")
-        .run(missingEdge.id);
-      db
-        .prepare("UPDATE subagent_spawn_edges SET status = ?, canonical_task_path = ?, capacity_released_at = NULL WHERE child_run_id = ?")
-        .run("running", "root/wrong:reviewer", mismatchedEdge.id);
+      db.prepare("DELETE FROM subagent_spawn_edges WHERE child_run_id = ?").run(missingEdge.id);
+      db.prepare(
+        "UPDATE subagent_spawn_edges SET status = ?, canonical_task_path = ?, capacity_released_at = NULL WHERE child_run_id = ?",
+      ).run("running", "root/wrong:reviewer", mismatchedEdge.id);
       db.prepare("PRAGMA foreign_keys = OFF").run();
       try {
-        db
-          .prepare(
-            `INSERT INTO subagent_spawn_edges
+        db.prepare(
+          `INSERT INTO subagent_spawn_edges
              (parent_run_id, child_run_id, parent_thread_id, child_thread_id, canonical_task_path, depth, status, capacity_released_at, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          )
-          .run(
-            "parent-run",
-            "missing-run",
-            parent.id,
-            "dangling-child",
-            "root/9:missing",
-            1,
-            "reserved",
-            null,
-            "2026-06-05T00:00:00.000Z",
-            "2026-06-05T00:00:00.000Z",
-          );
+        ).run(
+          "parent-run",
+          "missing-run",
+          parent.id,
+          "dangling-child",
+          "root/9:missing",
+          1,
+          "reserved",
+          null,
+          "2026-06-05T00:00:00.000Z",
+          "2026-06-05T00:00:00.000Z",
+        );
       } finally {
         db.prepare("PRAGMA foreign_keys = ON").run();
       }
@@ -2063,21 +1521,23 @@ describe("ProjectStore sub-agent foundation settings", () => {
       expect(summary.repairableSpawnEdgeRunIds).toEqual([missingEdge.id, mismatchedEdge.id]);
       expect(summary.danglingSpawnEdgeRunIds).toEqual(["missing-run"]);
       expect(summary.diagnosticRunIds).toEqual([missingEdge.id, mismatchedEdge.id]);
-      expect(summary.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          kind: "missing_spawn_edge",
-          runId: missingEdge.id,
-        }),
-        expect.objectContaining({
-          kind: "spawn_edge_mismatch",
-          runId: mismatchedEdge.id,
-          message: expect.stringContaining("edge status running does not match run status completed"),
-        }),
-        expect.objectContaining({
-          kind: "dangling_spawn_edge",
-          runId: "missing-run",
-        }),
-      ]));
+      expect(summary.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "missing_spawn_edge",
+            runId: missingEdge.id,
+          }),
+          expect.objectContaining({
+            kind: "spawn_edge_mismatch",
+            runId: mismatchedEdge.id,
+            message: expect.stringContaining("edge status running does not match run status completed"),
+          }),
+          expect.objectContaining({
+            kind: "dangling_spawn_edge",
+            runId: "missing-run",
+          }),
+        ]),
+      );
       expect(store.getSubagentRun(missingEdge.id).status).toBe("completed");
       expect(store.getSubagentRun(mismatchedEdge.id).status).toBe("completed");
       expect(store.listSubagentRunEvents(missingEdge.id).at(-1)).toMatchObject({
@@ -2095,9 +1555,11 @@ describe("ProjectStore sub-agent foundation settings", () => {
         }),
       });
 
-      const missingRepairEventsBefore = store.listSubagentRunEvents(missingEdge.id)
+      const missingRepairEventsBefore = store
+        .listSubagentRunEvents(missingEdge.id)
         .filter((event) => event.type === "subagent.spawn_edge_repaired");
-      const mismatchedRepairEventsBefore = store.listSubagentRunEvents(mismatchedEdge.id)
+      const mismatchedRepairEventsBefore = store
+        .listSubagentRunEvents(mismatchedEdge.id)
         .filter((event) => event.type === "subagent.spawn_edge_repaired");
       const dryRun = store.repairSubagentSpawnEdges({
         now: "2026-06-05T00:00:35.000Z",
@@ -2107,11 +1569,7 @@ describe("ProjectStore sub-agent foundation settings", () => {
         schemaVersion: "ambient-subagent-persisted-child-tree-repair-v1",
         createdAt: "2026-06-05T00:00:35.000Z",
         dryRun: true,
-        requestedActions: [
-          "reconstruct_missing_spawn_edge",
-          "realign_spawn_edge",
-          "prune_dangling_spawn_edge",
-        ],
+        requestedActions: ["reconstruct_missing_spawn_edge", "realign_spawn_edge", "prune_dangling_spawn_edge"],
         beforeIssueCount: 3,
         reconstructedMissingSpawnEdgeRunIds: [missingEdge.id],
         realignedSpawnEdgeRunIds: [mismatchedEdge.id],
@@ -2120,8 +1578,12 @@ describe("ProjectStore sub-agent foundation settings", () => {
       });
       expect(dryRun).not.toHaveProperty("afterIssueCount");
       expect(dryRun).not.toHaveProperty("remainingIssues");
-      expect(store.listSubagentRunEvents(missingEdge.id).filter((event) => event.type === "subagent.spawn_edge_repaired")).toEqual(missingRepairEventsBefore);
-      expect(store.listSubagentRunEvents(mismatchedEdge.id).filter((event) => event.type === "subagent.spawn_edge_repaired")).toEqual(mismatchedRepairEventsBefore);
+      expect(store.listSubagentRunEvents(missingEdge.id).filter((event) => event.type === "subagent.spawn_edge_repaired")).toEqual(
+        missingRepairEventsBefore,
+      );
+      expect(store.listSubagentRunEvents(mismatchedEdge.id).filter((event) => event.type === "subagent.spawn_edge_repaired")).toEqual(
+        mismatchedRepairEventsBefore,
+      );
 
       const disabledRepair = store.repairSubagentSpawnEdges({
         now: "2026-06-05T00:00:37.000Z",
@@ -2133,11 +1595,7 @@ describe("ProjectStore sub-agent foundation settings", () => {
         dryRun: false,
         skipped: true,
         skipReason: "ambient_subagents_disabled",
-        requestedActions: [
-          "reconstruct_missing_spawn_edge",
-          "realign_spawn_edge",
-          "prune_dangling_spawn_edge",
-        ],
+        requestedActions: ["reconstruct_missing_spawn_edge", "realign_spawn_edge", "prune_dangling_spawn_edge"],
         beforeIssueCount: 3,
         reconstructedMissingSpawnEdgeRunIds: [missingEdge.id],
         realignedSpawnEdgeRunIds: [mismatchedEdge.id],
@@ -2159,8 +1617,12 @@ describe("ProjectStore sub-agent foundation settings", () => {
         capacityReleasedAt: undefined,
       });
       expect(edgesAfterDisabledRepair.has("missing-run")).toBe(true);
-      expect(store.listSubagentRunEvents(missingEdge.id).filter((event) => event.type === "subagent.spawn_edge_repaired")).toEqual(missingRepairEventsBefore);
-      expect(store.listSubagentRunEvents(mismatchedEdge.id).filter((event) => event.type === "subagent.spawn_edge_repaired")).toEqual(mismatchedRepairEventsBefore);
+      expect(store.listSubagentRunEvents(missingEdge.id).filter((event) => event.type === "subagent.spawn_edge_repaired")).toEqual(
+        missingRepairEventsBefore,
+      );
+      expect(store.listSubagentRunEvents(mismatchedEdge.id).filter((event) => event.type === "subagent.spawn_edge_repaired")).toEqual(
+        mismatchedRepairEventsBefore,
+      );
 
       const repair = store.repairSubagentSpawnEdges({
         now: "2026-06-05T00:00:40.000Z",
@@ -2170,11 +1632,7 @@ describe("ProjectStore sub-agent foundation settings", () => {
         schemaVersion: "ambient-subagent-persisted-child-tree-repair-v1",
         createdAt: "2026-06-05T00:00:40.000Z",
         dryRun: false,
-        requestedActions: [
-          "reconstruct_missing_spawn_edge",
-          "realign_spawn_edge",
-          "prune_dangling_spawn_edge",
-        ],
+        requestedActions: ["reconstruct_missing_spawn_edge", "realign_spawn_edge", "prune_dangling_spawn_edge"],
         beforeIssueCount: 3,
         afterIssueCount: 0,
         reconstructedMissingSpawnEdgeRunIds: [missingEdge.id],
@@ -2240,7 +1698,9 @@ describe("ProjectStore sub-agent foundation settings", () => {
         remainingIssues: [],
       });
       expect(store.listSubagentRunEvents(missingEdge.id).filter((event) => event.type === "subagent.spawn_edge_repaired")).toHaveLength(1);
-      expect(store.listSubagentRunEvents(mismatchedEdge.id).filter((event) => event.type === "subagent.spawn_edge_repaired")).toHaveLength(1);
+      expect(store.listSubagentRunEvents(mismatchedEdge.id).filter((event) => event.type === "subagent.spawn_edge_repaired")).toHaveLength(
+        1,
+      );
     } finally {
       store.close();
     }
@@ -2328,25 +1788,30 @@ describe("ProjectStore sub-agent foundation settings", () => {
         modelRuntimeSnapshot: createAmbientModelRuntimeSnapshot(parent.model, "2026-06-05T00:00:00.000Z"),
       });
       const db = (store as unknown as { requireDb(): { prepare(sql: string): { run(...values: unknown[]): unknown } } }).requireDb();
-      db.prepare("UPDATE subagent_runs SET model_runtime_snapshot_json = ?, capacity_lease_snapshot_json = ? WHERE id = ?")
-        .run("null", "null", run.id);
+      db.prepare("UPDATE subagent_runs SET model_runtime_snapshot_json = ?, capacity_lease_snapshot_json = ? WHERE id = ?").run(
+        "null",
+        "null",
+        run.id,
+      );
 
       const report = store.getSubagentRepairDiagnostics({
         now: "2026-06-05T00:00:30.000Z",
       });
 
-      expect(report.issues).toEqual(expect.arrayContaining([
-        expect.objectContaining({
-          kind: "missing_model_runtime_snapshot",
-          action: "inspect_run_snapshot",
-          runId: run.id,
-        }),
-        expect.objectContaining({
-          kind: "missing_capacity_lease",
-          action: "inspect_run_snapshot",
-          runId: run.id,
-        }),
-      ]));
+      expect(report.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            kind: "missing_model_runtime_snapshot",
+            action: "inspect_run_snapshot",
+            runId: run.id,
+          }),
+          expect.objectContaining({
+            kind: "missing_capacity_lease",
+            action: "inspect_run_snapshot",
+            runId: run.id,
+          }),
+        ]),
+      );
       expect(report.diagnosticRunIds).toContain(run.id);
     } finally {
       store.close();
@@ -2404,22 +1869,26 @@ describe("ProjectStore sub-agent foundation settings", () => {
             { id: "workspace.write", reason: "Mutating child requires an isolated worktree." },
             { id: "subagent.spawn", reason: "Nested fanout disabled." },
           ],
-          loadedTools: [{
-            source: "built_in",
-            id: "workspace.read",
-            categoryId: "workspace.read",
-            piVisible: true,
-            mutatesState: false,
-            requiresApproval: false,
-          }],
-          piVisibleTools: [{
-            source: "built_in",
-            id: "workspace.read",
-            categoryId: "workspace.read",
-            piVisible: true,
-            mutatesState: false,
-            requiresApproval: false,
-          }],
+          loadedTools: [
+            {
+              source: "built_in",
+              id: "workspace.read",
+              categoryId: "workspace.read",
+              piVisible: true,
+              mutatesState: false,
+              requiresApproval: false,
+            },
+          ],
+          piVisibleTools: [
+            {
+              source: "built_in",
+              id: "workspace.read",
+              categoryId: "workspace.read",
+              piVisible: true,
+              mutatesState: false,
+              requiresApproval: false,
+            },
+          ],
           deniedTools: [
             {
               source: "built_in",
@@ -2518,20 +1987,24 @@ describe("ProjectStore sub-agent foundation settings", () => {
         createdAt: "2026-06-05T00:00:25.000Z",
       });
       const batch = upsertBatchJobPlan(store, batchPlan(parent.id));
-      store.applySubagentBatchResultReport(createSubagentBatchResultReport({
-        plan: batch.plan,
-        item: batch.plan.items[0],
-        childRunId: "child-run-lint",
-        status: "completed",
-        summary: "Lint batch item completed.",
-        createdAt: "2026-06-05T00:00:35.000Z",
-        resultArtifact: batchArtifact("child-run-lint", "completed"),
-      }));
+      store.applySubagentBatchResultReport(
+        createSubagentBatchResultReport({
+          plan: batch.plan,
+          item: batch.plan.items[0],
+          childRunId: "child-run-lint",
+          status: "completed",
+          summary: "Lint batch item completed.",
+          createdAt: "2026-06-05T00:00:35.000Z",
+          resultArtifact: batchArtifact("child-run-lint", "completed"),
+        }),
+      );
 
-      expect(store.getSubagentObservabilitySummary({
-        parentRunId: "parent-run",
-        createdAt: "2026-06-05T00:01:00.000Z",
-      })).toMatchObject({
+      expect(
+        store.getSubagentObservabilitySummary({
+          parentRunId: "parent-run",
+          createdAt: "2026-06-05T00:01:00.000Z",
+        }),
+      ).toMatchObject({
         schemaVersion: "ambient-subagent-observability-summary-v1",
         createdAt: "2026-06-05T00:01:00.000Z",
         spawnAttempts: 2,
@@ -2670,21 +2143,23 @@ describe("ProjectStore sub-agent foundation settings", () => {
         dependencyMode: "required",
       });
 
-      expect(() => store.appendSubagentRunEvent(run.id, {
-        type: "subagent.runtime_event",
-        preview: {
-          schemaVersion: "ambient-subagent-runtime-event-v1",
-          type: "tool_call",
-          source: "child_runtime",
-          runId: "other-child",
-          parentThreadId: run.parentThreadId,
-          parentRunId: run.parentRunId,
-          childThreadId: run.childThreadId,
-          canonicalTaskPath: run.canonicalTaskPath,
+      expect(() =>
+        store.appendSubagentRunEvent(run.id, {
+          type: "subagent.runtime_event",
+          preview: {
+            schemaVersion: "ambient-subagent-runtime-event-v1",
+            type: "tool_call",
+            source: "child_runtime",
+            runId: "other-child",
+            parentThreadId: run.parentThreadId,
+            parentRunId: run.parentRunId,
+            childThreadId: run.childThreadId,
+            canonicalTaskPath: run.canonicalTaskPath,
+            createdAt: "2026-06-05T00:00:01.000Z",
+          },
           createdAt: "2026-06-05T00:00:01.000Z",
-        },
-        createdAt: "2026-06-05T00:00:01.000Z",
-      })).toThrow(`Sub-agent runtime event runId other-child does not match persisted child run ${run.id}`);
+        }),
+      ).toThrow(`Sub-agent runtime event runId other-child does not match persisted child run ${run.id}`);
 
       const runtimeEvent = store.appendSubagentRunEvent(run.id, {
         type: "subagent.runtime_event",
@@ -2710,18 +2185,20 @@ describe("ProjectStore sub-agent foundation settings", () => {
         canonicalTaskPath: run.canonicalTaskPath,
       });
 
-      expect(() => store.appendSubagentParentMailboxEvent({
-        parentThreadId: parent.id,
-        parentRunId: run.parentRunId,
-        parentMessageId: assistant.id,
-        type: "subagent.lifecycle_interrupted",
-        payload: {
-          schemaVersion: "ambient-subagent-lifecycle-interruption-v1",
+      expect(() =>
+        store.appendSubagentParentMailboxEvent({
+          parentThreadId: parent.id,
           parentRunId: run.parentRunId,
-          status: "failed",
-        },
-        createdAt: "2026-06-05T00:00:03.000Z",
-      })).toThrow("Sub-agent parent mailbox event subagent.lifecycle_interrupted must identify at least one originating child run");
+          parentMessageId: assistant.id,
+          type: "subagent.lifecycle_interrupted",
+          payload: {
+            schemaVersion: "ambient-subagent-lifecycle-interruption-v1",
+            parentRunId: run.parentRunId,
+            status: "failed",
+          },
+          createdAt: "2026-06-05T00:00:03.000Z",
+        }),
+      ).toThrow("Sub-agent parent mailbox event subagent.lifecycle_interrupted must identify at least one originating child run");
 
       const parentMailboxEvent = store.appendSubagentParentMailboxEvent({
         parentThreadId: parent.id,
@@ -2780,11 +2257,7 @@ function desktopDogfoodHistoryEntry(runId: string) {
     provider: "gmi-cloud",
     featureFlag: "ambient.subagents",
     scenarioCount: 14,
-    scenarios: [
-      "seeded_visible_child_cluster",
-      "approval_parent_blocking",
-      "workflow_high_load_dogfood",
-    ],
+    scenarios: ["seeded_visible_child_cluster", "approval_parent_blocking", "workflow_high_load_dogfood"],
     requiredScenarioMissing: [],
     visualAssertionSummary: { requiredCount: 10, passedCount: 10, failedCount: 0, missingCount: 0 },
     maturityAssertionSummary: { requiredCount: 13, passedCount: 13, failedCount: 0, missingCount: 0 },
@@ -2823,16 +2296,11 @@ function workflowJitterReleaseProfileReport() {
       environmentSkippedCount: 0,
       promotionCandidateCount: 0,
     },
-    checks: [
-      { id: "matrix.release-profile", status: "pass" },
-    ],
+    checks: [{ id: "matrix.release-profile", status: "pass" }],
   };
 }
 
-function installedProvider(input: {
-  providerId: string;
-  modelId: string;
-}): ModelRuntimeInstalledProvider {
+function installedProvider(input: { providerId: string; modelId: string }): ModelRuntimeInstalledProvider {
   const passedProbeIds = [
     "streaming",
     "context_window",

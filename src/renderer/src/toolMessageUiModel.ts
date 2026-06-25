@@ -1,13 +1,50 @@
 import type { MediaArtifactResult } from "../../shared/desktopTypes";
-import type { ChatMessage, ToolArgumentProgressSnapshot, ToolEditTextPreview, ToolLargeOutputPreview, ToolLargeOutputPreviewItem, ToolLongformInputPreview, ToolLongformInputPreviewItem } from "../../shared/threadTypes";
+import {
+  extractMessagingConversationDirectorySetupPreview,
+  extractMessagingRemoteSurfaceActivationPreview,
+  extractTelegramSessionSetupPreview,
+  messagingConversationDirectorySetupCardFromMetadata,
+  messagingRemoteSurfaceActivationCardFromMetadata,
+  telegramSessionSetupCardFromMetadata,
+} from "./toolMessageMessagingUiModel";
 import type {
-  MessagingConversationDirectorySetupCard,
-  MessagingConversationDirectorySetupCardConversation,
-  MessagingRemoteSurfaceActivationCard,
-  MessagingRemoteSurfaceActivationCardPhase,
-  TelegramSessionSetupCard,
-} from "../../shared/messagingGateway";
-
+  ToolMessagingConversationDirectorySetupPreviewData,
+  ToolMessagingRemoteSurfaceActivationPreviewData,
+  ToolTelegramSessionSetupPreviewData,
+} from "./toolMessageMessagingUiModel";
+export {
+  toolMessagingConversationDirectorySetupCardViewModel,
+  toolMessagingRemoteSurfaceActivationCardViewModel,
+} from "./toolMessageMessagingUiModel";
+export type {
+  ToolMessagingConversationDirectorySetupCardViewModel,
+  ToolMessagingConversationDirectorySetupPreviewData,
+  ToolMessagingConversationDirectorySetupTone,
+  ToolMessagingRemoteSurfaceActivationCardViewModel,
+  ToolMessagingRemoteSurfaceActivationPreviewData,
+  ToolMessagingRemoteSurfaceActivationTone,
+  ToolTelegramSessionSetupPreviewData,
+} from "./toolMessageMessagingUiModel";
+import {
+  booleanField,
+  formatCompactTaskState,
+  numberField,
+  parseDelimitedNumber,
+  pathField,
+  previewTextField,
+  recordValue,
+  stringArrayField,
+  textField,
+} from "./toolMessageMetadataFields";
+import type {
+  ChatMessage,
+  ToolArgumentProgressSnapshot,
+  ToolEditTextPreview,
+  ToolLargeOutputPreview,
+  ToolLargeOutputPreviewItem,
+  ToolLongformInputPreview,
+  ToolLongformInputPreviewItem,
+} from "../../shared/threadTypes";
 export type ArtifactPathHints = Map<string, string>;
 
 export type ArtifactMediaKind = "image" | "audio" | "video";
@@ -135,10 +172,6 @@ export type ToolSttPreviewData = {
   stderrPath?: string;
 };
 
-export type ToolTelegramSessionSetupPreviewData = TelegramSessionSetupCard;
-export type ToolMessagingConversationDirectorySetupPreviewData = MessagingConversationDirectorySetupCard;
-export type ToolMessagingRemoteSurfaceActivationPreviewData = MessagingRemoteSurfaceActivationCard;
-
 export type ToolInstallRoutePreviewData = {
   lane: string;
   confidence: string;
@@ -151,42 +184,6 @@ export type ToolInstallRoutePreviewData = {
   secretMechanism?: string;
   validationKind?: string;
   validationDescription?: string;
-};
-
-export type ToolMessagingConversationDirectorySetupTone = "success" | "warning" | "danger" | "info";
-
-export type ToolMessagingConversationDirectorySetupCardViewModel = {
-  tone: ToolMessagingConversationDirectorySetupTone;
-  title: string;
-  summary: string;
-  detail: string;
-  icon: "success" | "attention" | "directory";
-  rows: Array<{ label: string; value: string }>;
-  notes: string[];
-  noteKind: "blocker" | "warning" | "next-step" | "none";
-  conversationChips: Array<{ label: string; title: string }>;
-  safetyChips: string[];
-};
-
-export type ToolMessagingRemoteSurfaceActivationTone = "success" | "warning" | "danger" | "info";
-
-export type ToolMessagingRemoteSurfaceActivationCardViewModel = {
-  tone: ToolMessagingRemoteSurfaceActivationTone;
-  title: string;
-  summary: string;
-  detail: string;
-  icon: "success" | "attention" | "route";
-  actions: Array<{
-    id: "continue" | "repair" | "provider-onboarding";
-    label: string;
-    title: string;
-    prompt: string;
-    tone: "primary" | "secondary";
-  }>;
-  rows: Array<{ label: string; value: string }>;
-  notes: string[];
-  phaseChips: Array<{ label: string; title: string; tone: ToolMessagingRemoteSurfaceActivationTone }>;
-  safetyChips: string[];
 };
 
 export type ParsedToolMessage = {
@@ -347,13 +344,21 @@ export function parseToolMessage(
   const messagingRemoteSurfaceActivation = extractMessagingRemoteSurfaceActivationPreview(fallbackName, metadata);
   const managedFileArtifacts = (toolResultDetails?.managedFileArtifacts ?? []).map((artifact) => ({
     ...artifact,
-    ...(artifact.workspacePath ? { workspacePath: normalizeArtifactPath(artifact.workspacePath, workspacePath) ?? artifact.workspacePath } : {}),
+    ...(artifact.workspacePath
+      ? { workspacePath: normalizeArtifactPath(artifact.workspacePath, workspacePath) ?? artifact.workspacePath }
+      : {}),
   }));
   const firstManagedWorkspaceArtifact = managedFileArtifacts.find((artifact) => artifact.workspacePath)?.workspacePath;
   const longformArtifactPath = longformInputPreview?.items.find((item) => item.path)?.path;
   const artifactPath = normalizeArtifactPath(
     firstManagedWorkspaceArtifact ??
-      extractArtifactPath(fallbackName, input, result, metadata, longformArtifactPath ?? writePreview?.path ?? editPreview?.path ?? voicePreview?.audioPath ?? sttPreview?.audioPath),
+      extractArtifactPath(
+        fallbackName,
+        input,
+        result,
+        metadata,
+        longformArtifactPath ?? writePreview?.path ?? editPreview?.path ?? voicePreview?.audioPath ?? sttPreview?.audioPath,
+      ),
     workspacePath,
   );
   return {
@@ -417,111 +422,6 @@ export function collectArtifactPathHints(messages: ChatMessage[], workspacePath:
     if (paths.size === 1) exact.set(base, [...paths][0]);
   }
   return exact;
-}
-
-export function toolMessagingConversationDirectorySetupCardViewModel(
-  card: ToolMessagingConversationDirectorySetupPreviewData,
-): ToolMessagingConversationDirectorySetupCardViewModel {
-  const providerTitle = card.providerLabel ?? card.providerId;
-  const tone = messagingConversationDirectorySetupTone(card);
-  const notes = card.blockers.length ? card.blockers : card.warnings.length ? card.warnings : card.nextSteps;
-  const noteKind = card.blockers.length ? "blocker" : card.warnings.length ? "warning" : card.nextSteps.length ? "next-step" : "none";
-  const conversationChips = card.conversations.slice(0, 8).map((conversation) => ({
-    label: `${conversation.title}${typeof conversation.unreadCount === "number" && conversation.unreadCount > 0 ? ` (${conversation.unreadCount})` : ""}`,
-    title: conversation.conversationId,
-  }));
-  const hiddenConversationCount = Math.max(0, card.conversations.length - conversationChips.length);
-  if (hiddenConversationCount > 0) {
-    conversationChips.push({
-      label: `${hiddenConversationCount.toLocaleString()} more`,
-      title: `${hiddenConversationCount.toLocaleString()} additional conversation metadata row(s) omitted from this compact card`,
-    });
-  }
-  return {
-    tone,
-    title: `${providerTitle} conversation directory`,
-    summary: messagingConversationDirectorySetupSummary(card),
-    detail: card.failureHint ?? (card.canApplyNow
-      ? "Ready for an approved metadata-only directory read."
-      : "Blocked until provider readiness or adapter support is available."),
-    icon: card.status === "applied"
-      ? "success"
-      : card.status === "blocked" || card.status === "failed"
-        ? "attention"
-        : "directory",
-    rows: [
-      { label: "Provider", value: card.providerLabel ? `${card.providerLabel} (${card.providerId})` : card.providerId },
-      { label: "State", value: messagingConversationDirectorySetupStatusLabel(card.status) },
-      card.directoryStatus ? { label: "Directory", value: formatCompactTaskState(card.directoryStatus) } : undefined,
-      { label: "Adapter", value: `${card.adapterStatus} / ${card.adapterKind}` },
-      { label: "Preview tool", value: card.previewToolName },
-      card.applyToolName ? { label: "Apply tool", value: card.applyToolName } : undefined,
-      { label: "Approval", value: card.requiresApprovalForApply ? (card.approvalRecorded ? "recorded" : "required") : "not required" },
-      { label: "Counts", value: `${card.returnedConversationCount.toLocaleString()}/${card.fetchedConversationCount.toLocaleString()} returned` },
-      card.failureMode ? { label: "Failure", value: card.failureMode } : undefined,
-    ].filter((row): row is { label: string; value: string } => Boolean(row?.value)),
-    notes: notes.slice(0, 3),
-    noteKind,
-    conversationChips,
-    safetyChips: [
-      "No message reads",
-      "No history",
-      "No sends",
-      "No provider CLI",
-      "No desktop scrape",
-      "No bindings",
-    ],
-  };
-}
-
-export function toolMessagingRemoteSurfaceActivationCardViewModel(
-  card: ToolMessagingRemoteSurfaceActivationPreviewData,
-): ToolMessagingRemoteSurfaceActivationCardViewModel {
-  const tone = messagingRemoteSurfaceActivationTone(card);
-  const phase = card.currentPhase;
-  const phaseChips = card.phaseChips.slice(0, 8).map((item) => ({
-    label: `${shortActivationPhaseLabel(item)}: ${formatCompactTaskState(item.status)}`,
-    title: item.nextTool ? `${item.title} · ${item.nextTool}` : item.title,
-    tone: messagingRemoteSurfaceActivationPhaseTone(item),
-  }));
-  const hiddenPhaseCount = Math.max(0, card.phaseChips.length - phaseChips.length);
-  if (hiddenPhaseCount > 0) {
-    phaseChips.push({
-      label: `${hiddenPhaseCount.toLocaleString()} more`,
-      title: `${hiddenPhaseCount.toLocaleString()} activation phase(s) omitted from this compact card`,
-      tone: "info",
-    });
-  }
-  return {
-    tone,
-    title: card.title,
-    summary: card.summary,
-    detail: card.detail,
-    icon: tone === "success" ? "success" : tone === "danger" || tone === "warning" ? "attention" : "route",
-    actions: messagingRemoteSurfaceActivationActions(card),
-    rows: [
-      { label: "Surface", value: card.ambientSurface },
-      card.providerLabel || card.providerId ? { label: "Provider", value: card.providerLabel ? `${card.providerLabel}${card.providerId ? ` (${card.providerId})` : ""}` : card.providerId! } : undefined,
-      { label: "State", value: messagingRemoteSurfaceActivationStatusLabel(card.status) },
-      phase ? { label: "Current phase", value: phase.title } : undefined,
-      phase?.nextTool ? { label: "Phase tool", value: phase.nextTool } : undefined,
-      card.recommendedNextTool ? { label: "Next tool", value: card.recommendedNextTool } : undefined,
-      card.delegatedRecommendedNextTool ? { label: "After plan", value: card.delegatedRecommendedNextTool } : undefined,
-      card.activationPlanFirstTool ? { label: "Plan first", value: card.activationPlanFirstTool } : undefined,
-      card.blockedUntilActivationPlan.length ? { label: "Blocked tools", value: `${card.blockedUntilActivationPlan.length.toLocaleString()} until activation plan` } : undefined,
-      { label: "Provider send", value: card.previewSendSafety.providerSendRequiresSeparateApproval ? "separate approval required" : "not approved" },
-    ].filter((row): row is { label: string; value: string } => Boolean(row?.value)),
-    notes: (card.repairPrompts.length ? card.repairPrompts : card.repairPrompt ? [card.repairPrompt] : []).slice(0, 3),
-    phaseChips,
-    safetyChips: [
-      "No bridge start",
-      "No message reads",
-      "No history",
-      "No sends",
-      "No polling start",
-      "Preview before send",
-    ],
-  };
 }
 
 export function resolveInlineArtifactPath(value: string, hints: ArtifactPathHints | undefined, workspacePath?: string): string | undefined {
@@ -641,11 +541,12 @@ function toolProgressPreview(input: {
     : argumentProgress?.phase
       ? formatCompactTaskState(argumentProgress.phase)
       : undefined;
-  const updates = details?.heartbeatCount !== undefined
-    ? details.heartbeatCount.toLocaleString()
-    : argumentProgress?.argumentEventCount !== undefined
-      ? argumentProgress.argumentEventCount.toLocaleString()
-      : undefined;
+  const updates =
+    details?.heartbeatCount !== undefined
+      ? details.heartbeatCount.toLocaleString()
+      : argumentProgress?.argumentEventCount !== undefined
+        ? argumentProgress.argumentEventCount.toLocaleString()
+        : undefined;
 
   addProgressRow(rows, "state", "State", state);
   addProgressRow(rows, "stage", "Stage", details?.stage ? formatCompactTaskState(details.stage) : undefined);
@@ -665,14 +566,17 @@ function toolProgressPreview(input: {
 
   return {
     title: "Progress",
-    summary: [
-      state,
-      details?.stage ? formatCompactTaskState(details.stage) : undefined,
-      formatProgressDuration(details?.elapsedMs ?? argumentProgress?.executionElapsedMs),
-      progressCharsLabel(inputChars),
-      outputChars !== undefined ? `${outputChars.toLocaleString()} output chars` : undefined,
-      thinkingChars !== undefined && thinkingChars > 0 ? `${thinkingChars.toLocaleString()} thinking chars` : undefined,
-    ].filter(Boolean).join(" · ") || `${input.toolName} progress`,
+    summary:
+      [
+        state,
+        details?.stage ? formatCompactTaskState(details.stage) : undefined,
+        formatProgressDuration(details?.elapsedMs ?? argumentProgress?.executionElapsedMs),
+        progressCharsLabel(inputChars),
+        outputChars !== undefined ? `${outputChars.toLocaleString()} output chars` : undefined,
+        thinkingChars !== undefined && thinkingChars > 0 ? `${thinkingChars.toLocaleString()} thinking chars` : undefined,
+      ]
+        .filter(Boolean)
+        .join(" · ") || `${input.toolName} progress`,
     rows,
   };
 }
@@ -727,20 +631,28 @@ function localDeepResearchProgressPreview(
   addProgressRow(rows, "compressed", "Compressed", formatBytes(numberField(memory, ["compressedMemoryBytes"])));
   addProgressRow(rows, "elapsed", "Elapsed", formatProgressDuration(elapsedMs));
   addProgressRow(rows, "updates", "Updates", heartbeatCount !== undefined ? heartbeatCount.toLocaleString() : undefined);
-  addProgressRow(rows, "argument-updates", "Argument updates", heartbeatCount === undefined && argumentUpdateCount !== undefined ? argumentUpdateCount.toLocaleString() : undefined);
+  addProgressRow(
+    rows,
+    "argument-updates",
+    "Argument updates",
+    heartbeatCount === undefined && argumentUpdateCount !== undefined ? argumentUpdateCount.toLocaleString() : undefined,
+  );
   addProgressRow(rows, "artifacts", "Artifacts", localDeepResearchArtifactValue(artifacts));
   addProgressRow(rows, "error", "Error", error);
   if (!rows.length) return undefined;
 
   return {
     title: "Progress",
-    summary: [
-      message,
-      turnValue,
-      retrievalValue,
-      memoryPolicy && !/\bwithin\b|\bunlimited\b/i.test(memoryPolicy) ? memoryPolicy : undefined,
-      formatProgressDuration(elapsedMs),
-    ].filter(Boolean).join(" · ") || `${toolName} progress`,
+    summary:
+      [
+        message,
+        turnValue,
+        retrievalValue,
+        memoryPolicy && !/\bwithin\b|\bunlimited\b/i.test(memoryPolicy) ? memoryPolicy : undefined,
+        formatProgressDuration(elapsedMs),
+      ]
+        .filter(Boolean)
+        .join(" · ") || `${toolName} progress`,
     rows,
   };
 }
@@ -807,7 +719,9 @@ function localDeepResearchResidentModelsValue(memory: Record<string, unknown> | 
     count !== undefined ? count.toLocaleString() : undefined,
     estimated ? `${estimated} estimated` : undefined,
     actual ? `${actual} actual` : undefined,
-  ].filter(Boolean).join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function localDeepResearchProjectedUseValue(memory: Record<string, unknown> | undefined): string | undefined {
@@ -938,11 +852,7 @@ function compactAmbientWorkflowsInputPreview(toolName: string | undefined, args:
   }
 
   if (normalized === "ambient_workflows_update") {
-    return [
-      title ?? intent ?? id,
-      baseVersion !== undefined ? `base v${baseVersion}` : undefined,
-      draft ? "draft update" : undefined,
-    ]
+    return [title ?? intent ?? id, baseVersion !== undefined ? `base v${baseVersion}` : undefined, draft ? "draft update" : undefined]
       .filter(Boolean)
       .join(" · ");
   }
@@ -960,11 +870,7 @@ function compactAmbientWorkflowsInputPreview(toolName: string | undefined, args:
   }
 
   if (normalized === "ambient_workflows_describe" || normalized === "ambient_workflows_inject") {
-    return [
-      id,
-      version !== undefined ? `v${version}` : undefined,
-      includeMarkdown ? "include markdown" : undefined,
-    ]
+    return [id, version !== undefined ? `v${version}` : undefined, includeMarkdown ? "include markdown" : undefined]
       .filter(Boolean)
       .join(" · ");
   }
@@ -984,7 +890,11 @@ function toolResultPreview(output: string, largeOutputPreview?: ToolLargeOutputP
 }
 
 function summaryLine(value: string): string {
-  const line = value.split(/\r?\n/).find((item) => item.trim())?.trim() ?? "";
+  const line =
+    value
+      .split(/\r?\n/)
+      .find((item) => item.trim())
+      ?.trim() ?? "";
   return line.length > 140 ? `${line.slice(0, 137)}...` : line;
 }
 
@@ -1226,16 +1136,18 @@ function previewContentCharCount(content: string): number {
 
 function applyRepairLongformInputPreview(preview: ToolApplyRepairPreviewData | undefined): ToolLongformInputPreview | undefined {
   if (!preview) return undefined;
-  const items = preview.files.map((file, index): ToolLongformInputPreviewItem => ({
-    label: preview.files.length === 1 ? "File" : `File ${index + 1}`,
-    fieldPath: `files[${index}].content`,
-    path: file.path,
-    ...(file.language ? { language: file.language } : {}),
-    preview: file.content,
-    chars: file.charCount,
-    truncated: /\(\d[\d,]* chars total\)\s*$/.test(file.content),
-    ...(file.rationale ? { note: file.rationale } : {}),
-  }));
+  const items = preview.files.map(
+    (file, index): ToolLongformInputPreviewItem => ({
+      label: preview.files.length === 1 ? "File" : `File ${index + 1}`,
+      fieldPath: `files[${index}].content`,
+      path: file.path,
+      ...(file.language ? { language: file.language } : {}),
+      preview: file.content,
+      chars: file.charCount,
+      truncated: /\(\d[\d,]* chars total\)\s*$/.test(file.content),
+      ...(file.rationale ? { note: file.rationale } : {}),
+    }),
+  );
   const fileLabel = `${items.length.toLocaleString()} ${items.length === 1 ? "file" : "files"}`;
   return {
     kind: "longform-input",
@@ -1252,8 +1164,7 @@ function extractEditPreview(toolName: string, input: string, metadata?: Record<s
   if (metadataPreview) return metadataPreview;
   const args = parseToolJsonInput(input);
   const path =
-    pathField(args, ["path", "filePath", "file_path", "file", "targetPath", "target_path"]) ??
-    pathField(metadata, ["artifactPath"]);
+    pathField(args, ["path", "filePath", "file_path", "file", "targetPath", "target_path"]) ?? pathField(metadata, ["artifactPath"]);
   const edits = args ? editBlocksFromArgs(args) : [];
   const details = toolResultDetailsFromMetadata(metadata);
   if (edits.length === 0 && !details?.diff) return undefined;
@@ -1307,30 +1218,6 @@ function toolEditTextPreviewFromMetadata(value: unknown): ToolEditTextPreview | 
   };
 }
 
-function extractTelegramSessionSetupPreview(toolName: string, metadata?: Record<string, unknown>): ToolTelegramSessionSetupPreviewData | undefined {
-  const normalized = toolName.toLowerCase();
-  if (normalized !== "ambient_messaging_telegram_session_preview" && normalized !== "ambient_messaging_telegram_session_apply") return undefined;
-  return toolResultDetailsFromMetadata(metadata)?.telegramSessionSetup;
-}
-
-function extractMessagingConversationDirectorySetupPreview(
-  toolName: string,
-  metadata?: Record<string, unknown>,
-): ToolMessagingConversationDirectorySetupPreviewData | undefined {
-  const normalized = toolName.toLowerCase();
-  if (!normalized.startsWith("ambient_messaging_") || !normalized.includes("_conversation_directory_")) return undefined;
-  return toolResultDetailsFromMetadata(metadata)?.messagingConversationDirectorySetup;
-}
-
-function extractMessagingRemoteSurfaceActivationPreview(
-  toolName: string,
-  metadata?: Record<string, unknown>,
-): ToolMessagingRemoteSurfaceActivationPreviewData | undefined {
-  const normalized = toolName.toLowerCase();
-  if (normalized !== "ambient_messaging_remote_surface_activation_plan" && normalized !== "ambient_messaging_telegram_owner_loop_activation_plan") return undefined;
-  return toolResultDetailsFromMetadata(metadata)?.messagingRemoteSurfaceActivation;
-}
-
 function extractInstallRoutePreview(
   toolName: string,
   result: string,
@@ -1340,7 +1227,8 @@ function extractInstallRoutePreview(
   const details = recordValue(metadata?.toolResultDetails);
   const summary = recordValue(details?.installRouteSummary);
   const lane = textField(summary, ["lane"]) ?? textField(details, ["lane"]) ?? result.match(/^Lane:\s+(.+)$/m)?.[1]?.trim();
-  const confidence = textField(summary, ["confidence"]) ?? textField(details, ["confidence"]) ?? result.match(/^Confidence:\s+(.+)$/m)?.[1]?.trim();
+  const confidence =
+    textField(summary, ["confidence"]) ?? textField(details, ["confidence"]) ?? result.match(/^Confidence:\s+(.+)$/m)?.[1]?.trim();
   const reason = textField(summary, ["reason"]) ?? result.match(/^Reason:\s+(.+)$/m)?.[1]?.trim();
   const approvalBoundary =
     textField(summary, ["approvalBoundary"]) ??
@@ -1363,7 +1251,9 @@ function extractInstallRoutePreview(
     nextTools,
     blockers: stringArrayField(summary, ["blockers"]) ?? installRouteSectionItems(result, "Blockers"),
     warnings: stringArrayField(summary, ["warnings"]) ?? installRouteSectionItems(result, "Warnings"),
-    ...(booleanField(secretHandling, ["requiresSecret"]) !== undefined ? { requiresSecret: booleanField(secretHandling, ["requiresSecret"]) } : {}),
+    ...(booleanField(secretHandling, ["requiresSecret"]) !== undefined
+      ? { requiresSecret: booleanField(secretHandling, ["requiresSecret"]) }
+      : {}),
     ...(textField(secretHandling, ["allowedMechanism"]) ? { secretMechanism: textField(secretHandling, ["allowedMechanism"]) } : {}),
     ...(textField(validationTarget, ["kind"]) ? { validationKind: textField(validationTarget, ["kind"]) } : {}),
     ...(textField(validationTarget, ["description"]) ? { validationDescription: textField(validationTarget, ["description"]) } : {}),
@@ -1376,446 +1266,6 @@ function installRouteSectionItems(result: string, title: "Next tools" | "Blocker
     .split(/\r?\n/)
     .map((line) => line.trim().replace(/^-\s*/, ""))
     .filter((line) => line && line !== "none");
-}
-
-function telegramSessionSetupCardFromMetadata(value: unknown): ToolTelegramSessionSetupPreviewData | undefined {
-  const record = recordValue(value);
-  if (!record || record.kind !== "telegram-session-setup") return undefined;
-  const providerId = nonEmptyTextField(record, ["providerId"]);
-  const profileId = nonEmptyTextField(record, ["profileId"]);
-  const action = nonEmptyTextField(record, ["action"]);
-  const status = telegramSessionSetupStatusField(record.status);
-  const title = nonEmptyTextField(record, ["title"]);
-  const summary = nonEmptyTextField(record, ["summary"]);
-  const detail = nonEmptyTextField(record, ["detail"]);
-  if (!providerId || !profileId || !action || !status || !title || !summary || !detail) return undefined;
-  const authState = telegramSessionSetupAuthStateFromMetadata(record.authState);
-  const primaryAction = telegramSessionSetupActionFromMetadata(record.primaryAction);
-  const checkedAt = nonEmptyTextField(record, ["checkedAt"]);
-  const applied = booleanField(record, ["applied"]);
-  const secondaryActions = Array.isArray(record.secondaryActions)
-    ? record.secondaryActions.flatMap((item): TelegramSessionSetupCard["secondaryActions"] => {
-        const parsed = telegramSessionSetupActionFromMetadata(item);
-        return parsed ? [parsed] : [];
-      })
-    : [];
-  return {
-    kind: "telegram-session-setup",
-    providerId,
-    profileId,
-    action,
-    status,
-    title,
-    summary,
-    detail,
-    ...(checkedAt ? { checkedAt } : {}),
-    ...(applied !== undefined ? { applied } : {}),
-    ...(authState ? { authState } : {}),
-    missingInputs: stringArrayField(record, ["missingInputs"]) ?? [],
-    ...(primaryAction ? { primaryAction } : {}),
-    secondaryActions,
-    safety: {
-      readsProviderMessages: false,
-      sendsProviderMessages: false,
-      createsBinding: false,
-      enablesInboundIngestion: false,
-    },
-  };
-}
-
-function messagingConversationDirectorySetupCardFromMetadata(
-  value: unknown,
-): ToolMessagingConversationDirectorySetupPreviewData | undefined {
-  const record = recordValue(value);
-  if (!record || record.kind !== "messaging-conversation-directory-setup") return undefined;
-  const providerId = nonEmptyTextField(record, ["providerId"]);
-  const status = messagingConversationDirectorySetupStatusField(record.status);
-  const adapterStatus = record.adapterStatus === "available" || record.adapterStatus === "blocked" ? record.adapterStatus : undefined;
-  const adapterKind = record.adapterKind === "live-metadata-only-adapter" || record.adapterKind === "blocked-contract-skeleton" ? record.adapterKind : undefined;
-  const previewToolName = nonEmptyTextField(record, ["previewToolName"]);
-  if (!providerId || !status || !adapterStatus || !adapterKind || !previewToolName) return undefined;
-  if (record.metadataOnlyContractKind !== "metadata-only-routing") return undefined;
-  const requiresApprovalForApply = booleanField(record, ["requiresApprovalForApply"]);
-  const approvalRecorded = booleanField(record, ["approvalRecorded"]);
-  const canApplyWithReadiness = booleanField(record, ["canApplyWithReadiness"]);
-  const canApplyNow = booleanField(record, ["canApplyNow"]);
-  const fetchedConversationCount = numberField(record, ["fetchedConversationCount"]);
-  const returnedConversationCount = numberField(record, ["returnedConversationCount"]);
-  if (
-    requiresApprovalForApply === undefined ||
-    approvalRecorded === undefined ||
-    canApplyWithReadiness === undefined ||
-    canApplyNow === undefined ||
-    fetchedConversationCount === undefined ||
-    returnedConversationCount === undefined
-  ) return undefined;
-  return {
-    kind: "messaging-conversation-directory-setup",
-    providerId,
-    ...(nonEmptyTextField(record, ["providerLabel"]) ? { providerLabel: nonEmptyTextField(record, ["providerLabel"]) } : {}),
-    status,
-    ...(nonEmptyTextField(record, ["directoryStatus"]) ? { directoryStatus: nonEmptyTextField(record, ["directoryStatus"]) } : {}),
-    adapterStatus,
-    adapterKind,
-    previewToolName,
-    ...(nonEmptyTextField(record, ["applyToolName"]) ? { applyToolName: nonEmptyTextField(record, ["applyToolName"]) } : {}),
-    requiresApprovalForApply,
-    approvalRecorded,
-    canApplyWithReadiness,
-    canApplyNow,
-    metadataOnlyContractKind: "metadata-only-routing",
-    fetchedConversationCount: Math.max(0, Math.floor(fetchedConversationCount)),
-    returnedConversationCount: Math.max(0, Math.floor(returnedConversationCount)),
-    ...(nonEmptyTextField(record, ["failureMode"]) ? { failureMode: nonEmptyTextField(record, ["failureMode"]) } : {}),
-    ...(nonEmptyTextField(record, ["failureHint"]) ? { failureHint: nonEmptyTextField(record, ["failureHint"]) } : {}),
-    blockers: stringArrayField(record, ["blockers"]) ?? [],
-    warnings: stringArrayField(record, ["warnings"]) ?? [],
-    nextSteps: stringArrayField(record, ["nextSteps"]) ?? [],
-    safety: {
-      startsBridge: false,
-      runsProviderCli: false,
-      inspectsProviderDesktop: false,
-      readsProviderMessages: false,
-      readsProviderHistory: false,
-      sendsProviderMessages: false,
-      mutatesBindings: false,
-    },
-    conversations: messagingConversationDirectorySetupConversationsFromMetadata(record.conversations),
-  };
-}
-
-function messagingRemoteSurfaceActivationCardFromMetadata(
-  value: unknown,
-): ToolMessagingRemoteSurfaceActivationPreviewData | undefined {
-  const record = recordValue(value);
-  if (!record || record.kind !== "messaging-remote-surface-activation") return undefined;
-  if (record.intent !== "remote_ambient_surface") return undefined;
-  const status = messagingRemoteSurfaceActivationStatusField(record.status);
-  const title = nonEmptyTextField(record, ["title"]);
-  const summary = nonEmptyTextField(record, ["summary"]);
-  const detail = nonEmptyTextField(record, ["detail"]);
-  const ambientSurface = messagingAmbientSurfaceField(record.ambientSurface);
-  if (!status || !title || !summary || !detail || !ambientSurface) return undefined;
-  const currentPhase = messagingRemoteSurfaceActivationPhaseFromMetadata(record.currentPhase);
-  return {
-    kind: "messaging-remote-surface-activation",
-    intent: "remote_ambient_surface",
-    ...(nonEmptyTextField(record, ["providerId"]) ? { providerId: nonEmptyTextField(record, ["providerId"]) } : {}),
-    ...(nonEmptyTextField(record, ["providerLabel"]) ? { providerLabel: nonEmptyTextField(record, ["providerLabel"]) } : {}),
-    ...(nonEmptyTextField(record, ["requestedProvider"]) ? { requestedProvider: nonEmptyTextField(record, ["requestedProvider"]) } : {}),
-    status,
-    title,
-    summary,
-    detail,
-    ambientSurface,
-    ...(currentPhase ? { currentPhase } : {}),
-    phaseChips: messagingRemoteSurfaceActivationPhasesFromMetadata(record.phaseChips),
-    ...(nonEmptyTextField(record, ["recommendedNextTool"]) ? { recommendedNextTool: nonEmptyTextField(record, ["recommendedNextTool"]) } : {}),
-    ...(nonEmptyTextField(record, ["delegatedRecommendedNextTool"]) ? { delegatedRecommendedNextTool: nonEmptyTextField(record, ["delegatedRecommendedNextTool"]) } : {}),
-    ...(nonEmptyTextField(record, ["activationPlanFirstTool"]) ? { activationPlanFirstTool: nonEmptyTextField(record, ["activationPlanFirstTool"]) } : {}),
-    ...(nonEmptyTextField(record, ["repairPrompt"]) ? { repairPrompt: nonEmptyTextField(record, ["repairPrompt"]) } : {}),
-    repairPrompts: stringArrayField(record, ["repairPrompts"]) ?? [],
-    blockedUntilActivationPlan: stringArrayField(record, ["blockedUntilActivationPlan"]) ?? [],
-    previewSendSafety: {
-      commandPreviewTool: nonEmptyTextField(recordValue(record.previewSendSafety), ["commandPreviewTool"]) ?? "ambient_messaging_remote_surface_command_preview",
-      replyPreviewTool: nonEmptyTextField(recordValue(record.previewSendSafety), ["replyPreviewTool"]) ?? "ambient_messaging_remote_surface_reply_preview",
-      providerSendApplyTool: nonEmptyTextField(recordValue(record.previewSendSafety), ["providerSendApplyTool"]) ?? "ambient_messaging_remote_surface_reply_apply",
-      previewRequiredBeforeProviderSend: true,
-      providerSendRequiresSeparateApproval: true,
-      providerSendReady: false,
-    },
-    safety: {
-      startsBridge: false,
-      listsProviderChats: false,
-      readsProviderMessages: false,
-      readsProviderHistory: false,
-      mutatesBindings: false,
-      startsPolling: false,
-      sendsProviderMessages: false,
-    },
-  };
-}
-
-function messagingConversationDirectorySetupStatusField(
-  value: unknown,
-): MessagingConversationDirectorySetupCard["status"] | undefined {
-  return value === "preview" ||
-    value === "applied" ||
-    value === "blocked" ||
-    value === "denied" ||
-    value === "failed"
-    ? value
-    : undefined;
-}
-
-function messagingRemoteSurfaceActivationStatusField(
-  value: unknown,
-): MessagingRemoteSurfaceActivationCard["status"] | undefined {
-  return value === "route_ready" ||
-    value === "needs_provider_choice" ||
-    value === "unsupported_provider" ||
-    value === "blocked" ||
-    value === "active" ||
-    value === "ready_to_start_polling" ||
-    value === "needs_setup"
-    ? value
-    : undefined;
-}
-
-function messagingRemoteSurfaceActivationPhaseStatusField(
-  value: unknown,
-): MessagingRemoteSurfaceActivationCardPhase["status"] | undefined {
-  return value === "complete" ||
-    value === "ready" ||
-    value === "waiting" ||
-    value === "blocked" ||
-    value === "optional"
-    ? value
-    : undefined;
-}
-
-function messagingRemoteSurfaceActivationPhaseFromMetadata(value: unknown): MessagingRemoteSurfaceActivationCardPhase | undefined {
-  const record = recordValue(value);
-  const id = nonEmptyTextField(record, ["id"]);
-  const title = nonEmptyTextField(record, ["title"]);
-  const status = messagingRemoteSurfaceActivationPhaseStatusField(record?.status);
-  if (!id || !title || !status) return undefined;
-  const blockerCount = numberField(record, ["blockerCount"]);
-  return {
-    id,
-    title,
-    status,
-    approvalRequired: record?.approvalRequired === true,
-    ...(nonEmptyTextField(record, ["nextTool"]) ? { nextTool: nonEmptyTextField(record, ["nextTool"]) } : {}),
-    blockerCount: blockerCount === undefined ? 0 : Math.max(0, Math.floor(blockerCount)),
-  };
-}
-
-function messagingRemoteSurfaceActivationPhasesFromMetadata(value: unknown): MessagingRemoteSurfaceActivationCardPhase[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item): MessagingRemoteSurfaceActivationCardPhase[] => {
-    const parsed = messagingRemoteSurfaceActivationPhaseFromMetadata(item);
-    return parsed ? [parsed] : [];
-  });
-}
-
-function messagingAmbientSurfaceField(value: unknown): MessagingRemoteSurfaceActivationCard["ambientSurface"] | undefined {
-  return value === "chat" ||
-    value === "projects" ||
-    value === "workflow_agents" ||
-    value === "settings" ||
-    value === "notifications"
-    ? value
-    : undefined;
-}
-
-function messagingConversationDirectorySetupTone(
-  card: ToolMessagingConversationDirectorySetupPreviewData,
-): ToolMessagingConversationDirectorySetupTone {
-  if (card.status === "applied") return "success";
-  if (card.status === "blocked" || card.status === "failed") return "danger";
-  if (card.status === "denied") return "warning";
-  return card.canApplyNow ? "success" : "info";
-}
-
-function messagingConversationDirectorySetupSummary(card: ToolMessagingConversationDirectorySetupPreviewData): string {
-  if (card.status === "applied") return `${card.returnedConversationCount.toLocaleString()} metadata row(s) available.`;
-  if (card.status === "blocked") return "Directory apply is blocked by the adapter contract.";
-  if (card.status === "denied") return "Directory read was not approved.";
-  if (card.status === "failed") return "Directory read failed.";
-  return card.canApplyNow ? "Preview is ready for approval." : "Preview found setup blockers.";
-}
-
-function messagingRemoteSurfaceActivationTone(
-  card: ToolMessagingRemoteSurfaceActivationPreviewData,
-): ToolMessagingRemoteSurfaceActivationTone {
-  if (card.status === "active" || card.status === "ready_to_start_polling" || card.status === "route_ready") return "success";
-  if (card.status === "needs_provider_choice" || card.status === "needs_setup") return "info";
-  if (card.status === "unsupported_provider" || card.status === "blocked") return "danger";
-  return "info";
-}
-
-function messagingRemoteSurfaceActivationPhaseTone(
-  phase: MessagingRemoteSurfaceActivationCardPhase,
-): ToolMessagingRemoteSurfaceActivationTone {
-  if (phase.status === "complete") return "success";
-  if (phase.status === "ready") return "info";
-  if (phase.status === "waiting" || phase.status === "optional") return "warning";
-  return "danger";
-}
-
-function messagingRemoteSurfaceActivationStatusLabel(
-  status: ToolMessagingRemoteSurfaceActivationPreviewData["status"],
-): string {
-  if (status === "route_ready") return "Route ready";
-  if (status === "needs_provider_choice") return "Needs provider choice";
-  if (status === "unsupported_provider") return "Unsupported provider";
-  if (status === "ready_to_start_polling") return "Ready to start polling";
-  return formatCompactTaskState(status);
-}
-
-function messagingRemoteSurfaceActivationActions(
-  card: ToolMessagingRemoteSurfaceActivationPreviewData,
-): ToolMessagingRemoteSurfaceActivationCardViewModel["actions"] {
-  const actions: ToolMessagingRemoteSurfaceActivationCardViewModel["actions"] = [];
-  const nextTool = card.recommendedNextTool ?? card.currentPhase?.nextTool;
-  if (nextTool) {
-    actions.push({
-      id: "continue",
-      label: "Continue",
-      title: `Ask Ambient to continue Remote Ambient Surface activation with ${nextTool}.`,
-      prompt: remoteSurfaceActivationContinuePrompt(card, nextTool),
-      tone: "primary",
-    });
-  }
-  const repairPrompt = card.repairPrompt ?? card.repairPrompts[0];
-  if (repairPrompt) {
-    actions.push({
-      id: "repair",
-      label: nextTool ? "Repair" : "Use repair",
-      title: "Ask Ambient to apply the first repair prompt from this activation card.",
-      prompt: remoteSurfaceActivationRepairPrompt(card, repairPrompt),
-      tone: "secondary",
-    });
-  }
-  if (card.status === "unsupported_provider") {
-    actions.push({
-      id: "provider-onboarding",
-      label: "Plan provider support",
-      title: "Ask Ambient to plan future reviewed provider support without activating this provider now.",
-      prompt: remoteSurfaceActivationProviderOnboardingPrompt(card),
-      tone: "secondary",
-    });
-  }
-  return actions;
-}
-
-function remoteSurfaceActivationContinuePrompt(
-  card: ToolMessagingRemoteSurfaceActivationPreviewData,
-  nextTool: string,
-): string {
-  return [
-    `Continue Remote Ambient Surface activation by calling ${nextTool}.`,
-    `Use the latest activation card/tool result in this thread for provider, surface (${card.ambientSurface}), profile, binding, and approval context.`,
-    remoteSurfaceActivationPromptBoundary(),
-  ].join(" ");
-}
-
-function remoteSurfaceActivationRepairPrompt(
-  card: ToolMessagingRemoteSurfaceActivationPreviewData,
-  repairPrompt: string,
-): string {
-  return [
-    `Repair Remote Ambient Surface activation: ${repairPrompt}`,
-    `Use the latest activation card/tool result in this thread for provider, surface (${card.ambientSurface}), and current phase context.`,
-    remoteSurfaceActivationPromptBoundary(),
-  ].join(" ");
-}
-
-function remoteSurfaceActivationProviderOnboardingPrompt(
-  card: ToolMessagingRemoteSurfaceActivationPreviewData,
-): string {
-  const provider = card.requestedProvider ?? card.providerLabel ?? card.providerId ?? "this provider";
-  return [
-    `Plan future reviewed Remote Ambient Surface provider support for ${provider} by calling ambient_messaging_remote_surface_provider_support_plan first.`,
-    `Pass provider exactly as ${provider} and ambientSurface exactly as ${card.ambientSurface}; use the latest activation card/tool result only as blocker context.`,
-    "This is provider onboarding/planning, not active Remote Ambient Surface activation. After the planning tool returns, produce a concise plan and ask for approval before implementing, installing dependencies, scaffolding provider support, linking accounts/devices, or running validation.",
-    "Do not call provider-specific low-level tools, provider desktop UI, shell, browser automation, provider CLIs, generic Messaging Connector setup, arbitrary history reads, provider message reads, provider sends, lifecycle/binding/polling/apply tools, or future-provider scaffolding unless the user explicitly approves implementation.",
-    remoteSurfaceActivationPromptBoundary(),
-  ].join(" ");
-}
-
-function remoteSurfaceActivationPromptBoundary(): string {
-  return "Preserve the Remote Ambient Surface safety boundary: use preview tools before apply tools, do not read provider message bodies or history, do not use provider desktop UI, shell, browser automation, or provider CLIs as fallback, and do not send provider messages without an explicit approved preview.";
-}
-
-function shortActivationPhaseLabel(phase: MessagingRemoteSurfaceActivationCardPhase): string {
-  if (phase.id === "product-provider-route") return "Route";
-  if (phase.id === "provider-readiness") return "Provider";
-  if (phase.id === "metadata-directory") return "Directory";
-  if (phase.id === "owner-handoff") return "Handoff";
-  if (phase.id === "owner-binding") return "Binding";
-  if (phase.id === "periodic-polling") return "Polling";
-  if (phase.id === "command-and-relay-preview") return "Command";
-  if (phase.id === "cleanup") return "Cleanup";
-  return phase.title;
-}
-
-function messagingConversationDirectorySetupStatusLabel(
-  status: ToolMessagingConversationDirectorySetupPreviewData["status"],
-): string {
-  return status === "preview" ? "Preview" : formatCompactTaskState(status);
-}
-
-function messagingConversationDirectorySetupConversationsFromMetadata(
-  value: unknown,
-): MessagingConversationDirectorySetupCardConversation[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item): MessagingConversationDirectorySetupCardConversation[] => {
-    const record = recordValue(item);
-    const conversationId = nonEmptyTextField(record, ["conversationId"]);
-    const title = nonEmptyTextField(record, ["title"]);
-    if (!conversationId || !title) return [];
-    const folderIds = Array.isArray(record?.folderIds)
-      ? record.folderIds
-        .map((folderId) => typeof folderId === "number" && Number.isFinite(folderId) ? Math.floor(folderId) : undefined)
-        .filter((folderId): folderId is number => folderId !== undefined)
-      : [];
-    const unreadCount = numberField(record, ["unreadCount"]);
-    return [{
-      conversationId,
-      title,
-      ...(nonEmptyTextField(record, ["type"]) ? { type: nonEmptyTextField(record, ["type"]) } : {}),
-      ...(unreadCount !== undefined ? { unreadCount: Math.max(0, Math.floor(unreadCount)) } : {}),
-      folderIds,
-      ...(nonEmptyTextField(record, ["updatedAt"]) ? { updatedAt: nonEmptyTextField(record, ["updatedAt"]) } : {}),
-    }];
-  });
-}
-
-function formatCompactTaskState(value: string): string {
-  return value
-    .replace(/[_-]+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function telegramSessionSetupStatusField(value: unknown): TelegramSessionSetupCard["status"] | undefined {
-  return value === "preview" ||
-    value === "pending" ||
-    value === "needs_code" ||
-    value === "needs_password" ||
-    value === "ready" ||
-    value === "blocked" ||
-    value === "unknown"
-    ? value
-    : undefined;
-}
-
-function telegramSessionSetupActionFromMetadata(value: unknown): TelegramSessionSetupCard["primaryAction"] | undefined {
-  const record = recordValue(value);
-  const id = nonEmptyTextField(record, ["id"]);
-  const label = nonEmptyTextField(record, ["label"]);
-  const title = nonEmptyTextField(record, ["title"]);
-  const prompt = nonEmptyTextField(record, ["prompt"]);
-  const tone = record?.tone === "primary" || record?.tone === "secondary" ? record.tone : undefined;
-  if (!id || !label || !title || !prompt || !tone) return undefined;
-  return { id, label, title, prompt, tone };
-}
-
-function telegramSessionSetupAuthStateFromMetadata(value: unknown): TelegramSessionSetupCard["authState"] | undefined {
-  const record = recordValue(value);
-  const state = nonEmptyTextField(record, ["state"]);
-  if (!state) return undefined;
-  const message = nonEmptyTextField(record, ["message"]);
-  return {
-    state,
-    ready: booleanField(record, ["ready"]) === true,
-    needsCode: booleanField(record, ["needsCode"]) === true,
-    needsPassword: booleanField(record, ["needsPassword"]) === true,
-    phoneNumberPresent: booleanField(record, ["phoneNumberPresent"]) === true,
-    ...(message ? { message } : {}),
-  };
 }
 
 function extractVoicePreview(toolName: string, result: string, metadata?: Record<string, unknown>): ToolVoicePreviewData | undefined {
@@ -1841,13 +1291,15 @@ function extractVoicePreview(toolName: string, result: string, metadata?: Record
     action,
     ...(status ? { status } : {}),
     ...(status === "no-op" || /^Ambient voice .* already configured$/im.test(result) ? { noOp: true } : {}),
-    ...(providerTransition?.next ?? provider ? { provider: providerTransition?.next ?? provider } : {}),
+    ...((providerTransition?.next ?? provider) ? { provider: providerTransition?.next ?? provider } : {}),
     ...(providerTransition?.previous ? { previousProvider: providerTransition.previous } : {}),
-    ...(details?.selectedProviderCapabilityId ?? details?.providerCapabilityId ? { providerCapabilityId: details.selectedProviderCapabilityId ?? details.providerCapabilityId } : {}),
+    ...((details?.selectedProviderCapabilityId ?? details?.providerCapabilityId)
+      ? { providerCapabilityId: details.selectedProviderCapabilityId ?? details.providerCapabilityId }
+      : {}),
     ...(details?.previousProviderCapabilityId ? { previousProviderCapabilityId: details.previousProviderCapabilityId } : {}),
-    ...(voiceTransition?.next ?? voice ? { voice: voiceTransition?.next ?? voice } : {}),
+    ...((voiceTransition?.next ?? voice) ? { voice: voiceTransition?.next ?? voice } : {}),
     ...(voiceTransition?.previous ? { previousVoice: voiceTransition.previous } : {}),
-    ...(details?.selectedVoiceId ?? details?.voiceId ? { voiceId: details.selectedVoiceId ?? details.voiceId } : {}),
+    ...((details?.selectedVoiceId ?? details?.voiceId) ? { voiceId: details.selectedVoiceId ?? details.voiceId } : {}),
     ...(singleValueLine(result, "Enabled") ? { enabled: singleValueLine(result, "Enabled") } : {}),
     ...(singleValueLine(result, "Autoplay") ? { autoplay: singleValueLine(result, "Autoplay") } : {}),
     ...(singleValueLine(result, "Mode") ? { mode: singleValueLine(result, "Mode") } : {}),
@@ -1899,19 +1351,29 @@ function extractSttPreview(toolName: string, result: string, metadata?: Record<s
     action,
     ...(status ? { status } : {}),
     ...(status === "no-op" || /^Ambient STT .* already configured$/im.test(result) ? { noOp: true } : {}),
-    ...(providerTransition?.next ?? provider ? { provider: providerTransition?.next ?? provider } : {}),
+    ...((providerTransition?.next ?? provider) ? { provider: providerTransition?.next ?? provider } : {}),
     ...(providerTransition?.previous ? { previousProvider: providerTransition.previous } : {}),
-    ...(details?.selectedProviderCapabilityId ?? details?.providerCapabilityId ? { providerCapabilityId: details.selectedProviderCapabilityId ?? details.providerCapabilityId } : {}),
+    ...((details?.selectedProviderCapabilityId ?? details?.providerCapabilityId)
+      ? { providerCapabilityId: details.selectedProviderCapabilityId ?? details.providerCapabilityId }
+      : {}),
     ...(details?.previousProviderCapabilityId ? { previousProviderCapabilityId: details.previousProviderCapabilityId } : {}),
-    ...(languageTransition?.next ?? language ? { language: languageTransition?.next ?? language } : {}),
+    ...((languageTransition?.next ?? language) ? { language: languageTransition?.next ?? language } : {}),
     ...(languageTransition?.previous ? { previousLanguage: languageTransition.previous } : {}),
     ...(singleValueLine(result, "Enabled") ? { enabled: singleValueLine(result, "Enabled") } : {}),
-    ...(singleValueLine(result, "Auto-send after transcription") ? { autoSendAfterTranscription: singleValueLine(result, "Auto-send after transcription") } : {}),
-    ...(singleValueLine(result, "Silence before transcribe") ? { silenceFinalizeSeconds: singleValueLine(result, "Silence before transcribe") } : {}),
+    ...(singleValueLine(result, "Auto-send after transcription")
+      ? { autoSendAfterTranscription: singleValueLine(result, "Auto-send after transcription") }
+      : {}),
+    ...(singleValueLine(result, "Silence before transcribe")
+      ? { silenceFinalizeSeconds: singleValueLine(result, "Silence before transcribe") }
+      : {}),
     ...(singleValueLine(result, "No-speech gate") ? { noSpeechGate: singleValueLine(result, "No-speech gate") } : {}),
-    ...(singleValueLine(result, "RMS no-speech threshold") ? { noSpeechGateRmsThreshold: singleValueLine(result, "RMS no-speech threshold") } : {}),
+    ...(singleValueLine(result, "RMS no-speech threshold")
+      ? { noSpeechGateRmsThreshold: singleValueLine(result, "RMS no-speech threshold") }
+      : {}),
     ...(singleValueLine(result, "Stop TTS on speech") ? { stopTtsOnSpeech: singleValueLine(result, "Stop TTS on speech") } : {}),
-    ...(singleValueLine(result, "Queue while agent runs") ? { queueWhileAgentRuns: singleValueLine(result, "Queue while agent runs") } : {}),
+    ...(singleValueLine(result, "Queue while agent runs")
+      ? { queueWhileAgentRuns: singleValueLine(result, "Queue while agent runs") }
+      : {}),
     ...(singleValueLine(result, "Push-to-talk shortcut") ? { pushToTalkShortcut: singleValueLine(result, "Push-to-talk shortcut") } : {}),
     ...(details?.providerCount !== undefined ? { providerCount: details.providerCount } : {}),
     ...(details?.availableProviderCount !== undefined ? { availableProviderCount: details.availableProviderCount } : {}),
@@ -1966,7 +1428,10 @@ function singleValueLine(result: string, label: string): string | undefined {
 function listValueLine(result: string, label: string): string[] | undefined {
   const value = singleValueLine(result, label);
   if (!value) return undefined;
-  const items = value.split(",").map((item) => item.trim()).filter(Boolean);
+  const items = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
   return items.length ? items : undefined;
 }
 
@@ -1994,7 +1459,11 @@ function editBlocksFromArgs(args: Record<string, unknown>): ToolEditBlockPreview
   return edits;
 }
 
-function editPreviewBlockFromTextPreviews(oldText: ToolEditTextPreview, newText: ToolEditTextPreview, includeCounts = false): ToolEditBlockPreviewData {
+function editPreviewBlockFromTextPreviews(
+  oldText: ToolEditTextPreview,
+  newText: ToolEditTextPreview,
+  includeCounts = false,
+): ToolEditBlockPreviewData {
   return {
     oldText: oldText.preview,
     newText: newText.preview,
@@ -2060,9 +1529,7 @@ function extractArtifactPath(
   const resultPath = result.match(/\b(?:to|in|at)\s+([^\n]+)\s*$/i)?.[1];
   const args = parseToolJsonInput(input);
   return cleanArtifactPath(
-    inputPath ??
-      pathField(args, ["path", "filePath", "file_path", "file", "targetPath", "target_path"]) ??
-      resultPath,
+    inputPath ?? pathField(args, ["path", "filePath", "file_path", "file", "targetPath", "target_path"]) ?? resultPath,
   );
 }
 
@@ -2130,15 +1597,18 @@ function toolResultDetailsFromMetadata(metadata: Record<string, unknown> | undef
   const rawNoSpeechGate = recordValue(details?.noSpeechGate);
   const noSpeechGateRmsDbfs = numberField(rawNoSpeechGate, ["rmsDbfs"]);
   const noSpeechGateThresholdDbfs = numberField(rawNoSpeechGate, ["thresholdDbfs"]);
-  const noSpeechGate = noSpeechGateRmsDbfs !== undefined || noSpeechGateThresholdDbfs !== undefined
-    ? {
-        ...(noSpeechGateRmsDbfs !== undefined ? { rmsDbfs: noSpeechGateRmsDbfs } : {}),
-        ...(noSpeechGateThresholdDbfs !== undefined ? { thresholdDbfs: noSpeechGateThresholdDbfs } : {}),
-      }
-    : undefined;
+  const noSpeechGate =
+    noSpeechGateRmsDbfs !== undefined || noSpeechGateThresholdDbfs !== undefined
+      ? {
+          ...(noSpeechGateRmsDbfs !== undefined ? { rmsDbfs: noSpeechGateRmsDbfs } : {}),
+          ...(noSpeechGateThresholdDbfs !== undefined ? { thresholdDbfs: noSpeechGateThresholdDbfs } : {}),
+        }
+      : undefined;
   const largeOutputPreview = toolLargeOutputPreviewFromMetadata(details?.largeOutputPreview ?? metadata?.largeOutputPreview);
   const telegramSessionSetup = telegramSessionSetupCardFromMetadata(details?.telegramSessionSetup);
-  const messagingConversationDirectorySetup = messagingConversationDirectorySetupCardFromMetadata(details?.messagingConversationDirectorySetup);
+  const messagingConversationDirectorySetup = messagingConversationDirectorySetupCardFromMetadata(
+    details?.messagingConversationDirectorySetup,
+  );
   const messagingRemoteSurfaceActivation = messagingRemoteSurfaceActivationCardFromMetadata(details?.messagingRemoteSurfaceActivation);
   const localDeepResearchStatus = recordValue(details?.localDeepResearchStatus);
   if (
@@ -2198,7 +1668,8 @@ function toolResultDetailsFromMetadata(metadata: Record<string, unknown> | undef
     messagingConversationDirectorySetup === undefined &&
     messagingRemoteSurfaceActivation === undefined &&
     localDeepResearchStatus === undefined
-  ) return undefined;
+  )
+    return undefined;
   return {
     ...(diff !== undefined ? { diff } : {}),
     ...(firstChangedLine !== undefined ? { firstChangedLine } : {}),
@@ -2261,7 +1732,11 @@ function toolResultDetailsFromMetadata(metadata: Record<string, unknown> | undef
 
 function mediaArtifactPathFromMetadata(metadata: Record<string, unknown> | undefined): string | undefined {
   const details = recordValue(metadata?.toolResultDetails);
-  return mediaArtifactResult(recordValue(metadata?.mediaArtifact))?.artifactPath ?? mediaArtifactResult(recordValue(details?.mediaArtifact))?.artifactPath ?? textField(details, ["audioPath"]);
+  return (
+    mediaArtifactResult(recordValue(metadata?.mediaArtifact))?.artifactPath ??
+    mediaArtifactResult(recordValue(details?.mediaArtifact))?.artifactPath ??
+    textField(details, ["audioPath"])
+  );
 }
 
 function managedFileArtifactsFromMetadata(value: unknown): ToolManagedFileArtifactPreviewData[] | undefined {
@@ -2277,15 +1752,17 @@ function managedFileArtifactsFromMetadata(value: unknown): ToolManagedFileArtifa
     const source = textField(record, ["source"]);
     const copySkippedReason = textField(record, ["copySkippedReason"]);
     if (!filename || (!workspacePath && !hostPath && !containerPath)) return [];
-    return [{
-      filename,
-      ...(bytes !== undefined ? { bytes } : {}),
-      ...(source ? { source } : {}),
-      ...(containerPath ? { containerPath } : {}),
-      ...(hostPath ? { hostPath } : {}),
-      ...(workspacePath ? { workspacePath } : {}),
-      ...(copySkippedReason ? { copySkippedReason } : {}),
-    }];
+    return [
+      {
+        filename,
+        ...(bytes !== undefined ? { bytes } : {}),
+        ...(source ? { source } : {}),
+        ...(containerPath ? { containerPath } : {}),
+        ...(hostPath ? { hostPath } : {}),
+        ...(workspacePath ? { workspacePath } : {}),
+        ...(copySkippedReason ? { copySkippedReason } : {}),
+      },
+    ];
   });
   return artifacts.length ? artifacts : undefined;
 }
@@ -2321,80 +1798,6 @@ function mediaArtifactResult(record: Record<string, unknown> | undefined): Media
 
 function isMediaArtifactKind(value: string | undefined): value is MediaArtifactResult["mediaKind"] {
   return value === "image" || value === "audio" || value === "video";
-}
-
-function pathField(record: Record<string, unknown> | undefined, keys: string[]): string | undefined {
-  if (!record) return undefined;
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return undefined;
-}
-
-function textField(record: Record<string, unknown> | undefined, keys: string[]): string | undefined {
-  if (!record) return undefined;
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "string") return value;
-  }
-  return undefined;
-}
-
-function nonEmptyTextField(record: Record<string, unknown> | undefined, keys: string[]): string | undefined {
-  const value = textField(record, keys)?.trim();
-  return value ? value : undefined;
-}
-
-function previewTextField(record: Record<string, unknown> | undefined, keys: string[]): string | undefined {
-  if (!record) return undefined;
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "string") return value;
-    const previewRecord = recordValue(value);
-    const preview = textField(previewRecord, ["preview"]);
-    if (preview !== undefined) return preview;
-  }
-  return undefined;
-}
-
-function numberField(record: Record<string, unknown> | undefined, keys: string[]): number | undefined {
-  if (!record) return undefined;
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-  }
-  return undefined;
-}
-
-function booleanField(record: Record<string, unknown> | undefined, keys: string[]): boolean | undefined {
-  if (!record) return undefined;
-  for (const key of keys) {
-    const value = record[key];
-    if (typeof value === "boolean") return value;
-  }
-  return undefined;
-}
-
-function stringArrayField(record: Record<string, unknown> | undefined, keys: string[]): string[] | undefined {
-  if (!record) return undefined;
-  for (const key of keys) {
-    const value = record[key];
-    if (!Array.isArray(value)) continue;
-    const items = value.filter((item): item is string => typeof item === "string" && item.trim().length > 0).map((item) => item.trim());
-    if (items.length) return items;
-  }
-  return undefined;
-}
-
-function parseDelimitedNumber(value: string | undefined): number | undefined {
-  if (!value) return undefined;
-  const parsed = Number(value.replace(/,/g, ""));
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function recordValue(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 }
 
 function isArtifactWritingTool(toolName: string): boolean {
@@ -2502,12 +1905,12 @@ function jsonObjectsFromText(text: string): Array<Record<string, unknown>> {
           escaped = false;
         } else if (char === "\\") {
           escaped = true;
-        } else if (char === "\"") {
+        } else if (char === '"') {
           inString = false;
         }
         continue;
       }
-      if (char === "\"") {
+      if (char === '"') {
         inString = true;
         continue;
       }

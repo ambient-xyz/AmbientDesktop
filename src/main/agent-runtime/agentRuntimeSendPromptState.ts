@@ -67,6 +67,7 @@ export interface AgentRuntimeSendPromptStateInput<Session extends RuntimeQueuedM
   markRunActivity: () => boolean;
   updateRunStatus: RuntimePromptLifecycleControlsInput["updateRunStatus"];
   listMessages: RuntimeAssistantMessageControllerInput["listMessages"];
+  getMessage: RuntimeAssistantMessageControllerInput["getMessage"];
   addAssistantMessage: RuntimeAssistantMessageControllerInput["addAssistantMessage"];
   appendToMessage: RuntimeAssistantMessageControllerInput["appendToMessage"];
   replaceMessage: RuntimeAssistantMessageControllerInput["replaceMessage"];
@@ -145,6 +146,7 @@ export function createAgentRuntimeSendPromptState<Session extends RuntimeQueuedM
     resetAssistantStreamState: outputState.resetAssistantStreamState,
     resetThinkingStreamState: outputState.resetThinkingStreamState,
     listMessages: input.listMessages,
+    getMessage: input.getMessage,
     addAssistantMessage: input.addAssistantMessage,
     appendToMessage: input.appendToMessage,
     replaceMessage: input.replaceMessage,

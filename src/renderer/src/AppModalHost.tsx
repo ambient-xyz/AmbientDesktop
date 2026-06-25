@@ -225,6 +225,8 @@ export function AppModalHost({
   onCancelGitConfirmation,
   onConfirmGitConfirmation,
 }: AppModalHostProps) {
+  const securityPromptOpen = Boolean(activePermissionRequest || activePrivilegedCredentialRequest || activeSecureInputRequest);
+  const showLocalDeepResearchFollowup = localDeepResearchFollowupOpen && !securityPromptOpen;
   return (
     <>
       {mediaPreviewModal && (
@@ -266,7 +268,7 @@ export function AppModalHost({
         />
       )}
 
-      {localDeepResearchFollowupOpen && (
+      {showLocalDeepResearchFollowup && (
         <LocalDeepResearchFollowupDialog
           setup={localDeepResearchSetup}
           q8Override={localDeepResearchQ8Override}

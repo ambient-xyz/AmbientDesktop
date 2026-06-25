@@ -280,6 +280,7 @@ export function useAppMainSurfaceLifecycleModelsForApp({
   workflowRuntimeState.promptHistoryRef.current = conversationDisplayModel.promptHistory;
 
   useAppPendingSubmittedPromptCleanup({
+    pendingSubmittedPrompts: workflowRuntimeState.pendingSubmittedPrompts,
     running,
     setPendingSubmittedPrompts: workflowRuntimeState.setPendingSubmittedPrompts,
     state,

@@ -1,30 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { firstPartyDesktopToolDescriptors } from "./workflowProgramDesktopToolFacade";
 import { workflowGraphWithSourceMappings } from "./workflowProgramWorkflowCompilerFacade";
-import { compileWorkflowProgramIr, createWorkflowProgramCompileCache, WorkflowProgramCompileError, type WorkflowProgramAmbientCliCapability } from "./workflowProgramCompiler";
-
-function arxivAmbientCliCapability(overrides: Partial<WorkflowProgramAmbientCliCapability> = {}): WorkflowProgramAmbientCliCapability {
-  return {
-    capabilityId: "pi-catalog:pi-arxiv:tool:arxiv_search",
-    registryPluginId: "pi-catalog",
-    packageId: "pi-catalog:pi-arxiv",
-    packageName: "pi-arxiv",
-    command: "arxiv_search",
-    availability: "available",
-    missingEnv: [],
-    ...overrides,
-  };
-}
-
-function arxivAmbientCliGrant() {
-  return {
-    capabilityId: "pi-catalog:pi-arxiv:tool:arxiv_search",
-    registryPluginId: "pi-catalog",
-    packageId: "pi-catalog:pi-arxiv",
-    packageName: "pi-arxiv",
-    command: "arxiv_search",
-  };
-}
+import { compileWorkflowProgramIr, createWorkflowProgramCompileCache, WorkflowProgramCompileError } from "./workflowProgramCompiler";
 
 function generatedWorkflowRun(source: string): (input: unknown) => Promise<Record<string, unknown>> {
   const factory = new Function(source.replace(/^export default /, "return "));
@@ -207,7 +184,14 @@ describe("compileWorkflowProgramIr", () => {
       ],
     });
     expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(
-      expect.arrayContaining(["tool:browser_search", "model:diagnose.browser.results", "mutation:write-report", "tool:file_write", "checkpoint:final-output", "emit:workflow.completed"]),
+      expect.arrayContaining([
+        "tool:browser_search",
+        "model:diagnose.browser.results",
+        "mutation:write-report",
+        "tool:file_write",
+        "checkpoint:final-output",
+        "emit:workflow.completed",
+      ]),
     );
     expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(expect.arrayContaining(["emit:workflow.output.ready"]));
   });
@@ -227,7 +211,11 @@ describe("compileWorkflowProgramIr", () => {
             kind: "tool.paginate",
             tool: "browser_search",
             input: { fetchContent: false },
-            pageQueries: ["Scottsdale real estate market May 2026 sources", "Scottsdale housing inventory 2026 reports", "Scottsdale Arizona real estate outlook 2026"],
+            pageQueries: [
+              "Scottsdale real estate market May 2026 sources",
+              "Scottsdale housing inventory 2026 reports",
+              "Scottsdale Arizona real estate outlook 2026",
+            ],
             queryInputPath: "query",
             pageSizeInputPath: "maxResults",
             itemsPath: "",
@@ -273,7 +261,10 @@ describe("compileWorkflowProgramIr", () => {
             items: { fromNode: "source-chunks", path: "chunks" },
             itemName: "chunk",
             task: "summarize.search.chunk",
-            input: { chunk: { fromItem: "chunk" }, instruction: "Summarize source credibility, market signal, and citation URLs for this chunk." },
+            input: {
+              chunk: { fromItem: "chunk" },
+              instruction: "Summarize source credibility, market signal, and citation URLs for this chunk.",
+            },
             output: { schema: { summary: "string", sourceUrls: "array", findings: "array" } },
             maxItems: 3,
             maxConcurrency: 3,
@@ -333,7 +324,11 @@ describe("compileWorkflowProgramIr", () => {
       expect.arrayContaining([
         expect.objectContaining({ nodeId: "search-sources", operationKind: "runtime.tool_paginate", toolName: "browser_search" }),
         expect.objectContaining({ nodeId: "dedupe-sources", operationKind: "runtime.collection_dedupe" }),
-        expect.objectContaining({ nodeId: "synthesize-report", operationKind: "runtime.model_reduce", modelTask: "synthesize.scottsdale.market.sources" }),
+        expect.objectContaining({
+          nodeId: "synthesize-report",
+          operationKind: "runtime.model_reduce",
+          modelTask: "synthesize.scottsdale.market.sources",
+        }),
         expect.objectContaining({ nodeId: "render-report", operationKind: "runtime.document_render" }),
       ]),
     );
@@ -367,8 +362,14 @@ describe("compileWorkflowProgramIr", () => {
         version: 1,
         title: "Scottsdale Real Estate Deep Research PDF",
         goal: "Collect 100 public source candidates, synthesize a cited Scottsdale real estate report, render PDF, and stage the file in Documents.",
-        summary: "A bounded browser_search collection feeds deterministic dedupe, chunked extraction, tree synthesis, PDF rendering, and an explicit staged file write.",
-        successCriteria: ["100 source candidates collected", "Sources deduplicated", "Chunked extraction completed", "PDF staged for Documents"],
+        summary:
+          "A bounded browser_search collection feeds deterministic dedupe, chunked extraction, tree synthesis, PDF rendering, and an explicit staged file write.",
+        successCriteria: [
+          "100 source candidates collected",
+          "Sources deduplicated",
+          "Chunked extraction completed",
+          "PDF staged for Documents",
+        ],
         nodes: [
           {
             id: "search-sources",
@@ -484,7 +485,10 @@ describe("compileWorkflowProgramIr", () => {
             dependsOn: ["render-report"],
             tool: "file_write",
             args: { path: { fromNode: "render-report", path: "artifactPath" }, content: { fromNode: "render-report", path: "content" } },
-            changeSet: { path: { fromNode: "render-report", path: "artifactPath" }, summary: "Write Scottsdale real estate research PDF to Documents." },
+            changeSet: {
+              path: { fromNode: "render-report", path: "artifactPath" },
+              summary: "Write Scottsdale real estate research PDF to Documents.",
+            },
           },
           {
             id: "final-output",
@@ -523,15 +527,25 @@ describe("compileWorkflowProgramIr", () => {
       expect.arrayContaining([
         expect.objectContaining({ nodeId: "search-sources", operationKind: "runtime.tool_paginate", toolName: "browser_search" }),
         expect.objectContaining({ nodeId: "dedupe-sources", operationKind: "runtime.collection_dedupe" }),
-        expect.objectContaining({ nodeId: "extract-source-chunks", operationKind: "runtime.model_map", modelTask: "extract.scottsdale.real.estate.source.chunk" }),
-        expect.objectContaining({ nodeId: "synthesize-report", operationKind: "runtime.model_reduce", modelTask: "synthesize.scottsdale.real.estate.deep.report" }),
+        expect.objectContaining({
+          nodeId: "extract-source-chunks",
+          operationKind: "runtime.model_map",
+          modelTask: "extract.scottsdale.real.estate.source.chunk",
+        }),
+        expect.objectContaining({
+          nodeId: "synthesize-report",
+          operationKind: "runtime.model_reduce",
+          modelTask: "synthesize.scottsdale.real.estate.deep.report",
+        }),
         expect.objectContaining({ nodeId: "render-report", operationKind: "runtime.document_render" }),
         expect.objectContaining({ nodeId: "write-report", operationKind: "runtime.mutation", toolName: "file_write" }),
       ]),
     );
     expect(result.dryRun.calls.filter((call) => call.kind === "tool" && call.name === "browser_search")).toHaveLength(10);
     expect(result.dryRun.calls.filter((call) => call.kind === "model")).toHaveLength(13);
-    expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(expect.arrayContaining(["document:Render Report", "mutation:write-report", "tool:file_write"]));
+    expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(
+      expect.arrayContaining(["document:Render Report", "mutation:write-report", "tool:file_write"]),
+    );
     expect(result.dryRun.componentOutputs).toMatchObject({
       "search-sources": { count: 100, pageCount: 10, truncated: true },
       "dedupe-sources": { count: 100, sourceCount: 100, duplicateCount: 0, truncated: false },
@@ -554,8 +568,14 @@ describe("compileWorkflowProgramIr", () => {
         version: 1,
         title: "Scottsdale Movie Night Recommendation",
         goal: "Use current web evidence to recommend whether a couple should go out to see a movie tonight in Scottsdale.",
-        summary: "Current showtimes, reviews, runtimes, genres, and venue friction feed bounded extraction, preference review, and final recommendation.",
-        successCriteria: ["Current showtime evidence collected", "Movie options extracted", "Couple preferences reviewed", "Go/no-go recommendation produced"],
+        summary:
+          "Current showtimes, reviews, runtimes, genres, and venue friction feed bounded extraction, preference review, and final recommendation.",
+        successCriteria: [
+          "Current showtime evidence collected",
+          "Movie options extracted",
+          "Couple preferences reviewed",
+          "Go/no-go recommendation produced",
+        ],
         nodes: [
           {
             id: "collect-current-movie-sources",
@@ -637,7 +657,11 @@ describe("compileWorkflowProgramIr", () => {
             choices: [
               { id: "balanced", label: "Balanced date night", description: "Prioritize broad appeal, good reviews, and low friction." },
               { id: "quiet", label: "Quiet and low-friction", description: "Prioritize easy parking, comfortable timing, and low hassle." },
-              { id: "adventurous", label: "Adventurous pick", description: "Prioritize novelty, genre interest, and memorable experience." },
+              {
+                id: "adventurous",
+                label: "Adventurous pick",
+                description: "Prioritize novelty, genre interest, and memorable experience.",
+              },
             ],
             allowFreeform: true,
             data: {
@@ -716,13 +740,25 @@ describe("compileWorkflowProgramIr", () => {
     expect(result.output.source).toContain("America/Phoenix");
     expect(result.loweredPlan.operations).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ nodeId: "collect-current-movie-sources", operationKind: "runtime.tool_paginate", toolName: "browser_search" }),
+        expect.objectContaining({
+          nodeId: "collect-current-movie-sources",
+          operationKind: "runtime.tool_paginate",
+          toolName: "browser_search",
+        }),
         expect.objectContaining({ nodeId: "dedupe-movie-sources", operationKind: "runtime.collection_dedupe" }),
         expect.objectContaining({ nodeId: "movie-source-records", operationKind: "runtime.collection_map" }),
         expect.objectContaining({ nodeId: "movie-source-chunks", operationKind: "runtime.collection_chunk" }),
-        expect.objectContaining({ nodeId: "extract-movie-options", operationKind: "runtime.model_map", modelTask: "extract.movie.night.current.options" }),
+        expect.objectContaining({
+          nodeId: "extract-movie-options",
+          operationKind: "runtime.model_map",
+          modelTask: "extract.movie.night.current.options",
+        }),
         expect.objectContaining({ nodeId: "preference-review", operationKind: "runtime.review" }),
-        expect.objectContaining({ nodeId: "recommend-movie-night", operationKind: "runtime.model_reduce", modelTask: "recommend.movie.night.current" }),
+        expect.objectContaining({
+          nodeId: "recommend-movie-night",
+          operationKind: "runtime.model_reduce",
+          modelTask: "recommend.movie.night.current",
+        }),
       ]),
     );
     expect(result.dryRun.calls.filter((call) => call.kind === "tool" && call.name === "browser_search")).toHaveLength(4);
@@ -799,7 +835,12 @@ describe("compileWorkflowProgramIr", () => {
             args: { path: { fromNode: "render-pdf", path: "artifactPath" }, content: { fromNode: "render-pdf", path: "content" } },
             changeSet: { path: { fromNode: "render-pdf", path: "artifactPath" }, summary: "Write deterministic rendered PDF report." },
           },
-          { id: "final-output", kind: "output.final", dependsOn: ["write-pdf"], value: { pdf: { fromNode: "write-pdf" }, render: { fromNode: "render-pdf" } } },
+          {
+            id: "final-output",
+            kind: "output.final",
+            dependsOn: ["write-pdf"],
+            value: { pdf: { fromNode: "write-pdf" }, render: { fromNode: "render-pdf" } },
+          },
         ],
         budgets: { maxToolCalls: 1, maxModelCalls: 1, maxRunMs: 120000 },
       },
@@ -853,7 +894,10 @@ describe("compileWorkflowProgramIr", () => {
 
     expect(result.program).toMatchObject({
       title: "Wrapped Planner Output",
-      nodes: [expect.objectContaining({ id: "diagnose", kind: "model.call" }), expect.objectContaining({ id: "final", kind: "output.final" })],
+      nodes: [
+        expect.objectContaining({ id: "diagnose", kind: "model.call" }),
+        expect.objectContaining({ id: "final", kind: "output.final" }),
+      ],
     });
     expect(result.output.source).toContain("diagnose.fixture");
   });
@@ -941,7 +985,9 @@ describe("compileWorkflowProgramIr", () => {
         expect.objectContaining({ nodeId: "save-summary", operationKind: "runtime.checkpoint" }),
       ]),
     );
-    expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(expect.arrayContaining(["step:scheduledLocalEvidence", "checkpoint:checkpointSummary"]));
+    expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(
+      expect.arrayContaining(["step:scheduledLocalEvidence", "checkpoint:checkpointSummary"]),
+    );
     expect(result.dryRun.componentOutputs).toMatchObject({
       "save-evidence": { report: "summary: compiler checkpoints", count: 1 },
       "save-summary": { summary: "summary: compiler checkpoints" },
@@ -989,7 +1035,12 @@ describe("compileWorkflowProgramIr", () => {
       nodes: [
         { id: "search-a", kind: "tool.call", tool: "browser_search", args: { query: "workflow compiler A", maxResults: 2 } },
         { id: "search-b", kind: "tool.call", tool: "browserSearch", args: { query: "workflow compiler B", maxResults: 2 } },
-        { id: "final-output", kind: "output.final", dependsOn: ["search-a", "search-b"], value: { a: { fromNode: "search-a" }, b: { fromNode: "search-b" } } },
+        {
+          id: "final-output",
+          kind: "output.final",
+          dependsOn: ["search-a", "search-b"],
+          value: { a: { fromNode: "search-a" }, b: { fromNode: "search-b" } },
+        },
       ],
     };
 
@@ -1008,11 +1059,7 @@ describe("compileWorkflowProgramIr", () => {
       toolDescriptors: firstPartyDesktopToolDescriptors(),
       program: {
         ...invalidProgram,
-        nodes: [
-          invalidProgram.nodes[0],
-          { ...invalidProgram.nodes[1], tool: "browser_search" },
-          invalidProgram.nodes[2],
-        ],
+        nodes: [invalidProgram.nodes[0], { ...invalidProgram.nodes[1], tool: "browser_search" }, invalidProgram.nodes[2]],
       },
       incrementalCache: cache,
     });
@@ -1036,7 +1083,12 @@ describe("compileWorkflowProgramIr", () => {
       nodes: [
         { id: "search-a", kind: "tool.call", tool: "browser_search", args: { query: "workflow compiler A", maxResults: 2 } },
         { id: "search-b", kind: "tool.call", tool: "browser_search", args: { query: "workflow compiler B", maxResults: 2 } },
-        { id: "final-output", kind: "output.final", dependsOn: ["search-a", "search-b"], value: { a: { fromNode: "search-a" }, b: { fromNode: "search-b" } } },
+        {
+          id: "final-output",
+          kind: "output.final",
+          dependsOn: ["search-a", "search-b"],
+          value: { a: { fromNode: "search-a" }, b: { fromNode: "search-b" } },
+        },
       ],
     };
 
@@ -1057,11 +1109,7 @@ describe("compileWorkflowProgramIr", () => {
       toolDescriptors: firstPartyDesktopToolDescriptors(),
       program: {
         ...program,
-        nodes: [
-          program.nodes[0],
-          { ...program.nodes[1], args: { query: "workflow compiler B updated", maxResults: 2 } },
-          program.nodes[2],
-        ],
+        nodes: [program.nodes[0], { ...program.nodes[1], args: { query: "workflow compiler B updated", maxResults: 2 } }, program.nodes[2]],
       },
       incrementalCache: cache,
     });
@@ -1113,7 +1161,7 @@ describe("compileWorkflowProgramIr", () => {
     const outputs = await run({
       workflow: {
         step: async (_name: string, optionsOrFn: unknown, maybeFn?: () => unknown) => {
-          const fn = typeof optionsOrFn === "function" ? optionsOrFn as () => unknown : maybeFn;
+          const fn = typeof optionsOrFn === "function" ? (optionsOrFn as () => unknown) : maybeFn;
           return await fn?.();
         },
         resumePoint: async (_name: string, fn: () => unknown) => await fn(),
@@ -1207,7 +1255,12 @@ describe("compileWorkflowProgramIr", () => {
             args: { path: "reports/staged.md", content: "ready" },
             changeSet: { path: "reports/staged.md", summary: "Write staged report." },
           },
-          { id: "final-output", kind: "output.final", dependsOn: ["write-report"], value: { path: { fromNode: "write-report", path: "path" } } },
+          {
+            id: "final-output",
+            kind: "output.final",
+            dependsOn: ["write-report"],
+            value: { path: { fromNode: "write-report", path: "path" } },
+          },
         ],
       },
     });
@@ -1215,8 +1268,10 @@ describe("compileWorkflowProgramIr", () => {
     expect(result.program.nodes[0]).toMatchObject({ kind: "mutation.stage", tool: "file_write" });
     expect(result.output.manifest.mutationPolicy).toBe("staged_until_approved");
     expect(result.output.graph?.nodes).toEqual(expect.arrayContaining([expect.objectContaining({ id: "write-report", type: "mutation" })]));
-    expect(result.output.source).toContain('workflow.stageMutation(write_report_changeSet');
-    expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(expect.arrayContaining(["mutation:write-report", "tool:file_write"]));
+    expect(result.output.source).toContain("workflow.stageMutation(write_report_changeSet");
+    expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(
+      expect.arrayContaining(["mutation:write-report", "tool:file_write"]),
+    );
   });
 
   it("compiles review.input nodes into traceable workflow.askUser review gates", async () => {
@@ -1256,11 +1311,15 @@ describe("compileWorkflowProgramIr", () => {
       },
     });
 
-    expect(result.output.graph?.nodes).toEqual(expect.arrayContaining([expect.objectContaining({ id: "browser-review", type: "review_gate" })]));
+    expect(result.output.graph?.nodes).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "browser-review", type: "review_gate" })]),
+    );
     expect(result.output.source).toContain("workflow.askUser");
     expect(result.output.source).toContain('{ nodeId: "browser-review" }');
     expect(result.output.source).toContain("browserIntervention");
-    expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(expect.arrayContaining(["tool:browser_nav", "review:browser-review"]));
+    expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(
+      expect.arrayContaining(["tool:browser_nav", "review:browser-review"]),
+    );
   });
 
   it("compiles browser.intervention into conditional user handoff and same-session retry code", async () => {
@@ -1414,7 +1473,9 @@ describe("compileWorkflowProgramIr", () => {
       },
     });
 
-    expect(result.output.manifest.tools).toEqual(expect.arrayContaining(["browser_nav", "browser_login", "browser_content", "browser_screenshot"]));
+    expect(result.output.manifest.tools).toEqual(
+      expect.arrayContaining(["browser_nav", "browser_login", "browser_content", "browser_screenshot"]),
+    );
     expect(result.output.source).toContain("tools.browser_login");
     expect(result.output.source).toContain("browser-login-user-action-completed");
     expect(result.output.source).not.toContain("retry Managed Browser Login");
@@ -1511,7 +1572,9 @@ describe("compileWorkflowProgramIr", () => {
       },
     });
 
-    expect(result.output.graph?.nodes).toEqual(expect.arrayContaining([expect.objectContaining({ id: "approve-summary", type: "review_gate" })]));
+    expect(result.output.graph?.nodes).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "approve-summary", type: "review_gate" })]),
+    );
     expect(result.output.source).toContain("workflow.requireApproval");
     expect(result.output.source).toContain('{ nodeId: "approve-summary" }');
     expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(
@@ -1577,12 +1640,18 @@ describe("compileWorkflowProgramIr", () => {
         expect.objectContaining({ id: "safe-evidence", type: "error_handler" }),
       ]),
     );
-    expect(result.output.source).toContain("condition ? \"then\" : \"else\"");
+    expect(result.output.source).toContain('condition ? "then" : "else"');
     expect(result.output.source).toContain(".map((map_evidence_item");
     expect(result.output.source).toContain("renderTemplate");
     expect(result.output.source).not.toContain("process.");
     expect(result.dryRun.calls.map((call) => `${call.kind}:${call.nodeId ?? call.name}`)).toEqual(
-      expect.arrayContaining(["step:choose-status", "step:map-evidence", "step:safe-status", "step:safe-evidence", "checkpoint:final-output"]),
+      expect.arrayContaining([
+        "step:choose-status",
+        "step:map-evidence",
+        "step:safe-status",
+        "step:safe-evidence",
+        "checkpoint:final-output",
+      ]),
     );
     expect(result.dryRun.componentOutputs).toMatchObject({
       "choose-status": { branch: "then", value: "ready" },
@@ -1645,7 +1714,9 @@ describe("compileWorkflowProgramIr", () => {
     expect(result.output.manifest.tools).toEqual(expect.arrayContaining(["local_directory_list", "ambient_visual_analyze"]));
     expect(result.output.manifest.maxToolCalls).toBe(11);
     expect(result.output.graph?.nodes).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: "analyze-images", type: "data_source", toolNames: ["ambient_visual_analyze"] })]),
+      expect.arrayContaining([
+        expect.objectContaining({ id: "analyze-images", type: "data_source", toolNames: ["ambient_visual_analyze"] }),
+      ]),
     );
     expect(result.output.source).toContain("workflow.batch");
     expect(result.output.source).toContain("tools.ambient_visual_analyze");
@@ -1680,8 +1751,20 @@ describe("compileWorkflowProgramIr", () => {
             value: {
               entries: [
                 { name: "image-01.png", path: "image-01.png", absolutePath: "/tmp/image-01.png", extension: ".png", type: "file" },
-                { name: ".hidden-camera-roll.png", path: ".hidden-camera-roll.png", absolutePath: "/tmp/.hidden-camera-roll.png", extension: ".png", type: "file" },
-                { name: "credentials-photo.png", path: "credentials-photo.png", absolutePath: "/tmp/credentials-photo.png", extension: ".png", type: "file" },
+                {
+                  name: ".hidden-camera-roll.png",
+                  path: ".hidden-camera-roll.png",
+                  absolutePath: "/tmp/.hidden-camera-roll.png",
+                  extension: ".png",
+                  type: "file",
+                },
+                {
+                  name: "credentials-photo.png",
+                  path: "credentials-photo.png",
+                  absolutePath: "/tmp/credentials-photo.png",
+                  extension: ".png",
+                  type: "file",
+                },
                 { name: "image-02.jpg", path: "image-02.jpg", absolutePath: "/tmp/image-02.jpg", extension: ".jpg", type: "file" },
                 { name: "image-03.png", path: "image-03.png", absolutePath: "/tmp/image-03.png", extension: ".png", type: "directory" },
                 { name: "image-04.png", path: "image-04.png", absolutePath: "/tmp/image-04.png", extension: ".png", type: "file" },
@@ -1704,7 +1787,10 @@ describe("compileWorkflowProgramIr", () => {
             id: "final-output",
             kind: "output.final",
             dependsOn: ["select-images"],
-            value: { selected: { fromNode: "select-images", path: "items" }, matchedCount: { fromNode: "select-images", path: "matchedCount" } },
+            value: {
+              selected: { fromNode: "select-images", path: "items" },
+              matchedCount: { fromNode: "select-images", path: "matchedCount" },
+            },
           },
         ],
       },
@@ -1728,7 +1814,10 @@ describe("compileWorkflowProgramIr", () => {
     });
 
     expect(outputs["select-images"]).toMatchObject({ count: 2, matchedCount: 2, sourceCount: 6, truncated: false });
-    expect((outputs["final-output"] as { selected: Array<{ name: string }> }).selected.map((item) => item.name)).toEqual(["image-01.png", "image-04.png"]);
+    expect((outputs["final-output"] as { selected: Array<{ name: string }> }).selected.map((item) => item.name)).toEqual([
+      "image-01.png",
+      "image-04.png",
+    ]);
   });
 
   it("rejects loop item references outside loop.map.map scope", async () => {
@@ -1780,7 +1869,12 @@ describe("compileWorkflowProgramIr", () => {
             dependsOn: ["classify"],
             args: { path: "reports/notes.md", content: { fromNode: "classify", path: "summary" } },
           },
-          { id: "final-output", kind: "output.final", dependsOn: ["write-report"], value: { path: { fromNode: "write-report", path: "path" } } },
+          {
+            id: "final-output",
+            kind: "output.final",
+            dependsOn: ["write-report"],
+            value: { path: { fromNode: "write-report", path: "path" } },
+          },
         ],
       },
     });
@@ -1802,7 +1896,12 @@ describe("compileWorkflowProgramIr", () => {
           nodes: [
             { id: "read-a", kind: "tool.call", tool: "file_read", args: { path: "a.md" } },
             { id: "read-b", kind: "tool.call", tool: "file_read", args: { path: "b.md" } },
-            { id: "final-output", kind: "output.final", dependsOn: ["read-a", "read-b"], value: { a: { fromNode: "read-a", path: "content" }, b: { fromNode: "read-b", path: "content" } } },
+            {
+              id: "final-output",
+              kind: "output.final",
+              dependsOn: ["read-a", "read-b"],
+              value: { a: { fromNode: "read-a", path: "content" }, b: { fromNode: "read-b", path: "content" } },
+            },
           ],
           budgets: { maxToolCalls: 1 },
         },
@@ -1837,316 +1936,6 @@ describe("compileWorkflowProgramIr", () => {
     });
   });
 
-  it("compiles Ambient CLI calls only when a selected descriptor-backed capability grants the exact command", async () => {
-    const result = await compileWorkflowProgramIr({
-      toolDescriptors: firstPartyDesktopToolDescriptors(),
-      ambientCliCapabilities: [arxivAmbientCliCapability()],
-      program: {
-        version: 1,
-        title: "Arxiv Research",
-        goal: "Search arXiv with an installed Ambient CLI command and summarize the output.",
-        nodes: [
-          {
-            id: "describe-arxiv",
-            kind: "tool.call",
-            tool: "ambient_cli_describe",
-            args: { packageName: "pi-arxiv", command: "arxiv_search" },
-          },
-          {
-            id: "search-arxiv",
-            kind: "tool.call",
-            tool: "ambient_cli",
-            dependsOn: ["describe-arxiv"],
-            args: { packageName: "pi-arxiv", command: "arxiv_search", args: ["workflow compiler", "--max-results", "3"] },
-            output: { type: "ambientCliResult" },
-          },
-          {
-            id: "summarize",
-            kind: "model.call",
-            dependsOn: ["search-arxiv"],
-            task: "summarize.arxiv.results",
-            input: { cliOutput: { fromNode: "search-arxiv", path: "stdout" } },
-            output: { schema: { summary: "string", citations: "array" } },
-          },
-          { id: "final-output", kind: "output.final", dependsOn: ["summarize"], value: { summary: { fromNode: "summarize", path: "summary" } } },
-        ],
-      },
-    });
-
-    expect(result.output.manifest.tools).toEqual(expect.arrayContaining(["ambient_cli", "ambient.responses"]));
-    expect(result.output.manifest.ambientCliCapabilities).toEqual([arxivAmbientCliGrant()]);
-    expect(result.output.source).toContain("tools.ambient_cli_describe");
-    expect(result.output.source).toContain('tools.ambient_cli({ "packageName": "pi-arxiv", "command": "arxiv_search"');
-    expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(expect.arrayContaining(["tool:ambient_cli_describe", "tool:ambient_cli", "model:summarize.arxiv.results"]));
-  });
-
-  it("rejects Ambient CLI execution that is not preceded by a matching describe node", async () => {
-    await expect(
-      compileWorkflowProgramIr({
-        toolDescriptors: firstPartyDesktopToolDescriptors(),
-        ambientCliCapabilities: [arxivAmbientCliCapability()],
-        program: {
-          version: 1,
-          title: "Undescribed CLI",
-          goal: "Try to run an Ambient CLI command without describing it first.",
-          nodes: [
-            {
-              id: "search-arxiv",
-              kind: "tool.call",
-              tool: "ambient_cli",
-              args: { packageName: "pi-arxiv", command: "arxiv_search", args: ["workflow compiler"] },
-            },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({
-      diagnostics: [expect.objectContaining({ code: "ambient_cli.describe_required", nodeId: "search-arxiv" })],
-    });
-  });
-
-  it("rejects Ambient CLI describe nodes that are not grounded by search or selected capability metadata", async () => {
-    await expect(
-      compileWorkflowProgramIr({
-        toolDescriptors: firstPartyDesktopToolDescriptors(),
-        program: {
-          version: 1,
-          title: "Ungrounded CLI Describe",
-          goal: "Try to describe an Ambient CLI package without discovery provenance.",
-          nodes: [
-            {
-              id: "describe-arxiv",
-              kind: "tool.call",
-              tool: "ambient_cli_describe",
-              args: { packageName: "pi-arxiv", command: "arxiv_search" },
-            },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({
-      diagnostics: [expect.objectContaining({ code: "ambient_cli.search_required", nodeId: "describe-arxiv" })],
-    });
-  });
-
-  it("allows Ambient CLI describe nodes grounded by a prior search dependency", async () => {
-    const result = await compileWorkflowProgramIr({
-      toolDescriptors: firstPartyDesktopToolDescriptors(),
-      program: {
-        version: 1,
-        title: "Search Then Describe CLI",
-        goal: "Discover installed Ambient CLI capabilities before describing the selected package.",
-        nodes: [
-          {
-            id: "search-cli",
-            kind: "tool.call",
-            tool: "ambient_cli_search",
-            args: { query: "arxiv paper search", kind: "command", limit: 5 },
-          },
-          {
-            id: "describe-arxiv",
-            kind: "tool.call",
-            tool: "ambient_cli_describe",
-            dependsOn: ["search-cli"],
-            args: { packageName: "pi-arxiv", command: "arxiv_search" },
-          },
-          { id: "final-output", kind: "output.final", dependsOn: ["describe-arxiv"], value: { description: { fromNode: "describe-arxiv" } } },
-        ],
-      },
-    });
-
-    expect(result.output.manifest.tools).toEqual(expect.arrayContaining(["ambient_cli_search", "ambient_cli_describe"]));
-    expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(expect.arrayContaining(["tool:ambient_cli_search", "tool:ambient_cli_describe"]));
-  });
-
-  it("rejects Ambient CLI calls without a selected capability grant", async () => {
-    await expect(
-      compileWorkflowProgramIr({
-        toolDescriptors: firstPartyDesktopToolDescriptors(),
-        program: {
-          version: 1,
-          title: "Ungranted CLI",
-          goal: "Try to run an Ambient CLI command without a grant.",
-          nodes: [
-            {
-              id: "describe-arxiv",
-              kind: "tool.call",
-              tool: "ambient_cli_describe",
-              args: { packageName: "pi-arxiv", command: "arxiv_search" },
-            },
-            {
-              id: "search-arxiv",
-              kind: "tool.call",
-              tool: "ambient_cli",
-              dependsOn: ["describe-arxiv"],
-              args: { packageName: "pi-arxiv", command: "arxiv_search", args: ["workflow compiler"] },
-            },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({
-      diagnostics: expect.arrayContaining([
-        expect.objectContaining({ code: "ambient_cli.search_required", nodeId: "describe-arxiv" }),
-        expect.objectContaining({ code: "ambient_cli.capability_required", nodeId: "search-arxiv" }),
-      ]),
-    });
-  });
-
-  it("rejects Ambient CLI calls with dynamic command identity before source generation", async () => {
-    await expect(
-      compileWorkflowProgramIr({
-        toolDescriptors: firstPartyDesktopToolDescriptors(),
-        ambientCliCapabilities: [arxivAmbientCliCapability()],
-        program: {
-          version: 1,
-          title: "Dynamic CLI",
-          goal: "Try to run an Ambient CLI command from dynamic identity fields.",
-          nodes: [
-            { id: "read-command", kind: "tool.call", tool: "file_read", args: { path: "command.txt" } },
-            {
-              id: "search-arxiv",
-              kind: "tool.call",
-              tool: "ambient_cli",
-              dependsOn: ["read-command"],
-              args: { packageName: "pi-arxiv", command: { fromNode: "read-command", path: "content" }, args: ["workflow compiler"] },
-            },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({
-      diagnostics: [expect.objectContaining({ code: "ambient_cli.literal_command_required", nodeId: "search-arxiv" })],
-    });
-  });
-
-  it("rejects Ambient CLI calls that embed secret-looking argument literals", async () => {
-    await expect(
-      compileWorkflowProgramIr({
-        toolDescriptors: firstPartyDesktopToolDescriptors(),
-        ambientCliCapabilities: [arxivAmbientCliCapability()],
-        program: {
-          version: 1,
-          title: "Secret In CLI Args",
-          goal: "Try to pass a secret value through Ambient CLI arguments.",
-          nodes: [
-            {
-              id: "describe-arxiv",
-              kind: "tool.call",
-              tool: "ambient_cli_describe",
-              args: { packageName: "pi-arxiv", command: "arxiv_search" },
-            },
-            {
-              id: "search-arxiv",
-              kind: "tool.call",
-              tool: "ambient_cli",
-              dependsOn: ["describe-arxiv"],
-              args: { packageName: "pi-arxiv", command: "arxiv_search", args: ["--api-key", "sk-1234567890abcdefghijklmnop", "workflow compiler"] },
-            },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({
-      diagnostics: expect.arrayContaining([expect.objectContaining({ code: "ambient_cli.secret_value_rejected", nodeId: "search-arxiv" })]),
-    });
-  });
-
-  it("rejects Ambient CLI capabilities that still need environment bindings", async () => {
-    await expect(
-      compileWorkflowProgramIr({
-        toolDescriptors: firstPartyDesktopToolDescriptors(),
-        ambientCliCapabilities: [arxivAmbientCliCapability({ missingEnv: ["ARXIV_API_KEY"] })],
-        program: {
-          version: 1,
-          title: "Missing Env CLI",
-          goal: "Try to compile an Ambient CLI command whose package is not ready.",
-          nodes: [
-            {
-              id: "describe-arxiv",
-              kind: "tool.call",
-              tool: "ambient_cli_describe",
-              args: { packageName: "pi-arxiv", command: "arxiv_search" },
-            },
-            {
-              id: "search-arxiv",
-              kind: "tool.call",
-              tool: "ambient_cli",
-              dependsOn: ["describe-arxiv"],
-              args: { packageName: "pi-arxiv", command: "arxiv_search", args: ["workflow compiler"] },
-            },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({
-      diagnostics: [expect.objectContaining({ code: "ambient_cli.capability_missing_env", nodeId: "search-arxiv" })],
-    });
-  });
-
-  it("compiles Ambient CLI missing-env setup without exposing or executing the secret-backed command", async () => {
-    const result = await compileWorkflowProgramIr({
-      toolDescriptors: firstPartyDesktopToolDescriptors(),
-      ambientCliCapabilities: [arxivAmbientCliCapability({ missingEnv: ["ARXIV_API_KEY"] })],
-      program: {
-        version: 1,
-        title: "CLI Secret Setup",
-        goal: "Request a Desktop-owned secret entry before running the cloud-backed CLI command.",
-        nodes: [
-          {
-            id: "describe-arxiv",
-            kind: "tool.call",
-            tool: "ambient_cli_describe",
-            args: { packageName: "pi-arxiv", command: "arxiv_search" },
-          },
-          {
-            id: "request-secret",
-            kind: "tool.call",
-            tool: "ambient_cli_secret_request",
-            dependsOn: ["describe-arxiv"],
-            args: { packageName: "pi-arxiv", envName: "ARXIV_API_KEY" },
-          },
-          {
-            id: "final-output",
-            kind: "output.final",
-            dependsOn: ["request-secret"],
-            value: {
-              status: "secret requested",
-              packageName: "pi-arxiv",
-              envName: "ARXIV_API_KEY",
-              next: "Retry after Desktop reports the env as configured.",
-            },
-          },
-        ],
-      },
-    });
-
-    expect(result.output.manifest.tools).toEqual(expect.arrayContaining(["ambient_cli_describe", "ambient_cli_secret_request"]));
-    expect(result.output.manifest.tools).not.toContain("ambient_cli");
-    expect(result.output.manifest.ambientCliCapabilities).toBeUndefined();
-    expect(result.output.source).toContain("tools.ambient_cli_secret_request");
-    expect(result.output.source).not.toContain("tools.ambient_cli({");
-    expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(expect.arrayContaining(["tool:ambient_cli_secret_request"]));
-  });
-
-  it("rejects Ambient CLI env binding paths outside the workspace-secret boundary", async () => {
-    await expect(
-      compileWorkflowProgramIr({
-        toolDescriptors: firstPartyDesktopToolDescriptors(),
-        ambientCliCapabilities: [arxivAmbientCliCapability({ missingEnv: ["ARXIV_API_KEY"] })],
-        program: {
-          version: 1,
-          title: "Bad CLI Secret Bind",
-          goal: "Try to bind a host secret path into an Ambient CLI package.",
-          nodes: [
-            {
-              id: "bind-secret",
-              kind: "mutation.stage",
-              tool: "ambient_cli_env_bind",
-              args: { packageName: "pi-arxiv", envName: "ARXIV_API_KEY", filePath: "/Users/example/.secrets/arxiv.txt" },
-            },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({
-      diagnostics: [expect.objectContaining({ code: "ambient_cli.env_bind_file_path_invalid", nodeId: "bind-secret" })],
-    });
-  });
-
   it("compiles file_read through .content-aware dataflow and bash classification", async () => {
     const result = await compileWorkflowProgramIr({
       toolDescriptors: firstPartyDesktopToolDescriptors(),
@@ -2177,234 +1966,6 @@ describe("compileWorkflowProgramIr", () => {
     expect(result.output.manifest.tools).toEqual(expect.arrayContaining(["file_read", "bash", "ambient.responses"]));
     expect(result.output.source).toContain('readPath(outputs["read-package"], "content")');
     expect(result.dryRun.calls.map((call) => call.name)).toEqual(expect.arrayContaining(["file_read", "bash", "classify.test.result"]));
-  });
-
-  it("allows read-only Google Workspace status, method search, method call, and local materialization", async () => {
-    const result = await compileWorkflowProgramIr({
-      toolDescriptors: firstPartyDesktopToolDescriptors(),
-      program: {
-        version: 1,
-        title: "Google Drive Read Report",
-        goal: "Read Google Drive metadata and save a local review copy.",
-        nodes: [
-          { id: "google-status", kind: "tool.call", tool: "google_workspace_status", args: {} },
-          {
-            id: "search-methods",
-            kind: "tool.call",
-            tool: "google_workspace_search_methods",
-            dependsOn: ["google-status"],
-            args: { service: "drive", query: "list Drive files", sideEffect: "metadata_read" },
-          },
-          {
-            id: "list-files",
-            kind: "tool.call",
-            tool: "google_workspace_call",
-            dependsOn: ["search-methods"],
-            args: { accountHint: "user@example.com", methodId: "drive.files.list", params: { pageSize: 10 } },
-          },
-          {
-            id: "materialize-file",
-            kind: "tool.call",
-            tool: "google_workspace_materialize_file",
-            dependsOn: ["list-files"],
-            args: { fileHandle: { fromNode: "list-files", path: "fileHandle" }, path: "Google Workspace Downloads/drive-list.json" },
-          },
-          { id: "final-output", kind: "output.final", dependsOn: ["materialize-file"], value: { localCopy: { fromNode: "materialize-file", path: "path" } } },
-        ],
-      },
-    });
-
-    expect(result.output.manifest.tools).toEqual(
-      expect.arrayContaining(["google_workspace_status", "google_workspace_search_methods", "google_workspace_call", "google_workspace_materialize_file"]),
-    );
-    expect(result.output.manifest.googleWorkspaceMethods).toEqual([
-      expect.objectContaining({
-        methodId: "drive.files.list",
-        accountHint: "user@example.com",
-        accountProvenance: "literal",
-        service: "drive",
-        resource: "files",
-        method: "list",
-        httpMethod: "GET",
-        sideEffect: "personal_content_read",
-        dataRetention: "run_artifact",
-        dryRunSupported: false,
-        catalogVersion: expect.any(String),
-        scopes: expect.arrayContaining(["https://www.googleapis.com/auth/drive.readonly"]),
-      }),
-    ]);
-    expect(result.dryRun.calls.map((call) => call.name)).toEqual(
-      expect.arrayContaining(["google_workspace_status", "google_workspace_search_methods", "google_workspace_call", "google_workspace_materialize_file"]),
-    );
-  });
-
-  it("allows read-only Calendar calls only with account, explicit date range, and timezone", async () => {
-    const result = await compileWorkflowProgramIr({
-      toolDescriptors: firstPartyDesktopToolDescriptors(),
-      program: {
-        version: 1,
-        title: "Calendar Agenda",
-        goal: "Read a bounded Google Calendar agenda.",
-        nodes: [
-          { id: "google-status", kind: "tool.call", tool: "google_workspace_status", args: {} },
-          {
-            id: "search-methods",
-            kind: "tool.call",
-            tool: "google_workspace_search_methods",
-            dependsOn: ["google-status"],
-            args: { service: "calendar", query: "list events", sideEffect: "personal_content_read", httpMethod: "GET" },
-          },
-          {
-            id: "list-events",
-            kind: "tool.call",
-            tool: "google_workspace_call",
-            dependsOn: ["search-methods"],
-            args: {
-              accountHint: { fromNode: "google-status", path: "accounts.0.accountHint" },
-              methodId: "calendar.events.list",
-              params: {
-                calendarId: "primary",
-                timeMin: "2026-05-15T00:00:00-07:00",
-                timeMax: "2026-05-16T00:00:00-07:00",
-                timeZone: "America/Phoenix",
-              },
-            },
-          },
-          { id: "final-output", kind: "output.final", dependsOn: ["list-events"], value: { events: { fromNode: "list-events", path: "events" } } },
-        ],
-      },
-    });
-
-    expect(result.output.manifest.tools).toEqual(expect.arrayContaining(["google_workspace_status", "google_workspace_search_methods", "google_workspace_call"]));
-    expect(result.output.manifest.googleWorkspaceMethods).toEqual([
-      expect.objectContaining({
-        methodId: "calendar.events.list",
-        accountProvenance: "google_workspace_status",
-        service: "calendar",
-        resource: "events",
-        method: "list",
-        sideEffect: "personal_content_read",
-        dataRetention: "run_artifact",
-        requiresTimeRange: true,
-        scopes: expect.arrayContaining(["https://www.googleapis.com/auth/calendar.readonly"]),
-      }),
-    ]);
-    expect(result.dryRun.calls.map((call) => call.name)).toEqual(expect.arrayContaining(["google_workspace_call"]));
-  });
-
-  it("rejects Google Workspace write methods in read-only compiler policy", async () => {
-    await expect(
-      compileWorkflowProgramIr({
-        toolDescriptors: firstPartyDesktopToolDescriptors(),
-        program: {
-          version: 1,
-          title: "Bad Google Write",
-          goal: "Try to create a Drive file.",
-          nodes: [
-            {
-              id: "create-drive-file",
-              kind: "tool.call",
-              tool: "google_workspace_call",
-              args: { accountHint: "user@example.com", methodId: "drive.files.create", body: { name: "bad.txt" } },
-            },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({
-      diagnostics: [expect.objectContaining({ code: "google.write_method_rejected", nodeId: "create-drive-file" })],
-    });
-  });
-
-  it("rejects Google Workspace calls without account provenance", async () => {
-    await expect(
-      compileWorkflowProgramIr({
-        toolDescriptors: firstPartyDesktopToolDescriptors(),
-        program: {
-          version: 1,
-          title: "Missing Google Account",
-          goal: "Try to call Google without an account handle.",
-          nodes: [
-            {
-              id: "list-files",
-              kind: "tool.call",
-              tool: "google_workspace_call",
-              args: { methodId: "drive.files.list", params: { pageSize: 10 } },
-            },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({
-      diagnostics: [expect.objectContaining({ code: "google.account_hint_required", nodeId: "list-files" })],
-    });
-  });
-
-  it("rejects read-only Google Workspace calls with write payload fields", async () => {
-    await expect(
-      compileWorkflowProgramIr({
-        toolDescriptors: firstPartyDesktopToolDescriptors(),
-        program: {
-          version: 1,
-          title: "Bad Google Payload",
-          goal: "Try to put a write payload on a read-only Google method.",
-          nodes: [
-            {
-              id: "list-files",
-              kind: "tool.call",
-              tool: "google_workspace_call",
-              args: { accountHint: "user@example.com", methodId: "drive.files.list", body: { pageSize: 10 } },
-            },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({
-      diagnostics: [expect.objectContaining({ code: "google.read_only_payload_rejected", nodeId: "list-files" })],
-    });
-  });
-
-  it("rejects Calendar agenda calls without an explicit timezone-aware range", async () => {
-    await expect(
-      compileWorkflowProgramIr({
-        toolDescriptors: firstPartyDesktopToolDescriptors(),
-        program: {
-          version: 1,
-          title: "Bad Calendar Agenda",
-          goal: "Try to read Calendar without bounded time policy.",
-          nodes: [
-            {
-              id: "list-events",
-              kind: "tool.call",
-              tool: "google_workspace_call",
-              args: { accountHint: "user@example.com", methodId: "calendar.events.list", params: { calendarId: "primary" } },
-            },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({
-      diagnostics: [expect.objectContaining({ code: "google.calendar_time_range_required", nodeId: "list-events" })],
-    });
-  });
-
-  it("rejects Google Workspace methods that cannot be resolved to catalog metadata", async () => {
-    await expect(
-      compileWorkflowProgramIr({
-        toolDescriptors: firstPartyDesktopToolDescriptors(),
-        program: {
-          version: 1,
-          title: "Unknown Google Method",
-          goal: "Try to call a Google method that the compiler cannot grant precisely.",
-          nodes: [
-            {
-              id: "unknown-google-method",
-              kind: "tool.call",
-              tool: "google_workspace_call",
-              args: { accountHint: "user@example.com", methodId: "drive.files.notARealRead", params: { pageSize: 10 } },
-            },
-          ],
-        },
-      }),
-    ).rejects.toMatchObject({
-      diagnostics: [expect.objectContaining({ code: "google.method_metadata_required", nodeId: "unknown-google-method" })],
-    });
   });
 
   it("rejects unavailable tools before code generation", async () => {
@@ -2447,7 +2008,12 @@ describe("compileWorkflowProgramIr", () => {
           goal: "Use a file read path that does not exist.",
           nodes: [
             { id: "read-source", kind: "tool.call", tool: "file_read", args: { path: "notes.md" } },
-            { id: "final-output", kind: "output.final", dependsOn: ["read-source"], value: { text: { fromNode: "read-source", path: "contents" } } },
+            {
+              id: "final-output",
+              kind: "output.final",
+              dependsOn: ["read-source"],
+              value: { text: { fromNode: "read-source", path: "contents" } },
+            },
           ],
         },
       }),
@@ -2466,7 +2032,12 @@ describe("compileWorkflowProgramIr", () => {
           goal: "Expose actionable invalid-path failure evidence.",
           nodes: [
             { id: "read-source", kind: "tool.call", tool: "file_read", args: { path: "notes.md" } },
-            { id: "final-output", kind: "output.final", dependsOn: ["read-source"], value: { text: { fromNode: "read-source", path: "contents" } } },
+            {
+              id: "final-output",
+              kind: "output.final",
+              dependsOn: ["read-source"],
+              value: { text: { fromNode: "read-source", path: "contents" } },
+            },
           ],
         },
       }),
@@ -2576,7 +2147,9 @@ describe("compileWorkflowProgramIr", () => {
       tool: "file_write",
     });
     expect(result.output.manifest.mutationPolicy).toBe("staged_until_approved");
-    expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(expect.arrayContaining(["mutation:write-report", "tool:file_write"]));
+    expect(result.dryRun.calls.map((call) => `${call.kind}:${call.name}`)).toEqual(
+      expect.arrayContaining(["mutation:write-report", "tool:file_write"]),
+    );
   });
 
   it("rejects object output references when a tool argument requires a primitive path", async () => {
@@ -2612,7 +2185,14 @@ describe("compileWorkflowProgramIr", () => {
           version: 1,
           title: "Bad Tool Args",
           goal: "Write non-string content.",
-          nodes: [{ id: "write-report", kind: "tool.call", tool: "file_write", args: { path: "reports/bad.md", content: { literal: { nested: true } } } }],
+          nodes: [
+            {
+              id: "write-report",
+              kind: "tool.call",
+              tool: "file_write",
+              args: { path: "reports/bad.md", content: { literal: { nested: true } } },
+            },
+          ],
         },
       }),
     ).rejects.toMatchObject({

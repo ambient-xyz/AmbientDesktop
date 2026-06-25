@@ -38,6 +38,8 @@ export interface DesktopStateSnapshotStore {
   getFeatureFlagSettings(): DesktopSettings["featureFlags"];
   listAutomationFolders(): DesktopState["automationFolders"];
   listMessages(threadId: string): DesktopState["messages"];
+  listRecentMessages(threadId: string, limit: number): DesktopState["messages"];
+  countMessages(threadId: string): number;
   listMessageVoiceStates(threadId: string): Array<DesktopState["messageVoiceStates"][string]>;
   listPlannerPlanArtifacts(threadId: string): DesktopState["plannerPlanArtifacts"];
   getMemorySettings(): DesktopSettings["memory"];
@@ -95,6 +97,7 @@ export interface DesktopStateSnapshotService {
 }
 
 const ACTIVE_THREAD_RUN_STATUSES = new Set<string>(["starting", "streaming", "tool"]);
+export const DESKTOP_STATE_MESSAGE_WINDOW_LIMIT = 250;
 
 function isActiveThreadRunStatus(status: string): status is RunStatus {
   return ACTIVE_THREAD_RUN_STATUSES.has(status);
@@ -169,7 +172,7 @@ export function createDesktopStateSnapshotService<Store extends DesktopStateSnap
     const childThreadIds = Array.from(new Set(subagentRuns.map((run) => run.childThreadId).filter(Boolean)));
     const childMessagesByThreadId =
       subagentUiEnabled && settings.kind !== "subagent_child"
-        ? Object.fromEntries(childThreadIds.map((childThreadId) => [childThreadId, store.listMessages(childThreadId)]))
+        ? Object.fromEntries(childThreadIds.map((childThreadId) => [childThreadId, store.listRecentMessages(childThreadId, DESKTOP_STATE_MESSAGE_WINDOW_LIMIT)]))
         : undefined;
     const workspace = store.getWorkspace();
     const subagentMaturity = store.getSubagentMaturitySnapshot({
@@ -192,6 +195,8 @@ export function createDesktopStateSnapshotService<Store extends DesktopStateSnap
       dependencies.activeProjectBoardForState(store, active),
     );
     const slots = dependencies.settingsSlots();
+    const messages = store.listRecentMessages(active, DESKTOP_STATE_MESSAGE_WINDOW_LIMIT);
+    const totalMessageCount = store.countMessages(active);
     return {
       stateRevision: ++stateRevision,
       app: dependencies.appInfo(),
@@ -207,7 +212,14 @@ export function createDesktopStateSnapshotService<Store extends DesktopStateSnap
       threads,
       activeThreadId: active,
       threadRunStatuses: activeThreadRunStatuses(),
-      messages: store.listMessages(active),
+      messages,
+      messageWindow: {
+        threadId: active,
+        order: "latest",
+        limit: DESKTOP_STATE_MESSAGE_WINDOW_LIMIT,
+        loadedCount: messages.length,
+        hasMoreBefore: totalMessageCount > messages.length,
+      },
       childMessagesByThreadId,
       messageVoiceStates: Object.fromEntries(
         store.listMessageVoiceStates(active).map((voiceState) => [voiceState.messageId, voiceState]),

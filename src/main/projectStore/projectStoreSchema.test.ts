@@ -45,6 +45,7 @@ describe("project store schema bootstrap", () => {
       "subagent_batch_result_reports",
       "message_voice_states",
       "runs",
+      "run_diagnostic_payloads",
       "context_usage_snapshots",
       "thread_goals",
       "thread_wake_continuations",

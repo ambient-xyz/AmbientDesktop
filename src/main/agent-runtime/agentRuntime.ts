@@ -32,7 +32,10 @@ import { AmbientPluginHost, type PluginMcpRuntimeSnapshot } from "./agentRuntime
 import { AmbientDownloadService } from "./agentRuntimeAmbientFacade";
 import { AmbientCliPackageDescriptionState } from "./ambient-cli-package/agentRuntimeAmbientCliPackageDescriptionState";
 import { workflowRecordingReviewSendInputForThread } from "./workflow-support/agentRuntimeWorkflowRecordingReviewRequest";
-import { emitAgentRuntimeDesktopEvent } from "./agentRuntimeDesktopEventEmit";
+import {
+  createAgentRuntimeDesktopEventCoalescer,
+  type AgentRuntimeDesktopEventCoalescer,
+} from "./agentRuntimeDesktopEventEmit";
 import { AgentRuntimeSessionRegistry } from "./agentRuntimeSessionRegistry";
 import type { AgentRuntimePiSession } from "./agentRuntimeSessionFactoryController";
 import { type SubagentChildExecutionRecord } from "./agentRuntimeSubagentChildLifecycleCoordinator";
@@ -122,6 +125,7 @@ export class AgentRuntime {
   private readonly installRouteGuard = new AgentRuntimeInstallRouteGuard();
   private readonly transientFileAuthorityRoots = new Map<string, TransientFileAuthorityRoot[]>();
   private readonly tencentMemoryRuntimeSnapshots = new Map<string, AgentMemoryRuntimeSnapshot>();
+  private readonly desktopEventCoalescer: AgentRuntimeDesktopEventCoalescer;
   private lastRendererSendFailureAt = 0;
 
   constructor(
@@ -132,6 +136,14 @@ export class AgentRuntime {
     private readonly permissions: AgentRuntimePermissionBridge,
     private readonly features: AgentRuntimeFeatures = {},
   ) {
+    this.desktopEventCoalescer = createAgentRuntimeDesktopEventCoalescer({
+      getWindow: () => this.getWindow(),
+      store: this.store,
+      lastRendererSendFailureAt: () => this.lastRendererSendFailureAt,
+      setLastRendererSendFailureAt: (value) => {
+        this.lastRendererSendFailureAt = value;
+      },
+    });
     this.controllers = createAgentRuntimeControllerInitializer({
       store: this.store,
       browser: this.browser,
@@ -463,14 +475,7 @@ export class AgentRuntime {
   }
 
   private emit(event: DesktopEvent): void {
-    emitAgentRuntimeDesktopEvent(event, {
-      getWindow: () => this.getWindow(),
-      store: this.store,
-      lastRendererSendFailureAt: () => this.lastRendererSendFailureAt,
-      setLastRendererSendFailureAt: (value) => {
-        this.lastRendererSendFailureAt = value;
-      },
-    });
+    this.desktopEventCoalescer.emit(event);
   }
 }
 

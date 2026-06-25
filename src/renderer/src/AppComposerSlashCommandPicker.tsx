@@ -3,12 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import type { SlashCommandCatalogEntry, SlashCommandSearchResponse, SlashCommandSelection } from "../../shared/slashCommandTypes";
 import type { ComposerDraftStore } from "./AppComposerControls";
-import { useComposerDraftValue } from "./AppComposerControls";
+import { useComposerDraftSelection, useComposerDraftValue } from "./AppComposerControls";
 import {
   slashCommandAvailabilityLabel,
   slashCommandCatalogNeedsRefreshEvent,
   slashCommandEntryIsSelectable,
   slashCommandGroupLabel,
+  type SlashCommandDraftTrigger,
   slashCommandPickerSearchInput,
   slashCommandTriggerFromDraft,
 } from "./slashCommandUiModel";
@@ -23,11 +24,12 @@ export function useAppComposerSlashCommandPicker({
   composerDraftStore: ComposerDraftStore;
   selectedSlashCommand?: SlashCommandSelection;
   onComposerKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => void;
-  onSelectSlashCommandEntry: (entry: SlashCommandCatalogEntry, query: string, draft: string) => void;
+  onSelectSlashCommandEntry: (entry: SlashCommandCatalogEntry, query: string, draft: string, trigger: SlashCommandDraftTrigger) => void;
   onUnavailableSlashCommand: (entry: SlashCommandCatalogEntry) => void;
 }) {
   const composerDraftValue = useComposerDraftValue(composerDraftStore);
-  const slashTrigger = slashCommandTriggerFromDraft(composerDraftValue, selectedSlashCommand);
+  const composerDraftSelection = useComposerDraftSelection(composerDraftStore);
+  const slashTrigger = slashCommandTriggerFromDraft(composerDraftValue, selectedSlashCommand, composerDraftSelection.end);
   const [slashSearchState, setSlashSearchState] = useState<{
     status: "idle" | "loading" | "ready" | "error";
     response?: SlashCommandSearchResponse;
@@ -79,7 +81,7 @@ export function useAppComposerSlashCommandPicker({
       onUnavailableSlashCommand(entry);
       return;
     }
-    onSelectSlashCommandEntry(entry, slashTrigger.query, composerDraftValue);
+    onSelectSlashCommandEntry(entry, slashTrigger.query, composerDraftValue, slashTrigger);
     setSlashDismissedToken(slashTrigger.token);
   }
 
@@ -152,6 +154,7 @@ export function AppComposerSlashCommandPopover({
   onChooseEntry: (entry: SlashCommandCatalogEntry) => void;
 }) {
   let previousGroup = "";
+  const [focusedDescriptionEntryId, setFocusedDescriptionEntryId] = useState<string | undefined>();
   return (
     <div className="slash-command-popover" role="listbox" aria-label="Slash commands">
       {status === "loading" && (
@@ -189,6 +192,11 @@ export function AppComposerSlashCommandPopover({
                 className={`slash-command-option ${activeIndex === index ? "active" : ""} ${selectable ? "" : "unavailable"}`}
                 onMouseEnter={() => onHoverEntry(index)}
                 onMouseDown={(event) => event.preventDefault()}
+                onFocus={() => setFocusedDescriptionEntryId(entry.id)}
+                onBlur={() => setFocusedDescriptionEntryId((current) => current === entry.id ? undefined : current)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") setFocusedDescriptionEntryId(undefined);
+                }}
                 onClick={() => onChooseEntry(entry)}
               >
                 <span className="slash-command-option-icon">
@@ -199,7 +207,12 @@ export function AppComposerSlashCommandPopover({
                     <strong>{entry.command}</strong>
                     <em>{entry.title}</em>
                   </span>
-                  {entry.description && <small>{entry.description}</small>}
+                  {entry.description && (
+                    <SlashCommandDescriptionDisclosure
+                      entry={entry}
+                      keyboardOpen={focusedDescriptionEntryId === entry.id}
+                    />
+                  )}
                 </span>
                 <span className={`slash-command-availability ${entry.availability}`}>
                   {slashCommandAvailabilityLabel(entry.availability)}
@@ -209,6 +222,49 @@ export function AppComposerSlashCommandPopover({
           );
         })}
     </div>
+  );
+}
+
+function SlashCommandDescriptionDisclosure({ entry, keyboardOpen }: { entry: SlashCommandCatalogEntry; keyboardOpen: boolean }) {
+  const descriptionRef = useRef<HTMLElement>(null);
+  const [clipped, setClipped] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    function updateClipped(): void {
+      const description = descriptionRef.current;
+      if (!description) {
+        setClipped(false);
+        return;
+      }
+      setClipped(description.scrollWidth > description.clientWidth || description.scrollHeight > description.clientHeight + 1);
+    }
+    updateClipped();
+    window.addEventListener("resize", updateClipped);
+    return () => window.removeEventListener("resize", updateClipped);
+  }, [entry.description]);
+
+  const show = clipped && (open || keyboardOpen);
+  return (
+    <span
+      className="slash-command-description-wrap"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <small ref={descriptionRef} className="slash-command-description">
+        {entry.description}
+      </small>
+      {clipped && <span className="slash-command-description-affordance" aria-hidden="true">More</span>}
+      {show && (
+        <span className="slash-command-description-popover" role="tooltip">
+          <strong>{entry.title}</strong>
+          <span>{entry.description}</span>
+          <em>
+            {entry.sourceName || entry.groupLabel} · {slashCommandAvailabilityLabel(entry.availability)} · {entry.command} · {entry.invocationKind}
+          </em>
+        </span>
+      )}
+    </span>
   );
 }
 

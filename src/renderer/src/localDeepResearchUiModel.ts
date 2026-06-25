@@ -633,12 +633,12 @@ function localDeepResearchDiagnostics(result: LocalDeepResearchSetupResult): Loc
     if (entry.lifecycleDecision.stop.allowed) continue;
     diagnostics.push({
       code: entry.lifecycleDecision.stop.untracked ? "local-runtime-untracked" : "local-runtime-stop-blocked",
-      severity: entry.lifecycleDecision.stop.untracked ? "warning" : "error",
-      title: entry.lifecycleDecision.stop.untracked ? "Untracked local runtime" : "Local runtime Stop blocked",
+      severity: "warning",
+      title: entry.lifecycleDecision.stop.untracked ? "Untracked local runtime" : "Local runtime Stop needs owner action",
       detail: `${entry.id}: ${entry.lifecycleDecision.stop.reason}`,
       nextAction: entry.lifecycleDecision.stop.forceRequiresSubagentCancellation
-        ? "Inspect or cancel the owning sub-agent before forcing runtime termination."
-        : "Use runtime diagnostics before trying to stop this process.",
+        ? "Inspect or cancel the owning sub-agent before forcing runtime termination; this does not block Local Deep Research readiness."
+        : "Use the managed runtime row diagnostics before trying to stop this process.",
     });
   }
   for (const provider of result.providerSnapshot.skippedSearchProviders) {

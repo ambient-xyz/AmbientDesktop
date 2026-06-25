@@ -63,6 +63,8 @@ export function AppConversationMessageList({ scrollRef, onMessagesScroll, ...mes
     chatFindOpen,
     chatBrowserUserActionBusy,
     messageTailVisible,
+    messageWindow,
+    onLoadOlderMessages,
     runStatusCardVisible,
     streamingAssistantId,
     subagentParentClustersByMessageId,
@@ -71,6 +73,23 @@ export function AppConversationMessageList({ scrollRef, onMessagesScroll, ...mes
     workflowRecordingReviewRunning,
     running,
   } = messageListProps;
+  const [olderMessagesLoading, setOlderMessagesLoading] = useState(false);
+  const olderMessagesAvailable = Boolean(
+    messageWindow?.threadId === messageListProps.activeThreadId &&
+      messageWindow.hasMoreBefore &&
+      visibleChatMessages.length > 0 &&
+      !activeSubagentInspector,
+  );
+
+  async function loadOlderMessages(): Promise<void> {
+    if (olderMessagesLoading) return;
+    setOlderMessagesLoading(true);
+    try {
+      await onLoadOlderMessages();
+    } finally {
+      setOlderMessagesLoading(false);
+    }
+  }
 
   const subagentThreadHasNoMessages = Boolean(activeSubagentInspector && visibleChatMessages.length === 0);
   const activeVirtualMessageIds = new Set<string>();
@@ -110,6 +129,14 @@ export function AppConversationMessageList({ scrollRef, onMessagesScroll, ...mes
         />
       ) : (
         <>
+          {olderMessagesAvailable && (
+            <div className="message-history-pagination">
+              <button type="button" className="panel-button mini" disabled={olderMessagesLoading} onClick={() => void loadOlderMessages()}>
+                {olderMessagesLoading ? "Loading older" : "Load older messages"}
+              </button>
+              <span>{messageWindow?.loadedCount ?? visibleChatMessages.length} loaded</span>
+            </div>
+          )}
           {virtualMessages.enabled ? (
             <div className="messages-virtual-list" style={{ height: virtualMessages.totalHeight }}>
               {virtualMessages.rows.map((row) => (

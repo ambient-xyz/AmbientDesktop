@@ -12,10 +12,15 @@ import {
 } from "./slashCommandUiModel";
 
 describe("slash command UI model", () => {
-  it("activates only for an unselected first slash token", () => {
-    expect(slashCommandTriggerFromDraft("/aud")).toEqual({ active: true, query: "aud", token: "/aud" });
+  it("activates for the unselected slash token around the caret", () => {
+    expect(slashCommandTriggerFromDraft("/aud")).toMatchObject({ active: true, query: "aud", token: "/aud", start: 0, end: 4 });
     expect(slashCommandTriggerFromDraft("/audit this")).toMatchObject({ active: false });
-    expect(slashCommandTriggerFromDraft("please /audit")).toMatchObject({ active: false });
+    expect(slashCommandTriggerFromDraft("please /audit")).toMatchObject({ active: true, query: "audit", token: "/audit", start: 7, end: 13 });
+    expect(slashCommandTriggerFromDraft("please /aud this", undefined, 11)).toMatchObject({ active: true, query: "aud", token: "/aud", start: 7, end: 11 });
+    expect(slashCommandTriggerFromDraft("please\n/aud")).toMatchObject({ active: true, query: "aud", token: "/aud", start: 7, end: 11 });
+    expect(slashCommandTriggerFromDraft("please /audit this")).toMatchObject({ active: false });
+    expect(slashCommandTriggerFromDraft("open /Users/example/project", undefined, 8)).toMatchObject({ active: false });
+    expect(slashCommandTriggerFromDraft("word/aud", undefined, 6)).toMatchObject({ active: false });
     expect(slashCommandTriggerFromDraft("/aud", slashCommandSelectionFromEntry(entry(), "aud"))).toMatchObject({ active: false });
   });
 
@@ -24,8 +29,13 @@ describe("slash command UI model", () => {
     expect(slashCommandDraftAfterSelection("/pla\nReview the migration.", entry({ kind: "app", command: "/plan" }))).toBe(
       "/plan Review the migration.",
     );
+    expect(slashCommandDraftAfterSelection("please /pla this", entry({ kind: "app", command: "/plan" }))).toBe(
+      "please /plan this",
+    );
     expect(slashCommandDraftAfterSelection("/audit", entry())).toBe("");
     expect(slashCommandDraftAfterSelection("/audit\nReview the migration.", entry())).toBe("Review the migration.");
+    expect(slashCommandDraftAfterSelection("please /audit this", entry())).toBe("please this");
+    expect(slashCommandDraftAfterSelection("please /audit\nReview the migration.", entry())).toBe("please Review the migration.");
   });
 
   it("allows bare selected slash commands only when no parameters are required", () => {

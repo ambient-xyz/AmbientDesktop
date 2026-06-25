@@ -1,3 +1,5 @@
+import type { Dispatch, SetStateAction } from "react";
+
 import type { DesktopState } from "../../shared/desktopTypes";
 import type { createAppBrowserActionControls } from "./AppBrowserActionControls";
 import type { createAppCapabilityPromptActions } from "./AppCapabilityPromptActions";
@@ -26,6 +28,7 @@ import type { createAppWorkspaceNavigationControls } from "./AppWorkspaceNavigat
 import type { useAppWorkspaceShellState } from "./AppWorkspaceShellState";
 import type { UtilityPanel } from "./RightPanel";
 import { visibleRuntimeStatusIndicatorsForThread } from "./runtimeStatusIndicatorUiModel";
+import { desktopStateWithPrependedThreadMessages, THREAD_MESSAGE_PAGE_LOAD_LIMIT } from "./threadMessagePagination";
 
 type AdaptedConversationPropKey =
   | "activeThreadId"
@@ -41,6 +44,8 @@ type AdaptedConversationPropKey =
   | "onOpenSettingsPanel"
   | "onOpenPluginsPanel"
   | "messageVoiceStates"
+  | "messageWindow"
+  | "onLoadOlderMessages"
   | "activeWorkspacePath"
   | "generatedMediaAutoplay"
   | "onOpenBrowserPanel"
@@ -102,6 +107,7 @@ export type AppConversationMessagesPropsInput = Omit<AppConversationMessagesProp
   onStartWelcomeProviderCatalogCardOnboarding: AppConversationMessagesProps["onStartWelcomeProviderCatalogCardOnboarding"];
   onStartWelcomeRemoteSurfaceActivation: AppConversationMessagesProps["onStartWelcomeRemoteSurfaceActivation"];
   projectBoardActions: Pick<AppProjectBoardActions, "addPlannerPlanToBoard" | "generatePlannerDurableArtifact">;
+  setState: Dispatch<SetStateAction<DesktopState | undefined>>;
   state: DesktopState;
 };
 
@@ -204,6 +210,7 @@ export interface AppConversationMessagesPropsForAppInput {
   >;
   runDerivedState: AppConversationMessagesRunDerivedState;
   shellUiState: Pick<AppShellUiState, "clearError" | "error">;
+  setState: Dispatch<SetStateAction<DesktopState | undefined>>;
   state: DesktopState;
   subagentParentClusterActions: Pick<
     AppSubagentParentClusterActions,
@@ -272,6 +279,7 @@ export function createAppConversationMessagesPropsForApp({
   runActivityState,
   runDerivedState,
   shellUiState,
+  setState,
   state,
   subagentParentClusterActions,
   subagentShellControls,
@@ -394,6 +402,7 @@ export function createAppConversationMessagesPropsForApp({
     activeWorkspaceIsPreparedLocalTask: projectBoardControls.activeWorkspaceIsPreparedLocalTask,
     activeActivity: activeThreadModel.activeActivity,
     state,
+    setState,
   });
 }
 
@@ -424,9 +433,25 @@ export function createAppConversationMessagesProps({
   onStartWelcomeProviderCatalogCardOnboarding,
   onStartWelcomeRemoteSurfaceActivation,
   projectBoardActions,
+  setState,
   state,
   ...props
 }: AppConversationMessagesPropsInput): AppConversationMessagesProps {
+  const loadOlderMessages = async () => {
+    const beforeMessageId = state.messages?.[0]?.id;
+    if (!beforeMessageId) return;
+    try {
+      const page = await window.ambientDesktop.listThreadMessagesBefore({
+        threadId: state.activeThreadId,
+        beforeMessageId,
+        limit: THREAD_MESSAGE_PAGE_LOAD_LIMIT,
+      });
+      setState((current) => desktopStateWithPrependedThreadMessages(current, page));
+    } catch (error) {
+      console.warn("Failed to load older thread messages", error);
+    }
+  };
+
   return {
     ...props,
     activeThreadId: state.activeThreadId,
@@ -473,6 +498,8 @@ export function createAppConversationMessagesProps({
       void onDuplicateActiveThreadFromTranscript();
     },
     childMessagesByThreadId: state.childMessagesByThreadId,
+    messageWindow: state.messageWindow,
+    onLoadOlderMessages: loadOlderMessages,
     threads: state.threads,
     subagentRunEvents: state.subagentRunEvents,
     subagentMailboxEvents: state.subagentMailboxEvents,

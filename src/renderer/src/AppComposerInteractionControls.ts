@@ -16,7 +16,7 @@ import type { PendingWorkflowRecordingEditContext } from "./AppComposerSubmitAct
 import type { AppComposerDraftSetOptions } from "./AppComposerShellState";
 import { pendingSubmittedPromptHasPersistedMatch, type PendingSubmittedPrompt } from "./AppConversationDisplayModel";
 import { shouldRouteComposerSubmitThroughSymphony } from "./AppSymphonyBuilderControls";
-import { slashCommandDraftAfterSelection, slashCommandSelectionFromEntry } from "./slashCommandUiModel";
+import { slashCommandDraftAfterSelection, type SlashCommandDraftTrigger, slashCommandSelectionFromEntry } from "./slashCommandUiModel";
 import type { SymphonyWorkflowBuilderDraft } from "./symphonyWorkflowBuilderUiModel";
 import type { SttDraftMetadataState } from "./sttUiModel";
 
@@ -26,7 +26,7 @@ export type AppComposerInteractionControls = {
   handleComposerKeyDown: (event: ReactKeyboardEvent<HTMLTextAreaElement>) => void;
   handleComposerPaste: (event: ReactClipboardEvent<HTMLTextAreaElement>) => void;
   removeSlashCommandSelection: () => void;
-  selectSlashCommandEntry: (entry: SlashCommandCatalogEntry, query: string, draft: string) => void;
+  selectSlashCommandEntry: (entry: SlashCommandCatalogEntry, query: string, draft: string, trigger?: SlashCommandDraftTrigger) => void;
   showUnavailableSlashCommand: (entry: SlashCommandCatalogEntry) => void;
   submit: (event: FormEvent) => void;
 };
@@ -131,14 +131,14 @@ export function createAppComposerInteractionControls({
     setContextError("Add enough custom orchestration detail for Symphony to choose one of the six execution patterns, then send again.");
   }
 
-  function selectSlashCommandEntry(entry: SlashCommandCatalogEntry, query: string, draft: string): void {
+  function selectSlashCommandEntry(entry: SlashCommandCatalogEntry, query: string, draft: string, trigger?: SlashCommandDraftTrigger): void {
     if (entry.kind === "app") {
       setSelectedSlashCommand(undefined);
-      setComposerDraft(slashCommandDraftAfterSelection(draft, entry), { focusEnd: true });
+      setComposerDraft(slashCommandDraftAfterSelection(draft, entry, trigger), { focusEnd: true });
       return;
     }
     setSelectedSlashCommand(slashCommandSelectionFromEntry(entry, query));
-    setComposerDraft(slashCommandDraftAfterSelection(draft, entry), { focusEnd: true });
+    setComposerDraft(slashCommandDraftAfterSelection(draft, entry, trigger), { focusEnd: true });
     if (localDeepResearchModeArmedRef.current) setLocalDeepResearchModeArmed(false);
     setContextError(undefined);
   }
@@ -284,28 +284,30 @@ export function pendingSubmittedPromptsAfterCleanup({
 
 export function useAppPendingSubmittedPromptCleanup({
   now = Date.now,
+  pendingSubmittedPrompts,
   running,
   setPendingSubmittedPrompts,
   state,
 }: {
   now?: () => number;
+  pendingSubmittedPrompts: PendingSubmittedPrompt[];
   running: boolean;
   setPendingSubmittedPrompts: Dispatch<SetStateAction<PendingSubmittedPrompt[]>>;
   state: DesktopState | undefined;
 }): void {
   useEffect(() => {
     if (!state) return;
+    if (pendingSubmittedPrompts.length === 0) return;
     const currentNow = now();
-    setPendingSubmittedPrompts((current) =>
-      pendingSubmittedPromptsAfterCleanup({
-        activeThreadId: state.activeThreadId,
-        messages: state.messages,
-        now: currentNow,
-        pendingSubmittedPrompts: current,
-        running,
-      }),
-    );
-  }, [now, running, setPendingSubmittedPrompts, state]);
+    const next = pendingSubmittedPromptsAfterCleanup({
+      activeThreadId: state.activeThreadId,
+      messages: state.messages,
+      now: currentNow,
+      pendingSubmittedPrompts,
+      running,
+    });
+    if (next !== pendingSubmittedPrompts) setPendingSubmittedPrompts(next);
+  }, [now, pendingSubmittedPrompts, running, setPendingSubmittedPrompts, state?.activeThreadId, state?.messages]);
 }
 
 export function createAppLocalDeepResearchModeControls({

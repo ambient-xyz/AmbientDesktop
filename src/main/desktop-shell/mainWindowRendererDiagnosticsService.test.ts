@@ -144,11 +144,11 @@ describe("sanitizeRendererDiagnosticValue", () => {
   it("bounds nested diagnostic values", () => {
     const sanitized = sanitizeRendererDiagnosticValue({
       items: Array.from({ length: 35 }, (_value, index) => ({ index })),
-      text: "x".repeat(1_100),
+      text: "x".repeat(12_100),
     }) as { items: unknown[]; text: string };
 
     expect(sanitized.items).toHaveLength(30);
-    expect(sanitized.text).toHaveLength(1_003);
+    expect(sanitized.text).toHaveLength(12_003);
     expect(sanitized.text.endsWith("...")).toBe(true);
   });
 });

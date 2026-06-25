@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ProjectStoreMessageRepository } from "./messageRepository";
 
 describe("ProjectStoreMessageRepository", () => {
@@ -32,6 +32,7 @@ describe("ProjectStoreMessageRepository", () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     db.close();
   });
 
@@ -105,6 +106,43 @@ describe("ProjectStoreMessageRepository", () => {
     });
   });
 
+  it("lists recent messages in display order without loading the whole thread", () => {
+    const messages = Array.from({ length: 8 }, (_, index) =>
+      repository.addMessage({ threadId: "thread-1", role: "user", content: `Message ${index}` }),
+    );
+
+    expect(repository.listRecentMessages("thread-1", 3).map((message) => message.id)).toEqual(
+      messages.slice(-3).map((message) => message.id),
+    );
+    expect(repository.countMessages("thread-1")).toBe(8);
+    expect(repository.listRecentMessages("thread-1", 0)).toEqual([]);
+    expect(repository.listRecentMessages("thread-1", -10)).toEqual([]);
+  });
+
+  it("lists older message pages before a cursor in display order", () => {
+    const messages = Array.from({ length: 8 }, (_, index) =>
+      repository.addMessage({ threadId: "thread-1", role: "user", content: `Paged ${index}` }),
+    );
+
+    const page = repository.listMessagesBefore("thread-1", messages[5]!.id, 3);
+    const initialPage = repository.listMessagesBefore("thread-1", undefined, 3);
+
+    expect(page.messages.map((message) => message.id)).toEqual(messages.slice(2, 5).map((message) => message.id));
+    expect(page.hasMoreBefore).toBe(true);
+    expect(initialPage.messages.map((message) => message.id)).toEqual(messages.slice(-3).map((message) => message.id));
+    expect(initialPage.hasMoreBefore).toBe(true);
+    expect(repository.listMessagesBefore("thread-1", messages[0]!.id, 3)).toEqual({
+      messages: [],
+      hasMoreBefore: false,
+    });
+  });
+
+  it("reads exact message detail by id", () => {
+    const message = repository.addMessage({ threadId: "thread-1", role: "assistant", content: "Full detail", metadata: { status: "done" } });
+
+    expect(repository.getMessage(message.id)).toEqual(message);
+  });
+
   it("keeps assistant thinking out of thread previews", () => {
     repository.addMessage({ threadId: "thread-1", role: "user", content: "Inspect memory." });
     const thinking = repository.addMessage({
@@ -138,6 +176,31 @@ describe("ProjectStoreMessageRepository", () => {
     repository.repairThreadPreviews();
 
     expect(user.content).toBe("Use this preview.");
+    expect(threadPreview()).toBe("Use this preview.");
+  });
+
+  it("refreshes previews without listing full tool-heavy transcripts", () => {
+    repository.addMessage({ threadId: "thread-1", role: "user", content: "Use this preview." });
+    const listMessages = vi.spyOn(repository, "listMessages");
+
+    for (let index = 0; index < 75; index += 1) {
+      repository.addMessage({ threadId: "thread-1", role: "tool", content: `Verbose tool output ${index}.` });
+    }
+    const thinking = repository.addMessage({
+      threadId: "thread-1",
+      role: "assistant",
+      content: "The user asked me to use this preview. I should inspect tools.",
+      metadata: { kind: "thinking", status: "thinking" },
+    });
+    repository.replaceMessage(thinking.id, "Still thinking with a longer hidden transcript note.", {
+      kind: "thinking",
+      status: "done",
+    });
+    db.prepare("UPDATE threads SET last_message_preview = ? WHERE id = ?").run("stale", "thread-1");
+
+    repository.repairThreadPreviews();
+
+    expect(listMessages).not.toHaveBeenCalled();
     expect(threadPreview()).toBe("Use this preview.");
   });
 

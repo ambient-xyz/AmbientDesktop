@@ -154,7 +154,7 @@ export interface WebResearchProviderHealthBadge {
 export interface WebResearchProviderHealthContext {
   scraplingDefaultCapability?: Pick<
     AmbientMcpDefaultCapabilitySummary,
-    "capabilityId" | "status" | "nextAction" | "message" | "runtimeStatus" | "installedWorkloadStatus" | "installedEndpoint"
+    "capabilityId" | "status" | "nextAction" | "message" | "runtimeStatus" | "installedWorkloadStatus" | "installedEndpoint" | "retryAfter"
   >;
 }
 
@@ -285,11 +285,13 @@ function scraplingSetupAction(context: WebResearchProviderSetupActionContext): W
     };
   }
   if (capability.status === "installed") return undefined;
-  if (context.scraplingBusy || capability.status === "installing") {
+  if (context.scraplingBusy || capability.status === "installing" || capability.status === "warming_up") {
     return {
       kind: "install-scrapling",
-      label: "Setting up",
-      title: "Scrapling setup is already running.",
+      label: scraplingHasExistingInstallEvidence(capability) ? "Checking" : "Setting up",
+      title: scraplingHasExistingInstallEvidence(capability)
+        ? "Scrapling is being checked with existing Ambient default capability state."
+        : "Scrapling setup is already running.",
       disabled: true,
     };
   }
@@ -302,18 +304,21 @@ function scraplingSetupAction(context: WebResearchProviderSetupActionContext): W
     };
   }
   if (capability.nextAction === "approve-default-capability" || capability.nextAction === "install-default-capability") {
+    const hasExistingInstallEvidence = scraplingHasExistingInstallEvidence(capability);
     return {
       kind: "install-scrapling",
-      label: "Set up Scrapling",
+      label: hasExistingInstallEvidence ? "Retry Scrapling" : "Set up Scrapling",
       title: context.scraplingRuntimeReady
-        ? "Install Ambient's default isolated Scrapling web research capability."
+        ? hasExistingInstallEvidence
+          ? "Retry Ambient's default isolated Scrapling web research capability using the existing install state."
+          : "Install Ambient's default isolated Scrapling web research capability."
         : capability.message,
       disabled: context.scraplingRuntimeReady !== true,
     };
   }
   return {
     kind: "open-mcp-runtime",
-    label: capability.status === "failed" || capability.nextAction === "inspect-failure" ? "Inspect issue" : "Review setup",
+    label: capability.status === "failed" || capability.nextAction === "inspect-failure" ? "Repair Scrapling" : "Review setup",
     title: capability.message,
     disabled: false,
   };
@@ -338,16 +343,16 @@ function scraplingHealthBadge(
         : capability.message,
     };
   }
-  if (capability.status === "installing") {
+  if (capability.status === "installing" || capability.status === "warming_up") {
     return {
-      label: "Setting up",
+      label: scraplingHasExistingInstallEvidence(capability) ? "Checking" : "Setting up",
       tone: "info",
       detail: capability.message,
     };
   }
   if (capability.status === "failed") {
     return {
-      label: "Error",
+      label: "Repair needed",
       tone: "error",
       detail: capability.message,
     };
@@ -365,8 +370,16 @@ function scraplingHealthBadge(
     capability.nextAction === "install-default-capability" ||
     capability.status === "not_configured" ||
     capability.status === "blocked_runtime" ||
-    capability.status === "blocked_approval"
+    capability.status === "blocked_approval" ||
+    capability.status === "warming_up"
   ) {
+    if (scraplingHasExistingInstallEvidence(capability)) {
+      return {
+        label: "Checking",
+        tone: "info",
+        detail: capability.message,
+      };
+    }
     return {
       label: "Setup needed",
       tone: "warning",
@@ -378,6 +391,19 @@ function scraplingHealthBadge(
     tone: "warning",
     detail: capability.message,
   };
+}
+
+function scraplingHasExistingInstallEvidence(
+  capability: WebResearchProviderHealthContext["scraplingDefaultCapability"],
+): boolean {
+  return Boolean(
+      capability?.installedEndpoint ||
+      capability?.installedWorkloadStatus ||
+      capability?.status === "installing" ||
+      capability?.status === "warming_up" ||
+      capability?.status === "failed" ||
+      capability?.nextAction === "inspect-failure",
+  );
 }
 
 function webResearchRoleOrderWithDefaults(

@@ -145,6 +145,64 @@ describe("App conversation message props", () => {
     expect(openExternalUrl).toHaveBeenCalledWith("https://example.com");
   });
 
+  it("loads older thread messages through the paged desktop API", async () => {
+    const oldMessage = {
+      id: "message-old",
+      threadId: "thread-1",
+      role: "assistant",
+      content: "Earlier result",
+      createdAt: "2026-06-13T00:00:00.000Z",
+    };
+    const currentMessage = {
+      id: "message-current",
+      threadId: "thread-1",
+      role: "assistant",
+      content: "Current result",
+      createdAt: "2026-06-13T00:01:00.000Z",
+    };
+    const listThreadMessagesBefore = vi.fn(async () => ({
+      threadId: "thread-1",
+      order: "ascending",
+      limit: 100,
+      messages: [oldMessage],
+      hasMoreBefore: false,
+    }));
+    const setState = vi.fn((updater: Parameters<AppConversationMessagesPropsInput["setState"]>[0]) => {
+      if (typeof updater !== "function") throw new Error("Expected functional state update.");
+      const next = updater(
+        desktopState({
+          activeThreadId: "thread-1",
+          messages: [currentMessage],
+          messageWindow: { threadId: "thread-1", order: "latest", limit: 250, loadedCount: 250, hasMoreBefore: true },
+        }),
+      );
+      expect(next?.messages.map((message) => message.id)).toEqual(["message-old", "message-current"]);
+      expect(next?.messageWindow?.loadedCount).toBe(2);
+      expect(next?.messageWindow?.hasMoreBefore).toBe(false);
+    });
+    vi.stubGlobal("window", { ambientDesktop: { listThreadMessagesBefore } });
+
+    const props = createAppConversationMessagesProps(
+      baseInput({
+        setState,
+        state: desktopState({
+          activeThreadId: "thread-1",
+          messages: [currentMessage],
+          messageWindow: { threadId: "thread-1", order: "latest", limit: 250, loadedCount: 250, hasMoreBefore: true },
+        }),
+      }),
+    );
+
+    await props.onLoadOlderMessages();
+
+    expect(listThreadMessagesBefore).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      beforeMessageId: "message-current",
+      limit: 100,
+    });
+    expect(setState).toHaveBeenCalledTimes(1);
+  });
+
   it("opens subagent parent threads in-place when the child worktree path is not a registered project", () => {
     const onSelectThread = vi.fn();
     const props = createAppConversationMessagesProps(
@@ -255,6 +313,7 @@ function baseInput(input: Partial<AppConversationMessagesPropsInput> = {}): AppC
       addPlannerPlanToBoard: noop,
       generatePlannerDurableArtifact: noop,
     },
+    setState: noop,
     retryStats: undefined,
     retryableMessageIds: new Set(),
     runActivityLinesByThread: {},
@@ -383,6 +442,7 @@ function appInputFromBase(input: AppConversationMessagesPropsInput): AppConversa
       clearError: input.onDismissError,
       error: input.error,
     },
+    setState: input.setState,
     state: input.state,
     subagentParentClusterActions: {
       cancelCallableWorkflowTask: input.onCancelCallableWorkflowTask,

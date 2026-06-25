@@ -67,6 +67,7 @@ export interface MainWindowRendererDiagnosticsService<Window extends MainWindowR
 }
 
 const RENDERER_DIAGNOSTIC_BREADCRUMB_LIMIT = 50;
+const RENDERER_DIAGNOSTIC_TEXT_LIMIT = 12_000;
 
 export function sanitizeRendererDiagnosticValue(
   value: unknown,
@@ -89,7 +90,7 @@ export function sanitizeRendererDiagnosticValue(
   return truncateRendererDiagnosticText(redactSensitiveText(String(value)));
 }
 
-function truncateRendererDiagnosticText(value: string, max = 1_000): string {
+function truncateRendererDiagnosticText(value: string, max = RENDERER_DIAGNOSTIC_TEXT_LIMIT): string {
   return value.length <= max ? value : `${value.slice(0, max)}...`;
 }
 

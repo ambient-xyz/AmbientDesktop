@@ -1,19 +1,34 @@
 import type { SubagentPatternGraphSnapshot } from "../../shared/subagentPatternGraph";
 import type { SubagentRunStatus } from "../../shared/subagentProtocol";
-import type { SubagentParentMailboxEventSummary, SubagentRunSummary, SubagentWaitBarrierDecision, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
+import type {
+  SubagentParentMailboxEventSummary,
+  SubagentRunSummary,
+  SubagentWaitBarrierDecision,
+  SubagentWaitBarrierSummary,
+} from "../../shared/subagentTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
-import { isCallableWorkflowSymphonyChildWaitPreCompilePause } from "../../shared/callableWorkflowTaskGuards";
 import {
   aggregatePatternGraphOverflowApprovalState,
   aggregatePatternGraphOverflowStatus,
   subagentPatternGraphEdgesWithRuntimeState,
   type SubagentPatternGraphOverflowChild,
 } from "../../shared/subagentPatternGraph";
+import { subagentPatternGraphRendererModel, type SubagentPatternGraphRendererModel } from "./subagentPatternGraphUiModel";
 import {
-  subagentPatternGraphRendererModel,
-  type SubagentPatternGraphRendererModel,
-} from "./subagentPatternGraphUiModel";
+  callableWorkflowTaskModel,
+  type SubagentParentClusterTone,
+  type SubagentParentClusterWorkflowTaskChildWaitModel,
+  type SubagentParentClusterWorkflowTaskModel,
+  workflowTaskChildWaitsForBackgroundSymphonyTasks,
+  workflowTaskParentBlockers,
+} from "./subagentParentClusterWorkflowTaskUiModel";
+export type {
+  SubagentParentClusterTone,
+  SubagentParentClusterWorkflowTaskBlockerModel,
+  SubagentParentClusterWorkflowTaskChildWaitModel,
+  SubagentParentClusterWorkflowTaskModel,
+} from "./subagentParentClusterWorkflowTaskUiModel";
 
 export interface SubagentParentClusterChildModel {
   runId: string;
@@ -155,51 +170,6 @@ export interface SubagentParentClusterApprovalActionModel {
   sourceLabel?: string;
 }
 
-export interface SubagentParentClusterWorkflowTaskModel {
-  id: string;
-  title: string;
-  status: string;
-  statusTone: SubagentParentClusterTone;
-  modeLabel: string;
-  sourceLabel: string;
-  workflowThreadId?: string;
-  workflowThreadLabel?: string;
-  canOpenWorkflowThread: boolean;
-  openWorkflowThreadTitle: string;
-  progressLabel: string;
-  capabilityLabels: string[];
-  telemetryLabels: string[];
-  idLabels?: string[];
-  launchCardLabels?: string[];
-  provenanceLabels?: string[];
-  mutationEvidenceLabels?: string[];
-  canPause: boolean;
-  pauseTitle: string;
-  canCancel: boolean;
-  cancelTitle: string;
-  canResume: boolean;
-  resumeTitle: string;
-  parentBlocker?: SubagentParentClusterWorkflowTaskBlockerModel;
-  childWait?: SubagentParentClusterWorkflowTaskChildWaitModel;
-  detail?: string;
-}
-
-export interface SubagentParentClusterWorkflowTaskBlockerModel {
-  kind: "waiting" | "attention";
-  label: string;
-  detail: string;
-  statusTone: SubagentParentClusterTone;
-}
-
-export interface SubagentParentClusterWorkflowTaskChildWaitModel {
-  label: string;
-  detail: string;
-  statusTone: SubagentParentClusterTone;
-  childLabels: string[];
-}
-
-export type SubagentParentClusterTone = "neutral" | "active" | "success" | "warning" | "danger";
-
 const PARENT_CLUSTER_MAILBOX_ACTIVITY_PREVIEW_LIMIT = 6;
 
 export function subagentParentClusterModelsByMessageId(
@@ -279,11 +249,13 @@ export function subagentParentClusterModelsByMessageId(
       sortedWorkflowTaskSummaries,
       parentMailboxEvents,
     );
-    const children = sortedRuns.map((run) => childModel(
-      run,
-      childThreads.get(run.childThreadId),
-      childParentBlocker(run, relevantWaitBarriers, sortedWorkflowTaskSummaries, parentMailboxEventsForCluster),
-    ));
+    const children = sortedRuns.map((run) =>
+      childModel(
+        run,
+        childThreads.get(run.childThreadId),
+        childParentBlocker(run, relevantWaitBarriers, sortedWorkflowTaskSummaries, parentMailboxEventsForCluster),
+      ),
+    );
     const workflowTaskBlockers = workflowTaskParentBlockers(parentMailboxEventsForCluster);
     const workflowTaskChildWaits = workflowTaskChildWaitsForBackgroundSymphonyTasks(
       sortedWorkflowTaskSummaries,
@@ -292,7 +264,7 @@ export function subagentParentClusterModelsByMessageId(
       childThreads,
     );
     const workflowTasks = sortedWorkflowTaskSummaries.map((task) =>
-      callableWorkflowTaskModel(task, workflowTaskBlockers.get(task.id), workflowTaskChildWaits.get(task.id))
+      callableWorkflowTaskModel(task, workflowTaskBlockers.get(task.id), workflowTaskChildWaits.get(task.id)),
     );
     const patternGraphs = uniquePatternGraphSnapshots(patternGraphsByParentMessage.get(parentMessageId) ?? [])
       .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt) || a.patternId.localeCompare(b.patternId))
@@ -338,7 +310,7 @@ function childModel(
       ? `Sub-agent ${run.canonicalTaskPath} transcript was collapsed by retention; summary metadata remains.`
       : !thread
         ? `Sub-agent ${run.canonicalTaskPath} thread is unavailable; run metadata remains.`
-      : `Open sub-agent ${run.canonicalTaskPath}`,
+        : `Open sub-agent ${run.canonicalTaskPath}`,
     title,
     status: statusLabel(run.status),
     runStatus: run.status,
@@ -353,17 +325,17 @@ function childModel(
     canClose: !retainedSummary && canCloseChildRun(run),
     closeTitle: `Close sub-agent ${run.canonicalTaskPath}; transcript and artifacts are retained`,
     ...(run.closedAt ? { closedLabel: "Closed" } : {}),
-    ...(retainedSummary ? {
-      retentionLabel: "Summary retained",
-      retentionTitle: `Sub-agent ${run.canonicalTaskPath} transcript was collapsed by retention; result metadata and artifacts remain available.`,
-    } : {}),
+    ...(retainedSummary
+      ? {
+          retentionLabel: "Summary retained",
+          retentionTitle: `Sub-agent ${run.canonicalTaskPath} transcript was collapsed by retention; result metadata and artifacts remain available.`,
+        }
+      : {}),
     ...(parentBlocker ? { parentBlocker: withChildBlockerMeta(parentBlocker, run, title, preview) } : {}),
   };
 }
 
-function parentBlockingModel(
-  children: SubagentParentClusterChildModel[],
-): SubagentParentClusterParentBlockingModel | undefined {
+function parentBlockingModel(children: SubagentParentClusterChildModel[]): SubagentParentClusterParentBlockingModel | undefined {
   const blockingChildren = children
     .map(parentBlockingChildModel)
     .filter((child): child is SubagentParentClusterParentBlockingChildModel => Boolean(child));
@@ -384,8 +356,13 @@ function parentBlockingModel(
       approvalCount ? `${approvalCount} approval ${approvalCount === 1 ? "request" : "requests"}` : undefined,
       attentionCount ? `${attentionCount} attention ${attentionCount === 1 ? "blocker" : "blockers"}` : undefined,
       activeCount ? `${activeCount} active ${activeCount === 1 ? "child" : "children"}` : undefined,
-      blockingChildren.slice(0, 3).map((child) => child.title).join(", "),
-    ].filter(Boolean).join(" / "),
+      blockingChildren
+        .slice(0, 3)
+        .map((child) => child.title)
+        .join(", "),
+    ]
+      .filter(Boolean)
+      .join(" / "),
     statusTone: tone,
     blockingChildren,
   };
@@ -423,11 +400,13 @@ function patternGraphSnapshotForWorkflowTask(
   const activeBlocker = task.blocking && ["queued", "compiling", "running", "paused"].includes(task.status);
   const nodes = snapshot.nodes.map((node) => {
     const boundRun = node.childRunId ? runsById.get(node.childRunId) : undefined;
-    const boundThread = boundRun ? childThreads.get(boundRun.childThreadId) : node.childThreadId ? childThreads.get(node.childThreadId) : undefined;
+    const boundThread = boundRun
+      ? childThreads.get(boundRun.childThreadId)
+      : node.childThreadId
+        ? childThreads.get(node.childThreadId)
+        : undefined;
     const overflowChildren = refreshPatternGraphOverflowChildren(node.overflowChildren ?? [], runsById, childThreads);
-    const overflowPatch = overflowChildren.length > 0
-      ? patternGraphOverflowNodeRuntimePatch(overflowChildren)
-      : {};
+    const overflowPatch = overflowChildren.length > 0 ? patternGraphOverflowNodeRuntimePatch(overflowChildren) : {};
     if (boundRun) {
       return {
         ...node,
@@ -449,11 +428,13 @@ function patternGraphSnapshotForWorkflowTask(
       ...overflowPatch,
       workflowTaskId: node.workflowTaskId ?? task.id,
       ...(task.workflowRunId ? { workflowRunId: node.workflowRunId ?? task.workflowRunId } : {}),
-      ...(!boundToChild && !boundToOverflowChildren ? {
-        status: taskStatus,
-        statusLabel: taskStatusLabel,
-        blockingParent: activeBlocker && node.blockingParent,
-      } : {}),
+      ...(!boundToChild && !boundToOverflowChildren
+        ? {
+            status: taskStatus,
+            statusLabel: taskStatusLabel,
+            blockingParent: activeBlocker && node.blockingParent,
+          }
+        : {}),
     };
   });
   return {
@@ -501,9 +482,7 @@ function patternGraphOverflowNodeRuntimePatch(overflowChildren: SubagentPatternG
     status,
     statusLabel: status === "idle" ? `${overflowChildren.length} more` : `${overflowChildren.length} ${titleCase(status).toLowerCase()}`,
     approvalState,
-    blockingParent: overflowChildren.some((child) =>
-      child.blockingParent && child.status !== "completed" && child.status !== "idle"
-    ),
+    blockingParent: overflowChildren.some((child) => child.blockingParent && child.status !== "completed" && child.status !== "idle"),
   };
 }
 
@@ -548,11 +527,7 @@ function childTitle(run: SubagentRunSummary, thread: ThreadSummary | undefined):
   return thread?.title || `${titleCase(run.roleId)} sub-agent`;
 }
 
-function childPreview(
-  run: SubagentRunSummary,
-  thread: ThreadSummary | undefined,
-  resultSummary: string | undefined,
-): string {
+function childPreview(run: SubagentRunSummary, thread: ThreadSummary | undefined, resultSummary: string | undefined): string {
   return thread?.lastMessagePreview || resultSummary || run.canonicalTaskPath;
 }
 
@@ -615,9 +590,11 @@ function childSummary(
 ): string {
   const required = children.filter((child) => child.dependencyLabel === "Required").length;
   const background = children.filter((child) => child.dependencyLabel === "Background").length;
-  const needsAttention = children.filter((child) => child.dependencyLabel === "Needs attention" || child.status === "Needs attention").length;
-  const childAttentionBlockers = children.filter((child) =>
-    child.parentBlocker?.kind === "attention" && child.status !== "Needs attention"
+  const needsAttention = children.filter(
+    (child) => child.dependencyLabel === "Needs attention" || child.status === "Needs attention",
+  ).length;
+  const childAttentionBlockers = children.filter(
+    (child) => child.parentBlocker?.kind === "attention" && child.status !== "Needs attention",
   ).length;
   const retainedSummaries = children.filter((child) => child.retentionLabel === "Summary retained").length;
   const approvalBlocked = children.filter((child) => child.parentBlocker?.kind === "approval").length;
@@ -628,9 +605,13 @@ function childSummary(
   const workflowChildWaits = workflowTasks
     .map((task) => task.childWait)
     .filter((wait): wait is SubagentParentClusterWorkflowTaskChildWaitModel => Boolean(wait));
-  const activeBatches = mailboxActivities.filter((activity) => activity.label === "Batch progress" && activity.statusTone === "active").length;
+  const activeBatches = mailboxActivities.filter(
+    (activity) => activity.label === "Batch progress" && activity.statusTone === "active",
+  ).length;
   const failedSpawns = mailboxActivities.filter((activity) => activity.label === "Spawn failed").length;
-  const interruptions = mailboxActivities.filter((activity) => activity.label === "Child interrupted" || activity.label === "Parent stopped").length;
+  const interruptions = mailboxActivities.filter(
+    (activity) => activity.label === "Child interrupted" || activity.label === "Parent stopped",
+  ).length;
   const workflowBlockers = mailboxActivities.filter((activity) => activity.label === "Workflow blocked").length;
   const supervisorRequests = mailboxActivities.filter((activity) => activity.label === "Supervisor request").length;
   const pieces = [`${children.length} ${children.length === 1 ? "child" : "children"}`];
@@ -680,7 +661,8 @@ function clusterStatus(
   const workflowChildWait = workflowTasks.find((task) => task.childWait)?.childWait;
   if (workflowChildWait) return workflowChildWait.statusTone === "active" ? "Waiting on children" : "Waiting on child attention";
   if (workflowTasks.some((task) => task.statusTone === "warning")) return "Needs attention";
-  if (patternGraphs.some((graph) => graph.nodes.some((node) => node.tone === "warning" || node.tone === "danger"))) return "Needs attention";
+  if (patternGraphs.some((graph) => graph.nodes.some((node) => node.tone === "warning" || node.tone === "danger")))
+    return "Needs attention";
   if (hasWorkflowBlocker(mailboxActivities, "active")) return "Waiting";
   if (patternGraphs.some((graph) => graph.nodes.some((node) => node.blockingParent && node.tone === "active"))) return "Waiting";
   if (workflowTasks.some((task) => task.modeLabel === "Blocking" && task.statusTone === "active")) return "Waiting";
@@ -694,7 +676,13 @@ function clusterStatus(
   if (mailboxActivities.some((activity) => activity.statusTone === "warning")) return "Partial";
   if (children.length > 0 && children.every((child) => child.statusTone === "success")) return "Complete";
   if (children.length === 0 && workflowTasks.length > 0 && workflowTasks.every((task) => task.statusTone === "success")) return "Complete";
-  if (children.length === 0 && workflowTasks.length === 0 && patternGraphs.length > 0 && patternGraphs.every((graph) => graph.nodes.every((node) => node.tone === "success"))) return "Complete";
+  if (
+    children.length === 0 &&
+    workflowTasks.length === 0 &&
+    patternGraphs.length > 0 &&
+    patternGraphs.every((graph) => graph.nodes.every((node) => node.tone === "success"))
+  )
+    return "Complete";
   if (children.length === 0 && mailboxActivities.some((activity) => activity.statusTone === "success")) return "Complete";
   return "Idle";
 }
@@ -731,7 +719,13 @@ function clusterTone(
   if (mailboxActivities.some((activity) => activity.statusTone === "warning")) return "warning";
   if (children.length > 0 && children.every((child) => child.statusTone === "success")) return "success";
   if (children.length === 0 && workflowTasks.length > 0 && workflowTasks.every((task) => task.statusTone === "success")) return "success";
-  if (children.length === 0 && workflowTasks.length === 0 && patternGraphs.length > 0 && patternGraphs.every((graph) => graph.nodes.every((node) => node.tone === "success"))) return "success";
+  if (
+    children.length === 0 &&
+    workflowTasks.length === 0 &&
+    patternGraphs.length > 0 &&
+    patternGraphs.every((graph) => graph.nodes.every((node) => node.tone === "success"))
+  )
+    return "success";
   if (children.length === 0 && mailboxActivities.some((activity) => activity.statusTone === "success")) return "success";
   return "neutral";
 }
@@ -759,8 +753,10 @@ function hasApprovalBlocker(
   children: SubagentParentClusterChildModel[],
   mailboxActivities: SubagentParentClusterMailboxActivityModel[],
 ): boolean {
-  return children.some((child) => child.parentBlocker?.kind === "approval") ||
-    mailboxActivities.some((activity) => activity.label === "Approval requested" && activity.statusTone === "active");
+  return (
+    children.some((child) => child.parentBlocker?.kind === "approval") ||
+    mailboxActivities.some((activity) => activity.label === "Approval requested" && activity.statusTone === "active")
+  );
 }
 
 function hasChildAttentionBlocker(children: SubagentParentClusterChildModel[]): boolean {
@@ -777,16 +773,11 @@ function childAttentionBlockerTone(children: SubagentParentClusterChildModel[]):
   return blockers.length ? "neutral" : undefined;
 }
 
-function hasWorkflowBlocker(
-  mailboxActivities: SubagentParentClusterMailboxActivityModel[],
-  tone: SubagentParentClusterTone,
-): boolean {
+function hasWorkflowBlocker(mailboxActivities: SubagentParentClusterMailboxActivityModel[], tone: SubagentParentClusterTone): boolean {
   return mailboxActivities.some((activity) => activity.label === "Workflow blocked" && activity.statusTone === tone);
 }
 
-function hasSupervisorAttention(
-  mailboxActivities: SubagentParentClusterMailboxActivityModel[],
-): boolean {
+function hasSupervisorAttention(mailboxActivities: SubagentParentClusterMailboxActivityModel[]): boolean {
   return mailboxActivities.some((activity) => activity.label === "Supervisor request" && activity.statusTone === "warning");
 }
 
@@ -796,14 +787,11 @@ function parentMailboxEventsForParentMessage(
   workflowTasks: CallableWorkflowTaskSummary[],
   events: SubagentParentMailboxEventSummary[],
 ): SubagentParentMailboxEventSummary[] {
-  const parentRunIds = new Set([
-    ...runs.map((run) => run.parentRunId),
-    ...workflowTasks.map((task) => task.parentRunId),
-  ]);
+  const parentRunIds = new Set([...runs.map((run) => run.parentRunId), ...workflowTasks.map((task) => task.parentRunId)]);
   return events
     .filter((event) => event.parentMessageId === parentMessageId || parentRunIds.has(event.parentRunId))
     .slice()
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt) || b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
 }
 
 function childParentBlocker(
@@ -828,11 +816,16 @@ function childParentBlocker(
       kind: "attention",
       label: "Blocking: needs steering",
       statusTone: "warning",
-      detail: truncate([
-        barrierDependencyLabel(waitingBarrier.dependencyMode),
-        failurePolicyLabel(waitingBarrier.failurePolicy),
-        waitingBarrier.timeoutMs !== undefined ? timeoutLabel(waitingBarrier.timeoutMs) : undefined,
-      ].filter(Boolean).join(" / "), 220),
+      detail: truncate(
+        [
+          barrierDependencyLabel(waitingBarrier.dependencyMode),
+          failurePolicyLabel(waitingBarrier.failurePolicy),
+          waitingBarrier.timeoutMs !== undefined ? timeoutLabel(waitingBarrier.timeoutMs) : undefined,
+        ]
+          .filter(Boolean)
+          .join(" / "),
+        220,
+      ),
     };
   }
   const activeBarrierLabel = activeBarrierChildLabel(run.status);
@@ -841,12 +834,17 @@ function childParentBlocker(
       kind: "wait_barrier",
       label: activeBarrierLabel,
       statusTone: "active",
-      detail: truncate([
-        barrierStatusLabel(waitingBarrier.status),
-        barrierDependencyLabel(waitingBarrier.dependencyMode),
-        failurePolicyLabel(waitingBarrier.failurePolicy),
-        waitingBarrier.timeoutMs !== undefined ? timeoutLabel(waitingBarrier.timeoutMs) : undefined,
-      ].filter(Boolean).join(" / "), 220),
+      detail: truncate(
+        [
+          barrierStatusLabel(waitingBarrier.status),
+          barrierDependencyLabel(waitingBarrier.dependencyMode),
+          failurePolicyLabel(waitingBarrier.failurePolicy),
+          waitingBarrier.timeoutMs !== undefined ? timeoutLabel(waitingBarrier.timeoutMs) : undefined,
+        ]
+          .filter(Boolean)
+          .join(" / "),
+        220,
+      ),
     };
   }
   if (run.status === "completed") {
@@ -854,12 +852,17 @@ function childParentBlocker(
       kind: "wait_barrier",
       label: "Ready: child complete",
       statusTone: "success",
-      detail: truncate([
-        statusLabel(run.status),
-        barrierDependencyLabel(waitingBarrier.dependencyMode),
-        failurePolicyLabel(waitingBarrier.failurePolicy),
-        waitingBarrier.timeoutMs !== undefined ? timeoutLabel(waitingBarrier.timeoutMs) : undefined,
-      ].filter(Boolean).join(" / "), 220),
+      detail: truncate(
+        [
+          statusLabel(run.status),
+          barrierDependencyLabel(waitingBarrier.dependencyMode),
+          failurePolicyLabel(waitingBarrier.failurePolicy),
+          waitingBarrier.timeoutMs !== undefined ? timeoutLabel(waitingBarrier.timeoutMs) : undefined,
+        ]
+          .filter(Boolean)
+          .join(" / "),
+        220,
+      ),
     };
   }
   if (terminalBarrierAttentionStatus(run.status)) {
@@ -867,12 +870,17 @@ function childParentBlocker(
       kind: "attention",
       label: terminalBarrierAttentionLabel(run.status),
       statusTone: statusTone(run.status),
-      detail: truncate([
-        statusLabel(run.status),
-        barrierDependencyLabel(waitingBarrier.dependencyMode),
-        failurePolicyLabel(waitingBarrier.failurePolicy),
-        waitingBarrier.timeoutMs !== undefined ? timeoutLabel(waitingBarrier.timeoutMs) : undefined,
-      ].filter(Boolean).join(" / "), 220),
+      detail: truncate(
+        [
+          statusLabel(run.status),
+          barrierDependencyLabel(waitingBarrier.dependencyMode),
+          failurePolicyLabel(waitingBarrier.failurePolicy),
+          waitingBarrier.timeoutMs !== undefined ? timeoutLabel(waitingBarrier.timeoutMs) : undefined,
+        ]
+          .filter(Boolean)
+          .join(" / "),
+        220,
+      ),
     };
   }
   return undefined;
@@ -911,21 +919,23 @@ function unresolvedBarrierParentBlocker(
     kind: "attention",
     label,
     statusTone: unresolvedBarrierTone(barrier, run),
-    detail: truncate([
-      barrierStatusLabel(barrier.status),
-      statusLabel(run.status),
-      validationDetail,
-      barrierDependencyLabel(barrier.dependencyMode),
-      failurePolicyLabel(barrier.failurePolicy),
-      barrier.timeoutMs !== undefined ? timeoutLabel(barrier.timeoutMs) : undefined,
-    ].filter(Boolean).join(" / "), 260),
+    detail: truncate(
+      [
+        barrierStatusLabel(barrier.status),
+        statusLabel(run.status),
+        validationDetail,
+        barrierDependencyLabel(barrier.dependencyMode),
+        failurePolicyLabel(barrier.failurePolicy),
+        barrier.timeoutMs !== undefined ? timeoutLabel(barrier.timeoutMs) : undefined,
+      ]
+        .filter(Boolean)
+        .join(" / "),
+      260,
+    ),
   };
 }
 
-function unresolvedBarrierTone(
-  barrier: SubagentWaitBarrierSummary,
-  run: SubagentRunSummary,
-): SubagentParentClusterTone {
+function unresolvedBarrierTone(barrier: SubagentWaitBarrierSummary, run: SubagentRunSummary): SubagentParentClusterTone {
   if (run.status === "failed" || run.status === "stopped" || run.status === "cancelled") return "danger";
   return barrierTone(barrier.status);
 }
@@ -955,8 +965,7 @@ function latestQueuedApprovalRequestForRun(
   return parentMailboxEvents.find((event) => {
     if (event.type !== "subagent.child_approval_requested" || event.deliveryState !== "queued") return false;
     const payload = recordValue(event.payload);
-    return payload?.schemaVersion === "ambient-subagent-approval-bridge-v1" &&
-      stringValue(payload.childRunId) === run.id;
+    return payload?.schemaVersion === "ambient-subagent-approval-bridge-v1" && stringValue(payload.childRunId) === run.id;
   });
 }
 
@@ -967,9 +976,11 @@ function latestQueuedSupervisorRequestForRun(
   return parentMailboxEvents.find((event) => {
     if (event.type !== "subagent.child_supervisor_request" || event.deliveryState !== "queued") return false;
     const payload = recordValue(event.payload);
-    return payload?.schemaVersion === "ambient-subagent-supervisor-request-v1" &&
+    return (
+      payload?.schemaVersion === "ambient-subagent-supervisor-request-v1" &&
       payload.parentRequiresAttention === true &&
-      stringValue(payload.childRunId) === run.id;
+      stringValue(payload.childRunId) === run.id
+    );
   });
 }
 
@@ -1002,12 +1013,12 @@ function approvalParentBlocker(event: SubagentParentMailboxEventSummary): Subage
     kind: "approval",
     label: "Blocking: approval",
     statusTone: "warning",
-    detail: truncate([
-      title,
-      toolCategory ?? requestedAction,
-      effectiveScope ? approvalScopeLabel(effectiveScope) : undefined,
-      prompt,
-    ].filter(Boolean).join(" / "), 240),
+    detail: truncate(
+      [title, toolCategory ?? requestedAction, effectiveScope ? approvalScopeLabel(effectiveScope) : undefined, prompt]
+        .filter(Boolean)
+        .join(" / "),
+      240,
+    ),
   };
 }
 
@@ -1027,14 +1038,19 @@ function waitBarrierAttentionParentBlocker(event: SubagentParentMailboxEventSumm
     kind: "attention",
     label: completionGuardBlocked ? "Blocking: completion guard" : "Blocking: barrier attention",
     statusTone: waitBarrierAttentionTone(action, barrierStatus),
-    detail: truncate([
-      action ? waitBarrierActionLabel(action) : "Needs decision",
-      barrierStatus ? statusLabelFromString(barrierStatus) : undefined,
-      dependencyMode ? barrierDependencyLabelFromString(dependencyMode) : undefined,
-      waitBarrierResultValidationDetail(payload),
-      reason,
-      choices.length ? `Choices: ${choices.slice(0, 4).join(", ")}` : undefined,
-    ].filter(Boolean).join(" / "), 260),
+    detail: truncate(
+      [
+        action ? waitBarrierActionLabel(action) : "Needs decision",
+        barrierStatus ? statusLabelFromString(barrierStatus) : undefined,
+        dependencyMode ? barrierDependencyLabelFromString(dependencyMode) : undefined,
+        waitBarrierResultValidationDetail(payload),
+        reason,
+        choices.length ? `Choices: ${choices.slice(0, 4).join(", ")}` : undefined,
+      ]
+        .filter(Boolean)
+        .join(" / "),
+      260,
+    ),
   };
 }
 
@@ -1047,533 +1063,8 @@ function supervisorRequestParentBlocker(event: SubagentParentMailboxEventSummary
     kind: "attention",
     label: kind === "blocked" ? "Blocking: child blocked" : "Blocking: needs decision",
     statusTone: "warning",
-    detail: truncate([
-      supervisorRequestKindLabel(kind),
-      title,
-      message,
-    ].filter(Boolean).join(" / "), 240),
+    detail: truncate([supervisorRequestKindLabel(kind), title, message].filter(Boolean).join(" / "), 240),
   };
-}
-
-function callableWorkflowTaskModel(
-  task: CallableWorkflowTaskSummary,
-  parentBlocker?: SubagentParentClusterWorkflowTaskBlockerModel,
-  childWait?: SubagentParentClusterWorkflowTaskChildWaitModel,
-): SubagentParentClusterWorkflowTaskModel {
-  const detail = callableWorkflowTaskDetail(task);
-  const launchCardLabels = callableWorkflowTaskLaunchCardLabels(task);
-  const provenanceLabels = callableWorkflowTaskProvenanceLabels(task);
-  const mutationEvidenceLabels = callableWorkflowTaskMutationEvidenceLabels(task);
-  const idLabels = callableWorkflowTaskIdLabels(task);
-  return {
-    id: task.id,
-    title: task.title || task.toolName || task.id,
-    status: task.statusLabel || statusLabelFromString(task.status),
-    statusTone: callableWorkflowTaskTone(task.status),
-    modeLabel: task.blocking ? "Blocking" : "Background",
-    sourceLabel: callableWorkflowTaskSourceLabel(task),
-    ...(task.workflowThreadId ? { workflowThreadId: task.workflowThreadId, workflowThreadLabel: `Workflow thread: ${task.workflowThreadId}` } : {}),
-    canOpenWorkflowThread: Boolean(task.workflowThreadId),
-    openWorkflowThreadTitle: task.workflowThreadId ? `Open workflow thread ${task.workflowThreadId}` : "Workflow thread is not linked yet",
-    progressLabel: callableWorkflowTaskProgressLabel(task),
-    capabilityLabels: callableWorkflowTaskCapabilityLabels(task),
-    telemetryLabels: callableWorkflowTaskTelemetryLabels(task),
-    ...(idLabels.length ? { idLabels } : {}),
-    ...(launchCardLabels.length ? { launchCardLabels } : {}),
-    ...(provenanceLabels.length ? { provenanceLabels } : {}),
-    ...(mutationEvidenceLabels.length ? { mutationEvidenceLabels } : {}),
-    canPause: task.pauseResumeCancel && callableWorkflowTaskCanPause(task),
-    pauseTitle: `Pause ${task.blocking ? "blocking" : "background"} workflow task`,
-    canCancel: task.pauseResumeCancel && callableWorkflowTaskCanCancel(task.status),
-    cancelTitle: `Cancel ${task.blocking ? "blocking" : "background"} workflow task`,
-    canResume: task.pauseResumeCancel && callableWorkflowTaskCanResume(task),
-    resumeTitle: `Resume ${task.blocking ? "blocking" : "background"} workflow task`,
-    ...(parentBlocker ? { parentBlocker } : {}),
-    ...(childWait ? { childWait } : {}),
-    ...(detail ? { detail } : {}),
-  };
-}
-
-function workflowTaskChildWaitsForBackgroundSymphonyTasks(
-  tasks: CallableWorkflowTaskSummary[],
-  barriers: SubagentWaitBarrierSummary[],
-  runsById: Map<string, SubagentRunSummary>,
-  childThreads: Map<string, ThreadSummary>,
-): Map<string, SubagentParentClusterWorkflowTaskChildWaitModel> {
-  const backgroundTasks = new Map(
-    tasks
-      .filter((task) => !task.blocking)
-      .map((task) => [task.id, task] as const),
-  );
-  const waits = new Map<string, { barrier: SubagentWaitBarrierSummary; model: SubagentParentClusterWorkflowTaskChildWaitModel }>();
-  for (const barrier of barriers) {
-    if (barrier.ownerKind !== "callable_workflow_symphony_launch_bridge" || !barrier.ownerId) continue;
-    if (barrier.status === "satisfied") continue;
-    const task = backgroundTasks.get(barrier.ownerId);
-    if (!task) continue;
-    const existing = waits.get(task.id);
-    if (existing && existing.barrier.updatedAt >= barrier.updatedAt) continue;
-    waits.set(task.id, {
-      barrier,
-      model: workflowTaskChildWaitModel(task, barrier, runsById, childThreads),
-    });
-  }
-  return new Map([...waits].map(([taskId, entry]) => [taskId, entry.model]));
-}
-
-function workflowTaskChildWaitModel(
-  task: CallableWorkflowTaskSummary,
-  barrier: SubagentWaitBarrierSummary,
-  runsById: Map<string, SubagentRunSummary>,
-  childThreads: Map<string, ThreadSummary>,
-): SubagentParentClusterWorkflowTaskChildWaitModel {
-  const childLabels = barrier.childRunIds
-    .map((runId) => {
-      const run = runsById.get(runId);
-      if (!run) return `Child ${runId.slice(0, 8)}`;
-      return `${childTitle(run, childThreads.get(run.childThreadId))}: ${statusLabel(run.status)}`;
-    })
-    .slice(0, 4);
-  const hiddenChildCount = Math.max(0, barrier.childRunIds.length - childLabels.length);
-  const childSummary = [
-    ...childLabels,
-    hiddenChildCount ? `${hiddenChildCount} more` : undefined,
-  ].filter((label): label is string => Boolean(label)).join(" / ");
-  return {
-    label: "Waiting on Symphony children",
-    statusTone: barrierTone(barrier.status),
-    detail: truncate([
-      task.title || task.toolName,
-      barrierStatusLabel(barrier.status),
-      barrierDependencyLabel(barrier.dependencyMode),
-      failurePolicyLabel(barrier.failurePolicy),
-      barrier.timeoutMs !== undefined ? timeoutLabel(barrier.timeoutMs) : undefined,
-      childSummary,
-    ].filter(Boolean).join(" / "), 280),
-    childLabels,
-  };
-}
-
-function callableWorkflowTaskIdLabels(task: CallableWorkflowTaskSummary): string[] {
-  return [
-    `Task: ${task.id}`,
-    task.workflowArtifactId ? `Artifact: ${task.workflowArtifactId}` : undefined,
-    task.workflowRunId ? `Run: ${task.workflowRunId}` : undefined,
-    task.workflowThreadId ? `Thread: ${task.workflowThreadId}` : undefined,
-  ].filter((label): label is string => Boolean(label));
-}
-
-function callableWorkflowTaskMutationEvidenceLabels(task: CallableWorkflowTaskSummary): string[] {
-  const provenance = callableWorkflowTaskCallerProvenance(task);
-  if (stringValue(provenance?.kind) !== "subagent_child_thread") return [];
-  const approval = recordValue(provenance?.approval);
-  const worktree = recordValue(provenance?.worktree);
-  const nestedFanout = recordValue(provenance?.nestedFanout);
-  const lastEvent = task.progressSnapshot?.lastEventMessage ?? "";
-  const stagedPath = stagedMutationPathFromMessage(lastEvent);
-  const isMutatingEvidence = stagedPath ||
-    /mutat/i.test(task.launchCard?.toolMutationScope ?? "") ||
-    booleanValue(approval?.required) === true ||
-    booleanValue(worktree?.required) === true;
-  if (!isMutatingEvidence) return [];
-  return uniqueStrings([
-    "Mutating child worker",
-    booleanValue(approval?.required) === true && stringValue(approval?.source) === "child_bridge_policy"
-      ? "Approval: child bridge policy"
-      : undefined,
-    booleanValue(worktree?.isolated) === true && stringValue(worktree?.status) === "active"
-      ? "Isolated worktree active"
-      : undefined,
-    booleanValue(nestedFanout?.required) === true && stringValue(nestedFanout?.source) === "child_bridge_policy"
-      ? "Nested fanout granted"
-      : undefined,
-    stagedPath ? `Staged mutation: ${stagedPath}` : undefined,
-    /parent workspace unchanged/i.test(lastEvent) ? "Parent workspace unchanged" : undefined,
-    /preview retained|bounded preview/i.test(lastEvent) ? "Output preview retained" : undefined,
-  ].filter((label): label is string => Boolean(label)));
-}
-
-function stagedMutationPathFromMessage(message: string): string | undefined {
-  const match = message.match(/\bStaged mutation:\s*([^;\n]+)/i);
-  return match?.[1]?.trim() || undefined;
-}
-
-function workflowTaskParentBlockers(
-  events: SubagentParentMailboxEventSummary[],
-): Map<string, SubagentParentClusterWorkflowTaskBlockerModel> {
-  const blockers = new Map<string, SubagentParentClusterWorkflowTaskBlockerModel>();
-  for (const event of events) {
-    if (event.type !== "callable_workflow.parent_finalization_blocked") continue;
-    const payload = recordValue(event.payload);
-    if (payload?.schemaVersion !== "ambient-callable-workflow-parent-blocking-v1") continue;
-    const waitingTaskIds = new Set(stringArrayValue(payload.waitingTaskIds));
-    const attentionTaskIds = new Set(stringArrayValue(payload.attentionTaskIds));
-    const taskRecords = arrayValue(payload.tasks)
-      .map(recordValue)
-      .filter((task): task is Record<string, unknown> => Boolean(task));
-    const taskRecordsById = new Map(
-      taskRecords
-        .map((task) => [stringValue(task.id), task] as const)
-        .filter((entry): entry is readonly [string, Record<string, unknown>] => Boolean(entry[0])),
-    );
-    const taskIds = uniqueStrings([
-      ...stringArrayValue(payload.taskIds),
-      ...waitingTaskIds,
-      ...attentionTaskIds,
-      ...taskRecords.map((task) => stringValue(task.id) ?? ""),
-    ]);
-    for (const taskId of taskIds) {
-      if (blockers.has(taskId)) continue;
-      const task = taskRecordsById.get(taskId);
-      const kind = workflowTaskParentBlockerKind(taskId, task, waitingTaskIds, attentionTaskIds);
-      if (!kind) continue;
-      blockers.set(taskId, workflowTaskParentBlockerModel(payload, task, kind));
-    }
-  }
-  return blockers;
-}
-
-function workflowTaskParentBlockerKind(
-  taskId: string,
-  task: Record<string, unknown> | undefined,
-  waitingTaskIds: Set<string>,
-  attentionTaskIds: Set<string>,
-): SubagentParentClusterWorkflowTaskBlockerModel["kind"] | undefined {
-  if (attentionTaskIds.has(taskId)) return "attention";
-  if (waitingTaskIds.has(taskId)) return "waiting";
-  const statusGroup = stringValue(task?.statusGroup);
-  if (statusGroup === "needs_attention") return "attention";
-  if (statusGroup === "waiting_on_workflow") return "waiting";
-  const status = stringValue(task?.status);
-  if (status === "paused" || status === "failed" || status === "canceled") return "attention";
-  if (status === "queued" || status === "compiling" || status === "running") return "waiting";
-  return undefined;
-}
-
-function workflowTaskParentBlockerModel(
-  payload: Record<string, unknown>,
-  task: Record<string, unknown> | undefined,
-  kind: SubagentParentClusterWorkflowTaskBlockerModel["kind"],
-): SubagentParentClusterWorkflowTaskBlockerModel {
-  const status = stringValue(task?.status);
-  const statusLabel = stringValue(task?.statusLabel) ?? (status ? statusLabelFromString(status) : undefined);
-  const title = stringValue(task?.title) ?? stringValue(task?.toolName) ?? stringValue(task?.id);
-  const message = stringValue(payload.message);
-  const choices = arrayValue(payload.allowedUserChoices)
-    .map(recordValue)
-    .map((choice) => stringValue(choice?.label))
-    .filter((label): label is string => Boolean(label));
-  const detail = truncate([
-    title,
-    statusLabel,
-    callableWorkflowTaskLifecycleLabel(stringValue(task?.runnerDeferredReason), status),
-    stringValue(task?.workflowRunId) ? `run ${stringValue(task?.workflowRunId)}` : undefined,
-    stringValue(task?.workflowArtifactId) ? `artifact ${stringValue(task?.workflowArtifactId)}` : undefined,
-    stringValue(task?.errorMessage) ? `Error: ${stringValue(task?.errorMessage)}` : undefined,
-    message,
-    choices.length ? `Choices: ${choices.slice(0, 4).join(", ")}` : undefined,
-  ].filter(Boolean).join(" / "), 260);
-  if (kind === "attention") {
-    return {
-      kind,
-      label: "Blocking: workflow attention",
-      statusTone: workflowTaskParentBlockerAttentionTone(status),
-      detail,
-    };
-  }
-  return {
-    kind,
-    label: "Blocking: workflow work",
-    statusTone: "active",
-    detail,
-  };
-}
-
-function workflowTaskParentBlockerAttentionTone(status: string | undefined): SubagentParentClusterTone {
-  return status === "failed" || status === "canceled" ? "danger" : "warning";
-}
-
-function callableWorkflowTaskCanCancel(status: CallableWorkflowTaskSummary["status"]): boolean {
-  return status === "queued" || status === "compiling" || status === "running" || status === "paused";
-}
-
-function callableWorkflowTaskCanPause(task: CallableWorkflowTaskSummary): boolean {
-  if (task.status !== "running" || !task.workflowRunId) return false;
-  const runStatus = task.progressSnapshot?.workflowRunStatus;
-  return !runStatus || runStatus === "running";
-}
-
-function callableWorkflowTaskCanResume(task: CallableWorkflowTaskSummary): boolean {
-  if (isCallableWorkflowSymphonyChildWaitPreCompilePause(task)) return true;
-  if (task.status !== "paused" || !task.workflowArtifactId || !task.workflowRunId) return false;
-  const runStatus = task.progressSnapshot?.workflowRunStatus;
-  if (runStatus) return runStatus === "paused";
-  return task.runnerDeferredReason === "workflow_run_paused";
-}
-
-function callableWorkflowTaskTone(status: CallableWorkflowTaskSummary["status"]): SubagentParentClusterTone {
-  switch (status) {
-    case "queued":
-    case "compiling":
-    case "running":
-      return "active";
-    case "succeeded":
-      return "success";
-    case "paused":
-      return "warning";
-    case "failed":
-    case "canceled":
-      return "danger";
-    default:
-      return "neutral";
-  }
-}
-
-function callableWorkflowTaskProgressLabel(task: CallableWorkflowTaskSummary): string {
-  if (task.status === "queued") return "Queued";
-  if (task.status === "compiling") return "Compiling artifact";
-  if (task.status === "running") {
-    if (task.progressSnapshot?.lastEventMessage) return truncate(task.progressSnapshot.lastEventMessage, 64);
-    if (task.progressSnapshot?.activeStepCount) return `${task.progressSnapshot.activeStepCount} active / ${task.progressSnapshot.completedStepCount} done`;
-    if (task.progressSnapshot?.completedStepCount) return `${task.progressSnapshot.completedStepCount} steps done`;
-    return task.workflowRunId ? `Run ${task.workflowRunId}` : "Workflow run active";
-  }
-  if (task.status === "paused") return callableWorkflowPausedProgressLabel(task);
-  if (task.status === "succeeded") return "Complete";
-  if (task.status === "failed") return "Failed";
-  if (task.status === "canceled") return "Canceled";
-  return statusLabelFromString(task.status);
-}
-
-function callableWorkflowPausedProgressLabel(task: CallableWorkflowTaskSummary): string {
-  if (
-    task.runnerDeferredReason === "workflow_run_needs_input" ||
-    task.progressSnapshot?.workflowRunStatus === "needs_input" ||
-    /^needs input$/i.test(task.statusLabel)
-  ) {
-    return "Needs input";
-  }
-  return task.statusLabel || "Paused";
-}
-
-function callableWorkflowTaskSourceLabel(task: CallableWorkflowTaskSummary): string {
-  if (task.sourceKind === "symphony_recipe") return "Symphony recipe";
-  if (task.sourceKind === "recorded_workflow") return "Recorded workflow";
-  if (task.sourceKind === "workflow_recipe") return "Workflow recipe";
-  return task.sourceKind.split(/[._-]+/g).map(titleCase).join(" ") || "Callable workflow";
-}
-
-function callableWorkflowTaskCapabilityLabels(task: CallableWorkflowTaskSummary): string[] {
-  return [
-    task.progressVisible ? "Progress visible" : undefined,
-    task.tokenCostTracking ? "Token/cost" : undefined,
-    task.pauseResumeCancel ? "Pause/resume/cancel" : undefined,
-  ].filter((label): label is string => Boolean(label));
-}
-
-function callableWorkflowTaskTelemetryLabels(task: CallableWorkflowTaskSummary): string[] {
-  const progress = task.progressSnapshot;
-  const usage = task.usageSnapshot;
-  return [
-    progress && progress.eventCount > 0 ? `${progress.eventCount.toLocaleString()} ${plural(progress.eventCount, "event", "events")}` : undefined,
-    progress && progress.completedStepCount > 0 ? `${progress.completedStepCount.toLocaleString()} ${plural(progress.completedStepCount, "step", "steps")} done` : undefined,
-    usage && usage.modelCallCount > 0 ? `${usage.modelCallCount.toLocaleString()} ${plural(usage.modelCallCount, "model call", "model calls")}` : undefined,
-    usage?.tokenCount !== undefined ? `${usage.tokenCountEstimated ? "~" : ""}${usage.tokenCount.toLocaleString()} tokens` : undefined,
-    usage?.costMicros !== undefined ? formatCostMicros(usage.costMicros, usage.costEstimated) : undefined,
-  ].filter((label): label is string => Boolean(label));
-}
-
-function callableWorkflowTaskLaunchCardLabels(task: CallableWorkflowTaskSummary): string[] {
-  const launchCard = task.launchCard;
-  if (!launchCard) return [];
-  return [
-    `Risk: ${titleCase(launchCard.riskLevel)}`,
-    `Up to ${launchCard.estimatedAgents.toLocaleString()} ${plural(launchCard.estimatedAgents, "agent", "agents")}`,
-    `Budget: ${launchCard.estimatedTokenBudget.toLocaleString()} tokens`,
-    launchCard.requireConfirmation ? "Confirmation required" : undefined,
-    launchCard.smallSliceRecommended ? "Small slice recommended" : undefined,
-  ].filter((label): label is string => Boolean(label));
-}
-
-function callableWorkflowTaskProvenanceLabels(task: CallableWorkflowTaskSummary): string[] {
-  const provenance = callableWorkflowTaskCallerProvenance(task);
-  if (!provenance) return [];
-  const approval = recordValue(provenance.approval);
-  const worktree = recordValue(provenance.worktree);
-  const nestedFanout = recordValue(provenance.nestedFanout);
-  const approvalSource = stringValue(approval?.source);
-  const nestedFanoutSource = stringValue(nestedFanout?.source);
-  return uniqueStrings([
-    callableWorkflowCallerKindLabel(stringValue(provenance.kind)),
-    stringValue(provenance.subagentRunId) ? `Child run: ${stringValue(provenance.subagentRunId)}` : undefined,
-    approvalSource ? `Approval: ${callableWorkflowProvenanceSourceLabel(approvalSource)}` : undefined,
-    callableWorkflowWorktreeLabel(worktree),
-    booleanValue(nestedFanout?.required) === true && nestedFanoutSource
-      ? `Nested fanout: ${callableWorkflowProvenanceSourceLabel(nestedFanoutSource)}`
-      : undefined,
-  ].filter((label): label is string => Boolean(label)));
-}
-
-function callableWorkflowTaskDetail(task: CallableWorkflowTaskSummary): string | undefined {
-  const launchCard = task.launchCard;
-  const provenanceDetail = callableWorkflowTaskProvenanceDetail(task);
-  return truncate([
-    launchCard ? `Launch: ${launchCard.riskLevel} risk, up to ${launchCard.estimatedAgents} agents` : undefined,
-    launchCard ? `Local memory: ${formatBytes(launchCard.estimatedLocalMemoryBytes)}` : undefined,
-    task.runnerTarget ? `Runner: ${task.runnerTarget}` : undefined,
-    task.runnerDeferredReason ? `State: ${callableWorkflowTaskLifecycleLabel(task.runnerDeferredReason, task.status)}` : undefined,
-    task.workflowThreadId ? `Thread: ${task.workflowThreadId}` : undefined,
-    task.workflowArtifactId ? `Artifact: ${task.workflowArtifactId}` : undefined,
-    task.workflowRunId ? `Run: ${task.workflowRunId}` : undefined,
-    provenanceDetail ? `Provenance: ${provenanceDetail}` : undefined,
-    task.errorMessage ? `Error: ${task.errorMessage}` : undefined,
-  ].filter(Boolean).join(" / "), 260) || undefined;
-}
-
-function callableWorkflowTaskProvenanceDetail(task: CallableWorkflowTaskSummary): string | undefined {
-  const provenance = callableWorkflowTaskCallerProvenance(task);
-  if (!provenance) return undefined;
-  const approval = recordValue(provenance.approval);
-  const worktree = recordValue(provenance.worktree);
-  const nestedFanout = recordValue(provenance.nestedFanout);
-  const runId = stringValue(provenance.runId);
-  const subagentRunId = stringValue(provenance.subagentRunId);
-  const parts = [
-    callableWorkflowCallerKindDetail(stringValue(provenance.kind)),
-    stringValue(provenance.threadId) ? `thread ${stringValue(provenance.threadId)}` : undefined,
-    runId ? `run ${runId}` : undefined,
-    subagentRunId && subagentRunId !== runId ? `sub-agent ${subagentRunId}` : undefined,
-    stringValue(provenance.canonicalTaskPath) ? `path ${stringValue(provenance.canonicalTaskPath)}` : undefined,
-    callableWorkflowApprovalDetail(approval),
-    callableWorkflowWorktreeDetail(worktree),
-    callableWorkflowNestedFanoutDetail(nestedFanout),
-  ].filter(Boolean);
-  return parts.length ? parts.join(" / ") : undefined;
-}
-
-function callableWorkflowTaskCallerProvenance(task: CallableWorkflowTaskSummary): Record<string, unknown> | undefined {
-  const executionPlan = recordValue(task.executionPlan);
-  return recordValue(executionPlan?.callerProvenance);
-}
-
-function callableWorkflowCallerKindLabel(kind: string | undefined): string | undefined {
-  if (kind === "subagent_child_thread") return "Caller: sub-agent child";
-  if (kind === "parent_thread") return "Caller: parent thread";
-  return kind ? `Caller: ${statusLabelFromString(kind)}` : undefined;
-}
-
-function callableWorkflowCallerKindDetail(kind: string | undefined): string | undefined {
-  if (kind === "subagent_child_thread") return "sub-agent child";
-  if (kind === "parent_thread") return "parent thread";
-  return kind ? statusLabelFromString(kind).toLowerCase() : undefined;
-}
-
-function callableWorkflowApprovalDetail(approval: Record<string, unknown> | undefined): string | undefined {
-  const source = stringValue(approval?.source);
-  const scopeHint = stringValue(approval?.scopeHint);
-  const required = booleanValue(approval?.required);
-  const parts = [
-    source ? `approval ${callableWorkflowProvenanceSourceLabel(source).toLowerCase()}` : undefined,
-    required === true ? "required" : required === false ? "not required" : undefined,
-    scopeHint ? `scope ${callableWorkflowProvenanceSourceLabel(scopeHint).toLowerCase()}` : undefined,
-  ].filter(Boolean);
-  return parts.length ? parts.join(" ") : undefined;
-}
-
-function callableWorkflowWorktreeLabel(worktree: Record<string, unknown> | undefined): string | undefined {
-  const isolated = booleanValue(worktree?.isolated);
-  const required = booleanValue(worktree?.required);
-  if (isolated === true) return "Worktree: isolated";
-  if (required === true) return "Worktree: not isolated";
-  return undefined;
-}
-
-function callableWorkflowWorktreeDetail(worktree: Record<string, unknown> | undefined): string | undefined {
-  const isolated = booleanValue(worktree?.isolated);
-  const required = booleanValue(worktree?.required);
-  const status = stringValue(worktree?.status);
-  const branchName = stringValue(worktree?.branchName);
-  const parts = [
-    isolated === true ? "worktree isolated" : required === true ? "worktree not isolated" : undefined,
-    status ? statusLabelFromString(status).toLowerCase() : undefined,
-    branchName ? `branch ${branchName}` : undefined,
-  ].filter(Boolean);
-  return parts.length ? parts.join(" ") : undefined;
-}
-
-function callableWorkflowNestedFanoutDetail(nestedFanout: Record<string, unknown> | undefined): string | undefined {
-  const required = booleanValue(nestedFanout?.required);
-  const source = stringValue(nestedFanout?.source);
-  if (required !== true && !source) return undefined;
-  return [
-    required === true ? "nested fanout required" : "nested fanout not required",
-    source ? `via ${callableWorkflowProvenanceSourceLabel(source).toLowerCase()}` : undefined,
-  ].filter(Boolean).join(" ");
-}
-
-function callableWorkflowProvenanceSourceLabel(source: string): string {
-  return source.split(/[._-]+/g).filter(Boolean).map(titleCase).join(" ");
-}
-
-function callableWorkflowTaskLifecycleLabel(
-  runnerDeferredReason: string | undefined,
-  status?: string,
-): string | undefined {
-  switch (runnerDeferredReason) {
-    case "callable_workflow_runner_not_connected":
-      return "Waiting for workflow runner";
-    case "workflow_artifact_not_compiled":
-      return "Compiling workflow artifact";
-    case "workflow_run_not_started":
-      return "Workflow artifact ready";
-    case "workflow_run_started":
-      return "Workflow run started";
-    case "workflow_run_paused":
-      return "Workflow run paused";
-    case "workflow_run_needs_input":
-      return "Workflow run needs input";
-    case "workflow_run_succeeded":
-      return "Workflow run succeeded";
-    case "workflow_run_failed":
-      return "Workflow run failed";
-    case "workflow_run_canceled":
-      return "Workflow run canceled";
-    case "workflow_run_skipped":
-      return "Workflow run skipped";
-    case "callable_workflow_task_canceled":
-      return "Workflow task canceled";
-    case "failed":
-      return "Workflow task failed";
-    default:
-      return runnerDeferredReason
-        ? runnerDeferredReason.split(/[._-]+/g).filter(Boolean).map(titleCase).join(" ")
-        : status ? statusLabelFromString(status) : undefined;
-  }
-}
-
-function plural(count: number, singular: string, pluralLabel: string): string {
-  return count === 1 ? singular : pluralLabel;
-}
-
-function formatCostMicros(costMicros: number, estimated: boolean): string {
-  const dollars = costMicros / 1_000_000;
-  const formatted = dollars >= 0.01
-    ? dollars.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : `$${dollars.toFixed(6)}`;
-  return `${estimated ? "~" : ""}${formatted}`;
-}
-
-function formatBytes(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return "0 bytes";
-  const gib = value / (1024 * 1024 * 1024);
-  if (gib >= 1) return `${formatDecimal(gib)} GiB`;
-  const mib = value / (1024 * 1024);
-  if (mib >= 1) return `${formatDecimal(mib)} MiB`;
-  return `${Math.floor(value).toLocaleString()} bytes`;
-}
-
-function formatDecimal(value: number): string {
-  return Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 1 });
 }
 
 function mailboxActivityModel(event: SubagentParentMailboxEventSummary): SubagentParentClusterMailboxActivityModel {
@@ -1609,14 +1100,18 @@ function mailboxActivityModel(event: SubagentParentMailboxEventSummary): Subagen
   };
 }
 
-function callableWorkflowParentBlockingActivity(event: SubagentParentMailboxEventSummary): SubagentParentClusterMailboxActivityModel | undefined {
+function callableWorkflowParentBlockingActivity(
+  event: SubagentParentMailboxEventSummary,
+): SubagentParentClusterMailboxActivityModel | undefined {
   if (event.type !== "callable_workflow.parent_finalization_blocked") return undefined;
   const payload = recordValue(event.payload);
   if (payload?.schemaVersion !== "ambient-callable-workflow-parent-blocking-v1") return undefined;
   const taskIds = stringArrayValue(payload.taskIds);
   const waitingTaskIds = stringArrayValue(payload.waitingTaskIds);
   const attentionTaskIds = stringArrayValue(payload.attentionTaskIds);
-  const tasks = arrayValue(payload.tasks).map(recordValue).filter((task): task is Record<string, unknown> => Boolean(task));
+  const tasks = arrayValue(payload.tasks)
+    .map(recordValue)
+    .filter((task): task is Record<string, unknown> => Boolean(task));
   const taskCount = taskIds.length || tasks.length;
   const message = stringValue(payload.message);
   const choices = arrayValue(payload.allowedUserChoices)
@@ -1628,24 +1123,23 @@ function callableWorkflowParentBlockingActivity(event: SubagentParentMailboxEven
     label: "Workflow blocked",
     ...(workflowSourceLabel(payload) ? { sourceLabel: workflowSourceLabel(payload) } : {}),
     statusTone: callableWorkflowParentBlockingTone(tasks, attentionTaskIds),
-    summary: truncate([
-      `${taskCount} blocking ${taskCount === 1 ? "workflow" : "workflows"}`,
-      waitingTaskIds.length ? `${waitingTaskIds.length} waiting` : undefined,
-      attentionTaskIds.length ? `${attentionTaskIds.length} attention` : undefined,
-      workflowTaskPreview(tasks),
-    ].filter(Boolean).join(" / "), 180),
-    detail: truncate([
-      message,
-      choices.length ? `Choices: ${choices.slice(0, 4).join(", ")}` : undefined,
-    ].filter(Boolean).join(" | "), 260),
+    summary: truncate(
+      [
+        `${taskCount} blocking ${taskCount === 1 ? "workflow" : "workflows"}`,
+        waitingTaskIds.length ? `${waitingTaskIds.length} waiting` : undefined,
+        attentionTaskIds.length ? `${attentionTaskIds.length} attention` : undefined,
+        workflowTaskPreview(tasks),
+      ]
+        .filter(Boolean)
+        .join(" / "),
+      180,
+    ),
+    detail: truncate([message, choices.length ? `Choices: ${choices.slice(0, 4).join(", ")}` : undefined].filter(Boolean).join(" | "), 260),
     updatedAt: event.updatedAt,
   };
 }
 
-function callableWorkflowParentBlockingTone(
-  tasks: Record<string, unknown>[],
-  attentionTaskIds: string[],
-): SubagentParentClusterTone {
+function callableWorkflowParentBlockingTone(tasks: Record<string, unknown>[], attentionTaskIds: string[]): SubagentParentClusterTone {
   const statuses = tasks.map((task) => stringValue(task.status)).filter((status): status is string => Boolean(status));
   if (statuses.some((status) => status === "failed" || status === "canceled")) return "danger";
   if (attentionTaskIds.length > 0 || statuses.some((status) => status === "paused")) return "warning";
@@ -1653,7 +1147,8 @@ function callableWorkflowParentBlockingTone(
 }
 
 function workflowTaskPreview(tasks: Record<string, unknown>[]): string | undefined {
-  const previews = tasks.slice(0, 2)
+  const previews = tasks
+    .slice(0, 2)
     .map((task) => {
       const title = stringValue(task.title) ?? stringValue(task.toolName) ?? stringValue(task.id);
       if (!title) return undefined;
@@ -1701,11 +1196,10 @@ function lifecycleInterruptionActivity(event: SubagentParentMailboxEventSummary)
     label: "Child interrupted",
     ...(childSourceLabel(payload) ? { sourceLabel: childSourceLabel(payload) } : {}),
     statusTone: lifecycleStatusTone(status),
-    summary: truncate([
-      status ? statusLabelFromString(status) : "Interrupted",
-      roleId ? titleCase(roleId) : undefined,
-      path,
-    ].filter(Boolean).join(" / "), 160),
+    summary: truncate(
+      [status ? statusLabelFromString(status) : "Interrupted", roleId ? titleCase(roleId) : undefined, path].filter(Boolean).join(" / "),
+      160,
+    ),
     detail: truncate([source, reason, controlSummary].filter(Boolean).join(" · "), 240),
     ...(effectRows.length ? { effectRows } : {}),
     updatedAt: event.updatedAt,
@@ -1723,10 +1217,7 @@ function cancellationCascadeActivity(event: SubagentParentMailboxEventSummary): 
   const cancelledWaitBarrierIds = stringArrayValue(payload.cancelledWaitBarrierIds);
   const cancelledMailboxEventIds = stringArrayValue(payload.cancelledMailboxEventIds);
   const reason = stringValue(payload.reason);
-  const detail = [
-    reason,
-    cancelledMailboxEventCountSummary(cancelledMailboxEventIds.length),
-  ].filter(Boolean).join(" · ");
+  const detail = [reason, cancelledMailboxEventCountSummary(cancelledMailboxEventIds.length)].filter(Boolean).join(" · ");
   const effectRows = lifecycleEffectRows(payload);
   return {
     id: event.id,
@@ -1739,7 +1230,9 @@ function cancellationCascadeActivity(event: SubagentParentMailboxEventSummary): 
       stoppedChildRunIds.length ? `${stoppedChildRunIds.length} stopped` : undefined,
       unchangedRunIds.length ? `${unchangedRunIds.length} unchanged` : undefined,
       cancelledWaitBarrierCountSummary(cancelledWaitBarrierIds.length),
-    ].filter(Boolean).join(" · "),
+    ]
+      .filter(Boolean)
+      .join(" · "),
     ...(detail ? { detail: truncate(detail, 240) } : {}),
     ...(effectRows.length ? { effectRows } : {}),
     updatedAt: event.updatedAt,
@@ -1761,11 +1254,12 @@ function childApprovalRequestActivity(event: SubagentParentMailboxEventSummary):
     label: "Approval requested",
     ...(childSourceLabel(payload) ? { sourceLabel: childSourceLabel(payload) } : {}),
     statusTone: event.deliveryState === "queued" ? "active" : "neutral",
-    summary: truncate([
-      title ?? "Child approval needed",
-      toolCategory ?? requestedAction,
-      effectiveScope ? approvalScopeLabel(effectiveScope) : undefined,
-    ].filter(Boolean).join(" / "), 160),
+    summary: truncate(
+      [title ?? "Child approval needed", toolCategory ?? requestedAction, effectiveScope ? approvalScopeLabel(effectiveScope) : undefined]
+        .filter(Boolean)
+        .join(" / "),
+      160,
+    ),
     ...(prompt ? { detail: truncate(prompt, 240) } : {}),
     ...(approvalActions.length ? { approvalActions } : {}),
     updatedAt: event.updatedAt,
@@ -1784,9 +1278,8 @@ function childApprovalRequestActions(
   const prompt = stringValue(payload.prompt);
   const requestedScope = stringValue(payload.requestedScope);
   const effectiveScope = stringValue(payload.effectiveScope);
-  const toolLabel = stringValue(payload.requestedToolCategory) ??
-    stringValue(payload.requestedAction) ??
-    stringValue(payload.requestedToolId);
+  const toolLabel =
+    stringValue(payload.requestedToolCategory) ?? stringValue(payload.requestedAction) ?? stringValue(payload.requestedToolId);
   const childThreadId = stringValue(payload.childThreadId);
   const sourceLabel = childSourceLabel(payload);
   const base = {
@@ -1816,16 +1309,8 @@ function childApprovalRequestActions(
   ];
 }
 
-function approvalActionTitle(
-  verb: string,
-  title: string | undefined,
-  approvalId: string,
-  sourceLabel: string | undefined,
-): string {
-  return [
-    `${verb} child approval ${approvalId}${title ? `: ${title}` : ""}`,
-    sourceLabel,
-  ].filter(Boolean).join(" / ");
+function approvalActionTitle(verb: string, title: string | undefined, approvalId: string, sourceLabel: string | undefined): string {
+  return [`${verb} child approval ${approvalId}${title ? `: ${title}` : ""}`, sourceLabel].filter(Boolean).join(" / ");
 }
 
 function childApprovalForwardedActivity(event: SubagentParentMailboxEventSummary): SubagentParentClusterMailboxActivityModel | undefined {
@@ -1839,27 +1324,27 @@ function childApprovalForwardedActivity(event: SubagentParentMailboxEventSummary
   const scope = recordValue(payload.scope);
   const scopeReason = stringValue(scope?.reason);
   const parentBlockingState = recordValue(payload.parentBlockingState);
-  const parentResumeLabel = payload.resumeParentBlocking === true || parentBlockingState?.resumeParentBlocking === true
-    ? "Parent returned to waiting on this child."
-    : undefined;
-  const childAlwaysDefaultedLabel = payload.childAlwaysDefaulted === true
-    ? "Always defaulted to this child thread."
-    : undefined;
-  const detail = truncate([
-    userDecision,
-    childAlwaysDefaultedLabel ?? scopeReason,
-    parentResumeLabel,
-  ].filter(Boolean).join(" | "), 260);
+  const parentResumeLabel =
+    payload.resumeParentBlocking === true || parentBlockingState?.resumeParentBlocking === true
+      ? "Parent returned to waiting on this child."
+      : undefined;
+  const childAlwaysDefaultedLabel = payload.childAlwaysDefaulted === true ? "Always defaulted to this child thread." : undefined;
+  const detail = truncate([userDecision, childAlwaysDefaultedLabel ?? scopeReason, parentResumeLabel].filter(Boolean).join(" | "), 260);
   return {
     id: event.id,
     label: "Approval forwarded",
     ...(childSourceLabel(payload) ? { sourceLabel: childSourceLabel(payload) } : {}),
     statusTone: decision === "denied" ? "danger" : decision === "approved" ? "success" : "neutral",
-    summary: truncate([
-      decision ? approvalDecisionLabel(decision) : "Decision sent",
-      effectiveScope ? approvalScopeLabel(effectiveScope) : undefined,
-      approvalId,
-    ].filter(Boolean).join(" / "), 160),
+    summary: truncate(
+      [
+        decision ? approvalDecisionLabel(decision) : "Decision sent",
+        effectiveScope ? approvalScopeLabel(effectiveScope) : undefined,
+        approvalId,
+      ]
+        .filter(Boolean)
+        .join(" / "),
+      160,
+    ),
     ...(detail ? { detail } : {}),
     updatedAt: event.updatedAt,
   };
@@ -1883,25 +1368,26 @@ function supervisorRequestActivity(event: SubagentParentMailboxEventSummary): Su
     label: kind === "progress_update" ? "Child progress" : "Supervisor request",
     ...(childSourceLabel(payload) ? { sourceLabel: childSourceLabel(payload) } : {}),
     statusTone: supervisorRequestTone(event, payload),
-    summary: truncate([
-      title ?? supervisorRequestKindLabel(kind),
-      progressLabel,
-      choices.length ? `${choices.length} ${choices.length === 1 ? "choice" : "choices"}` : undefined,
-    ].filter(Boolean).join(" / "), 160),
-    detail: truncate([
-      blockedReason,
-      message,
-      choices.length ? `Choices: ${choices.slice(0, 4).join(", ")}` : undefined,
-    ].filter(Boolean).join(" | "), 260),
+    summary: truncate(
+      [
+        title ?? supervisorRequestKindLabel(kind),
+        progressLabel,
+        choices.length ? `${choices.length} ${choices.length === 1 ? "choice" : "choices"}` : undefined,
+      ]
+        .filter(Boolean)
+        .join(" / "),
+      160,
+    ),
+    detail: truncate(
+      [blockedReason, message, choices.length ? `Choices: ${choices.slice(0, 4).join(", ")}` : undefined].filter(Boolean).join(" | "),
+      260,
+    ),
     ...(choices.length ? { actionLabels: choices.slice(0, 4) } : {}),
     updatedAt: event.updatedAt,
   };
 }
 
-function supervisorRequestTone(
-  event: SubagentParentMailboxEventSummary,
-  payload: Record<string, unknown>,
-): SubagentParentClusterTone {
+function supervisorRequestTone(event: SubagentParentMailboxEventSummary, payload: Record<string, unknown>): SubagentParentClusterTone {
   if (event.deliveryState === "failed") return "danger";
   const severity = stringValue(payload.severity);
   if (severity === "danger") return "danger";
@@ -1920,7 +1406,10 @@ function supervisorRequestKindLabel(kind: string | undefined): string {
 function approvalDecisionLabel(decision: string): string {
   if (decision === "approved") return "Approved";
   if (decision === "denied") return "Denied";
-  return decision.split(/[._-]+/g).map(titleCase).join(" ");
+  return decision
+    .split(/[._-]+/g)
+    .map(titleCase)
+    .join(" ");
 }
 
 function approvalScopeLabel(scope: string): string {
@@ -1929,7 +1418,10 @@ function approvalScopeLabel(scope: string): string {
   if (scope === "parent_thread_tree") return "Parent thread tree";
   if (scope === "project") return "Project";
   if (scope === "global") return "Global";
-  return scope.split(/[._-]+/g).map(titleCase).join(" ");
+  return scope
+    .split(/[._-]+/g)
+    .map(titleCase)
+    .join(" ");
 }
 
 function spawnFailureActivity(event: SubagentParentMailboxEventSummary): SubagentParentClusterMailboxActivityModel | undefined {
@@ -1949,11 +1441,12 @@ function spawnFailureActivity(event: SubagentParentMailboxEventSummary): Subagen
     label: "Spawn failed",
     ...(childSourceLabel(payload) ? { sourceLabel: childSourceLabel(payload) } : {}),
     statusTone: "danger",
-    summary: truncate([
-      stage ? failureStageLabel(stage, payload) : "Launch blocked",
-      requestedRole ? titleCase(requestedRole) : undefined,
-      model,
-    ].filter(Boolean).join(" / "), 160),
+    summary: truncate(
+      [stage ? failureStageLabel(stage, payload) : "Launch blocked", requestedRole ? titleCase(requestedRole) : undefined, model]
+        .filter(Boolean)
+        .join(" / "),
+      160,
+    ),
     detail: truncate(detailParts.filter(Boolean).join(" | "), 240),
     updatedAt: event.updatedAt,
   };
@@ -1965,7 +1458,7 @@ function modelScopeSummary(modelScope: Record<string, unknown> | undefined): str
   const label = stringValue(profile?.label);
   const selectedModelId = stringValue(modelScope.selectedModelId) ?? stringValue(profile?.modelId);
   if (!label && !selectedModelId) return undefined;
-  return label && selectedModelId && label !== selectedModelId ? `${label} (${selectedModelId})` : label ?? selectedModelId;
+  return label && selectedModelId && label !== selectedModelId ? `${label} (${selectedModelId})` : (label ?? selectedModelId);
 }
 
 function modelScopeFailureDetail(modelScope: Record<string, unknown> | undefined): string | undefined {
@@ -1986,13 +1479,13 @@ function failureStageLabel(stage: string, payload?: Record<string, unknown>): st
   if (stage === "runtime_launch_preflight") return "Runtime preflight blocked";
   if (stage === "capacity") return "Capacity blocked";
   if (stage === "tool_scope") return payload?.approvalUnavailable === true ? "Approval unavailable" : "Tool scope blocked";
-  return stage.split(/[._-]+/g).map(titleCase).join(" ");
+  return stage
+    .split(/[._-]+/g)
+    .map(titleCase)
+    .join(" ");
 }
 
-function toolScopeFailureDetail(
-  toolScopeSnapshot: Record<string, unknown> | undefined,
-  approvalUnavailable: boolean,
-): string | undefined {
+function toolScopeFailureDetail(toolScopeSnapshot: Record<string, unknown> | undefined, approvalUnavailable: boolean): string | undefined {
   const deniedCategories = arrayValue(toolScopeSnapshot?.deniedCategories)
     .map(recordValue)
     .map(deniedCategoryFailureLabel)
@@ -2001,16 +1494,20 @@ function toolScopeFailureDetail(
     .map(recordValue)
     .map(deniedToolFailureLabel)
     .filter((item): item is string => Boolean(item));
-  const denyReasons = uniqueStrings([
-    ...arrayValue(toolScopeSnapshot?.deniedCategories).map(recordValue).map(deniedCategoryReasonLabel),
-    ...arrayValue(toolScopeSnapshot?.deniedTools).map(recordValue).map(deniedToolReasonLabel),
-  ].filter((item): item is string => Boolean(item)));
+  const denyReasons = uniqueStrings(
+    [
+      ...arrayValue(toolScopeSnapshot?.deniedCategories).map(recordValue).map(deniedCategoryReasonLabel),
+      ...arrayValue(toolScopeSnapshot?.deniedTools).map(recordValue).map(deniedToolReasonLabel),
+    ].filter((item): item is string => Boolean(item)),
+  );
   const detail = [
     approvalUnavailable ? "Approval unavailable: non-interactive launch cannot surface required approval" : undefined,
     deniedCategories.length ? `Denied categories: ${deniedCategories.slice(0, 3).join("; ")}` : undefined,
     deniedTools.length ? `Denied tools: ${deniedTools.slice(0, 3).join("; ")}` : undefined,
     denyReasons.length ? `Deny reasons: ${denyReasons.slice(0, 3).join("; ")}` : undefined,
-  ].filter(Boolean).join(" | ");
+  ]
+    .filter(Boolean)
+    .join(" | ");
   return detail || undefined;
 }
 
@@ -2065,9 +1562,7 @@ function waitBarrierAttentionActivity(event: SubagentParentMailboxEventSummary):
   const choiceRecords = arrayValue(payload.allowedUserChoices)
     .map(recordValue)
     .filter((choice): choice is Record<string, unknown> => Boolean(choice));
-  const choices = choiceRecords
-    .map((choice) => stringValue(choice?.label))
-    .filter((label): label is string => Boolean(label));
+  const choices = choiceRecords.map((choice) => stringValue(choice?.label)).filter((label): label is string => Boolean(label));
   const symphonyOptions = symphonyDecisionOptionLabels(payload);
   const actionLabels = uniqueStrings([...choices, ...symphonyOptions]);
   const actions = choiceRecords
@@ -2078,17 +1573,27 @@ function waitBarrierAttentionActivity(event: SubagentParentMailboxEventSummary):
     label: "Barrier attention",
     ...(childSourceLabel(payload) ? { sourceLabel: childSourceLabel(payload) } : {}),
     statusTone: waitBarrierAttentionTone(action, barrierStatus),
-    summary: truncate([
-      action ? waitBarrierActionLabel(action) : "Needs decision",
-      barrierStatus ? statusLabelFromString(barrierStatus) : undefined,
-      dependencyMode ? barrierDependencyLabelFromString(dependencyMode) : undefined,
-    ].filter(Boolean).join(" / "), 160),
-    detail: truncate([
-      reason,
-      waitBarrierResultValidationDetail(payload),
-      choices.length ? `Choices: ${choices.slice(0, 4).join(", ")}` : undefined,
-      symphonyOptions.length ? `Symphony options: ${symphonyOptions.slice(0, 5).join(", ")}` : undefined,
-    ].filter(Boolean).join(" | "), 240),
+    summary: truncate(
+      [
+        action ? waitBarrierActionLabel(action) : "Needs decision",
+        barrierStatus ? statusLabelFromString(barrierStatus) : undefined,
+        dependencyMode ? barrierDependencyLabelFromString(dependencyMode) : undefined,
+      ]
+        .filter(Boolean)
+        .join(" / "),
+      160,
+    ),
+    detail: truncate(
+      [
+        reason,
+        waitBarrierResultValidationDetail(payload),
+        choices.length ? `Choices: ${choices.slice(0, 4).join(", ")}` : undefined,
+        symphonyOptions.length ? `Symphony options: ${symphonyOptions.slice(0, 5).join(", ")}` : undefined,
+      ]
+        .filter(Boolean)
+        .join(" | "),
+      240,
+    ),
     ...(actionLabels.length ? { actionLabels: actionLabels.slice(0, 5) } : {}),
     ...(actions.length ? { actions: actions.slice(0, 4) } : {}),
     updatedAt: event.updatedAt,
@@ -2107,10 +1612,12 @@ function symphonyDecisionOptionLabels(payload: Record<string, unknown>): string[
   if (explicit.length) return uniqueStrings(explicit);
   const request = recordValue(payload.childDecisionRequest);
   const recommendedOption = stringValue(request?.recommendedOption);
-  return uniqueStrings(stringArrayValue(request?.options).map((option) => {
-    const label = symphonyDecisionOptionLabel(option);
-    return option === recommendedOption ? `${label} (recommended)` : label;
-  }));
+  return uniqueStrings(
+    stringArrayValue(request?.options).map((option) => {
+      const label = symphonyDecisionOptionLabel(option);
+      return option === recommendedOption ? `${label} (recommended)` : label;
+    }),
+  );
 }
 
 function symphonyDecisionOptionLabel(option: string): string {
@@ -2128,7 +1635,10 @@ function symphonyDecisionOptionLabel(option: string): string {
     case "exit_symphony_mode":
       return "Exit Symphony";
     default:
-      return option.split(/[._-]+/g).map(titleCase).join(" ");
+      return option
+        .split(/[._-]+/g)
+        .map(titleCase)
+        .join(" ");
   }
 }
 
@@ -2138,10 +1648,7 @@ function waitBarrierResultValidationDetail(payload: Record<string, unknown>): st
   const completionGuard = recordValue(resultValidation.completionGuardValidation);
   const detail = completionGuard ? completionGuardDetail(completionGuard) : undefined;
   const reason = stringValue(completionGuard?.reason) ?? stringValue(resultValidation.reason);
-  const parts = [
-    detail,
-    reason,
-  ].filter(Boolean);
+  const parts = [detail, reason].filter(Boolean);
   if (parts.length) return parts.join(" / ");
   const synthesisAllowed = booleanValue(resultValidation.synthesisAllowed);
   return synthesisAllowed === false ? "Result validation blocked synthesis" : undefined;
@@ -2150,10 +1657,9 @@ function waitBarrierResultValidationDetail(payload: Record<string, unknown>): st
 function waitBarrierCompletionGuardBlocked(payload: Record<string, unknown>): boolean {
   const resultValidation = recordValue(payload.resultValidation);
   const completionGuard = recordValue(resultValidation?.completionGuardValidation);
-  return Boolean(completionGuard && (
-    booleanValue(completionGuard.valid) === false ||
-    booleanValue(completionGuard.synthesisAllowed) === false
-  ));
+  return Boolean(
+    completionGuard && (booleanValue(completionGuard.valid) === false || booleanValue(completionGuard.synthesisAllowed) === false),
+  );
 }
 
 function completionGuardDetail(completionGuard: Record<string, unknown>): string | undefined {
@@ -2197,10 +1703,7 @@ function waitBarrierChoiceAction(
   if (!label || !waitBarrierId || !decision) return undefined;
   const requiresPartialSummary = choice.requiresPartialSummary === true || decision === "continue_with_partial";
   const requiresUserDecision =
-    choice.requiresUserDecision === true ||
-    requiresPartialSummary ||
-    decision === "detach_child" ||
-    decision === "cancel_parent";
+    choice.requiresUserDecision === true || requiresPartialSummary || decision === "detach_child" || decision === "cancel_parent";
   return {
     label,
     title: waitBarrierActionTitle(label, decision, waitBarrierId),
@@ -2254,10 +1757,15 @@ function waitBarrierDecisionActivity(event: SubagentParentMailboxEventSummary): 
     label: "Barrier decision",
     ...(childSourceLabel(payload) ? { sourceLabel: childSourceLabel(payload) } : {}),
     statusTone: waitBarrierDecisionTone(decision),
-    summary: truncate([
-      decision ? waitBarrierDecisionDisplayLabel(decision, payload) : "Decision recorded",
-      barrierStatus ? statusLabelFromString(barrierStatus) : undefined,
-    ].filter(Boolean).join(" / "), 160),
+    summary: truncate(
+      [
+        decision ? waitBarrierDecisionDisplayLabel(decision, payload) : "Decision recorded",
+        barrierStatus ? statusLabelFromString(barrierStatus) : undefined,
+      ]
+        .filter(Boolean)
+        .join(" / "),
+      160,
+    ),
     ...(detail ? { detail: truncate(detail, 240) } : {}),
     ...(effectRows.length ? { effectRows } : {}),
     updatedAt: event.updatedAt,
@@ -2285,7 +1793,10 @@ function waitBarrierActionLabel(action: string): string {
   if (action === "fail_parent") return "Fail parent";
   if (action === "wait_for_child") return "Wait for child";
   if (action === "continue_with_explicit_partial") return "Partial allowed";
-  return action.split(/[._-]+/g).map(titleCase).join(" ");
+  return action
+    .split(/[._-]+/g)
+    .map(titleCase)
+    .join(" ");
 }
 
 function waitBarrierDecisionLabel(decision: string): string {
@@ -2294,7 +1805,10 @@ function waitBarrierDecisionLabel(decision: string): string {
   if (decision === "detach_child") return "Child detached";
   if (decision === "cancel_parent") return "Parent cancelled";
   if (decision === "fail_parent") return "Fail parent";
-  return decision.split(/[._-]+/g).map(titleCase).join(" ");
+  return decision
+    .split(/[._-]+/g)
+    .map(titleCase)
+    .join(" ");
 }
 
 function waitBarrierDecisionDisplayLabel(decision: string, record: Record<string, unknown> | undefined): string {
@@ -2309,7 +1823,10 @@ function barrierDependencyLabelFromString(mode: string): string {
   if (mode === "required_any") return "Required any";
   if (mode === "optional_background") return "Background";
   if (mode === "quorum") return "Quorum";
-  return mode.split(/[._-]+/g).map(titleCase).join(" ");
+  return mode
+    .split(/[._-]+/g)
+    .map(titleCase)
+    .join(" ");
 }
 
 function batchProgressActivity(event: SubagentParentMailboxEventSummary): SubagentParentClusterMailboxActivityModel | undefined {
@@ -2328,9 +1845,10 @@ function batchProgressActivity(event: SubagentParentMailboxEventSummary): Subage
     label: "Batch progress",
     statusTone: pendingCount > 0 ? "active" : "success",
     summary: `${acceptedReportCount}/${itemCount} ${itemCount === 1 ? "item" : "items"} reported`,
-    detail: pendingCount > 0
-      ? `${pendingCount} pending${jobId ? ` · ${truncate(jobId, 72)}` : ""}`
-      : `All items reported${jobId ? ` · ${truncate(jobId, 72)}` : ""}`,
+    detail:
+      pendingCount > 0
+        ? `${pendingCount} pending${jobId ? ` · ${truncate(jobId, 72)}` : ""}`
+        : `All items reported${jobId ? ` · ${truncate(jobId, 72)}` : ""}`,
     updatedAt: event.updatedAt,
   };
 }
@@ -2371,12 +1889,7 @@ function childSourceLabel(payload: Record<string, unknown> | undefined): string 
   const childRunIds = stringArrayValue(payload.childRunIds);
   const detachedRunIds = stringArrayValue(payload.detachedRunIds);
   const cancelledRunIds = stringArrayValue(payload.cancelledRunIds);
-  const affectedRunIds = uniqueStrings([
-    ...(childRunId ? [childRunId] : []),
-    ...childRunIds,
-    ...detachedRunIds,
-    ...cancelledRunIds,
-  ]);
+  const affectedRunIds = uniqueStrings([...(childRunId ? [childRunId] : []), ...childRunIds, ...detachedRunIds, ...cancelledRunIds]);
   const pieces = [
     path,
     affectedRunIds.length === 1
@@ -2394,7 +1907,11 @@ function uniqueStrings(values: string[]): string[] {
 }
 
 function mailboxTypeLabel(type: string): string {
-  return type.replace(/^subagent\./, "").split(/[._-]+/g).map(titleCase).join(" ");
+  return type
+    .replace(/^subagent\./, "")
+    .split(/[._-]+/g)
+    .map(titleCase)
+    .join(" ");
 }
 
 function lifecycleSourceLabel(source: string | undefined): string | undefined {
@@ -2466,18 +1983,8 @@ function barrierBlockingChildren(
     const title = childTitle(run, childThreads.get(run.childThreadId));
     const latest = childPreview(run, childThreads.get(run.childThreadId), resultArtifactSummary(run.resultArtifact));
     const latestLabel = latest && latest !== run.canonicalTaskPath ? `Latest: ${truncate(latest, 64)}` : undefined;
-    const label = truncate([
-      title,
-      run.canonicalTaskPath,
-      statusLabel(run.status),
-      latestLabel,
-    ].filter(Boolean).join(" / "), 180);
-    const detail = [
-      title,
-      run.canonicalTaskPath,
-      statusLabel(run.status),
-      latestLabel,
-    ].filter(Boolean).join(" / ");
+    const label = truncate([title, run.canonicalTaskPath, statusLabel(run.status), latestLabel].filter(Boolean).join(" / "), 180);
+    const detail = [title, run.canonicalTaskPath, statusLabel(run.status), latestLabel].filter(Boolean).join(" / ");
     children.push({
       runId: run.id,
       childThreadId: run.childThreadId,
@@ -2493,33 +2000,26 @@ function barrierBlockingChildren(
   return children;
 }
 
-function barrierChildSynthesisAllowed(
-  barrier: SubagentWaitBarrierSummary,
-  run: SubagentRunSummary,
-): boolean {
+function barrierChildSynthesisAllowed(barrier: SubagentWaitBarrierSummary, run: SubagentRunSummary): boolean {
   const childResult = barrierChildResultRecord(barrier, run);
   const synthesisAllowed = booleanValue(childResult?.synthesisAllowed);
   if (synthesisAllowed !== undefined) return synthesisAllowed;
   return subagentRunStatusIsSynthesisSafe(run.status);
 }
 
-function barrierChildValidationDetail(
-  barrier: SubagentWaitBarrierSummary,
-  run: SubagentRunSummary,
-): string | undefined {
+function barrierChildValidationDetail(barrier: SubagentWaitBarrierSummary, run: SubagentRunSummary): string | undefined {
   const childResult = barrierChildResultRecord(barrier, run);
   const resultValidation = recordValue(childResult?.resultValidation);
   if (resultValidation) {
     const completionGuard = recordValue(resultValidation.completionGuardValidation);
-    return completionGuard ? completionGuardDetail(completionGuard) || stringValue(resultValidation.reason) : stringValue(resultValidation.reason);
+    return completionGuard
+      ? completionGuardDetail(completionGuard) || stringValue(resultValidation.reason)
+      : stringValue(resultValidation.reason);
   }
   return stringValue(childResult?.reason);
 }
 
-function barrierChildResultRecord(
-  barrier: SubagentWaitBarrierSummary,
-  run: SubagentRunSummary,
-): Record<string, unknown> | undefined {
+function barrierChildResultRecord(barrier: SubagentWaitBarrierSummary, run: SubagentRunSummary): Record<string, unknown> | undefined {
   const artifact = recordValue(barrier.resolutionArtifact);
   const evaluation = recordValue(artifact?.waitBarrierEvaluation);
   return arrayValue(evaluation?.childResults)
@@ -2541,7 +2041,9 @@ function barrierChildCountLabel(barrier: SubagentWaitBarrierSummary): string {
   return barrier.quorumThreshold !== undefined ? `${base} · quorum ${barrier.quorumThreshold}` : base;
 }
 
-function barrierDecisionLabels(barrier: SubagentWaitBarrierSummary): Pick<SubagentParentClusterBarrierModel, "decisionLabel" | "decisionSummary"> {
+function barrierDecisionLabels(
+  barrier: SubagentWaitBarrierSummary,
+): Pick<SubagentParentClusterBarrierModel, "decisionLabel" | "decisionSummary"> {
   const decision = barrierDecisionRecord(barrier);
   if (!decision) return {};
   const decisionValue = typeof decision.decision === "string" ? decision.decision : "";
@@ -2658,13 +2160,14 @@ function lifecycleEffectRows(record: Record<string, unknown>): SubagentParentClu
     ),
     record.parentCancellationRequested === true
       ? {
-        key: "parent-cancellation-requested",
-        label: "Parent cancellation requested",
-        detail: record.parentStopped === true
-          ? "Parent run cancellation was requested by the parent-stop cascade."
-          : "Parent run cancellation was requested by the barrier decision.",
-        statusTone: "danger" as const,
-      }
+          key: "parent-cancellation-requested",
+          label: "Parent cancellation requested",
+          detail:
+            record.parentStopped === true
+              ? "Parent run cancellation was requested by the parent-stop cascade."
+              : "Parent run cancellation was requested by the barrier decision.",
+          statusTone: "danger" as const,
+        }
       : undefined,
     lifecycleIdEffectRow(
       "cancelled-mailbox-events",
@@ -2777,7 +2280,7 @@ function timeoutLabel(timeoutMs: number): string {
 }
 
 function recordValue(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 }
 
 function arrayValue(value: unknown): unknown[] {

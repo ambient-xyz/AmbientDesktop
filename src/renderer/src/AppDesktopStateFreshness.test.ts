@@ -89,21 +89,63 @@ describe("App desktop state freshness", () => {
       desktopState({ activeThreadId: "other", activeWorkspacePath: "/repo", messages: [] }),
     )).toBe(snapshot);
   });
+
+  it("preserves locally loaded older message pages across bounded full snapshots", () => {
+    const snapshot = desktopState({
+      activeThreadId: "thread-1",
+      activeWorkspacePath: "/repo",
+      messages: [
+        { id: "message-3", content: "snapshot 3" },
+        { id: "message-4", content: "snapshot 4" },
+      ],
+      messageWindow: { threadId: "thread-1", order: "latest", limit: 2, loadedCount: 2, hasMoreBefore: true },
+    });
+    const current = desktopState({
+      activeThreadId: "thread-1",
+      activeWorkspacePath: "/repo",
+      messages: [
+        { id: "message-1", content: "older 1" },
+        { id: "message-2", content: "older 2" },
+        { id: "message-3", content: "live 3" },
+        { id: "message-4", content: "live 4" },
+      ],
+      messageWindow: { threadId: "thread-1", order: "latest", limit: 2, loadedCount: 4, hasMoreBefore: false },
+    });
+
+    const committed = desktopStateForFullSnapshotCommit(snapshot, current);
+
+    expect(committed.messages).toEqual([
+      { id: "message-1", content: "older 1" },
+      { id: "message-2", content: "older 2" },
+      { id: "message-3", content: "live 3" },
+      { id: "message-4", content: "live 4" },
+    ]);
+    expect(committed.messageWindow).toEqual({
+      threadId: "thread-1",
+      order: "latest",
+      limit: 2,
+      loadedCount: 4,
+      hasMoreBefore: false,
+    });
+  });
 });
 
 function desktopState({
   activeThreadId,
   activeWorkspacePath,
+  messageWindow,
   messages,
 }: {
   activeThreadId: string;
   activeWorkspacePath: string;
+  messageWindow?: DesktopState["messageWindow"];
   messages: Array<{ id: string; content: string }>;
 }): DesktopState {
   return {
     activeThreadId,
     activeWorkspace: { path: activeWorkspacePath },
     callableWorkflowTasks: [],
+    messageWindow,
     messages,
     plannerPlanArtifacts: [],
     subagentMailboxEvents: [],

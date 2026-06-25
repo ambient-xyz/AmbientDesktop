@@ -61,6 +61,7 @@ export function desktopStateForFullSnapshotCommit(
   ) {
     return snapshot;
   }
+  const messages = desktopStateRebasedMessages(snapshot.messages, currentState.messages);
   return {
     ...snapshot,
     activeThreadGoal: currentState.activeThreadGoal,
@@ -69,7 +70,8 @@ export function desktopStateForFullSnapshotCommit(
       snapshot.childMessagesByThreadId,
       currentState.childMessagesByThreadId,
     ),
-    messages: desktopStateRebasedMessages(snapshot.messages, currentState.messages),
+    messages,
+    messageWindow: desktopStateRebasedMessageWindow(snapshot.messageWindow, currentState.messageWindow, messages.length),
     plannerPlanArtifacts: currentState.plannerPlanArtifacts,
     subagentMailboxEvents: currentState.subagentMailboxEvents,
     subagentParentMailboxEvents: currentState.subagentParentMailboxEvents,
@@ -82,7 +84,33 @@ export function desktopStateForFullSnapshotCommit(
 
 function desktopStateRebasedMessages(snapshot: ChatMessage[], current: ChatMessage[]): ChatMessage[] {
   const currentById = new Map(current.map((message) => [message.id, message]));
-  return snapshot.map((message) => currentById.get(message.id) ?? message);
+  const snapshotIds = new Set(snapshot.map((message) => message.id));
+  const firstSnapshotIndexInCurrent = current.findIndex((message) => snapshotIds.has(message.id));
+  const preservedPrefix = firstSnapshotIndexInCurrent > 0 ? current.slice(0, firstSnapshotIndexInCurrent) : [];
+  return [
+    ...preservedPrefix,
+    ...snapshot.map((message) => currentById.get(message.id) ?? message),
+  ];
+}
+
+function desktopStateRebasedMessageWindow(
+  snapshot: DesktopState["messageWindow"],
+  current: DesktopState["messageWindow"],
+  loadedCount: number,
+): DesktopState["messageWindow"] {
+  if (!snapshot) return snapshot;
+  if (current?.threadId === snapshot.threadId && current.loadedCount > snapshot.loadedCount) {
+    return {
+      ...snapshot,
+      limit: current.limit,
+      loadedCount,
+      hasMoreBefore: current.hasMoreBefore,
+    };
+  }
+  return {
+    ...snapshot,
+    loadedCount,
+  };
 }
 
 function desktopStateRebasedChildMessages(
