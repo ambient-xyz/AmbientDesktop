@@ -16,7 +16,7 @@ import type {
 import {
   containerRuntimeColimaCommandCandidates,
   containerRuntimePodmanCommandCandidates,
-} from "./containerRuntimeProbeService";
+} from "./containerRuntimeCommandDiscovery";
 
 type LifecycleRuntime = "docker" | "podman" | "colima";
 

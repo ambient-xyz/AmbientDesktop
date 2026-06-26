@@ -18,6 +18,10 @@ describe("MCP default capability installer", () => {
     try {
       const descriptor = scraplingDescriptor();
       const imagePulls: PullContainerRuntimeImageInput[] = [];
+      const containerRuntimeProcessHints = [{
+        kind: "podman" as const,
+        applicationPath: "/Applications/Podman Desktop.app",
+      }];
       const progress: string[] = [];
       const result = await installMcpDefaultCapability({
         capabilityId: "scrapling",
@@ -27,6 +31,7 @@ describe("MCP default capability installer", () => {
         platform: "darwin",
         arch: "arm64",
         preferredContainerRuntime: "podman",
+        containerRuntimeProcessHints,
         imagePuller: async (input) => {
           imagePulls.push(input);
           return {
@@ -73,6 +78,7 @@ describe("MCP default capability installer", () => {
           image: "ghcr.io/d4vinci/scrapling@sha256:985d67067bd74bef4bea6bb8da6da666b6d063b151284b2d85485c1599460862",
           preferredRuntime: "podman",
           targetPlatform: { os: "linux", architecture: "arm64" },
+          processHints: containerRuntimeProcessHints,
         }),
       ]);
       expect(progress).toEqual([
@@ -167,7 +173,7 @@ describe("MCP default capability installer", () => {
     }
   });
 
-  it("adopts an already-running matching Scrapling default workload into the current profile", async () => {
+  it("replaces an already-running matching Scrapling default workload when Ambient runtime state is absent", async () => {
     const fixture = await fixtureInstaller({ runImportConflict: true });
     try {
       const descriptor = scraplingDescriptor();
@@ -198,8 +204,8 @@ describe("MCP default capability installer", () => {
       });
 
       expect(result.command.exitCode).toBe(0);
-      expect(result.command.stdout).toContain("Adopted existing ToolHive workload ambient-scrapling.");
-      expect(result.adoptedExistingWorkload).toBe(true);
+      expect(result.command.stdout).toContain("Replaced stale ToolHive workload ambient-scrapling to apply Ambient runtime volumes.");
+      expect(result.adoptedExistingWorkload).toBe(false);
       expect(result.workload).toMatchObject({
         name: "ambient-scrapling",
         status: "running",
@@ -211,10 +217,10 @@ describe("MCP default capability installer", () => {
         expect.objectContaining({
           serverId: "io.github.d4vinci/scrapling",
           workloadName: "ambient-scrapling",
-          endpoint: "http://127.0.0.1:4711/mcp",
           registrySource: "ambient-default-oci",
           defaultCatalogDescriptorHash: mcpDefaultCatalogDescriptorHash(descriptor),
           imageVerificationPolicy: "ambient-reviewed",
+          installValidationStatus: "validation_pending",
         }),
       ]);
     } finally {
@@ -263,17 +269,21 @@ async function fixtureInstaller(options: { runImportConflict?: boolean } = {}): 
   await writeFile(fakeThv, "#!/usr/bin/env sh\necho ToolHive v0.28.2\n", "utf8");
   await chmod(fakeThv, 0o755);
   const calls: ToolHiveCommandInvocation[] = [];
+  let runCount = 0;
   const executor: ToolHiveCommandExecutor = async (invocation) => {
     calls.push(invocation);
     const command = invocation.args.slice(0, 2).join(" ");
     if (command === "group list") return ok("NAME\nambient\n");
     if (command === "group create") return ok("");
     if (invocation.args[0] === "run" && options.runImportConflict) {
-      return {
-        stdout: "",
-        stderr: "Error: workload with name 'ambient-scrapling' already exists\n",
-        exitCode: 1,
-      };
+      runCount += 1;
+      if (runCount === 1) {
+        return {
+          stdout: "",
+          stderr: "Error: workload with name 'ambient-scrapling' already exists\n",
+          exitCode: 1,
+        };
+      }
     }
     if (invocation.args[0] === "run") return ok("running\n");
     if (invocation.args[0] === "list") {

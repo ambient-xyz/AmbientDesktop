@@ -1,29 +1,12 @@
-import {
-  app,
-  BrowserWindow,
-  clipboard,
-  dialog,
-  ipcMain,
-  nativeTheme,
-  protocol,
-  screen,
-  shell,
-} from "electron";
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, protocol, screen, shell } from "electron";
 import electronUpdater from "electron-updater";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { existsSync, mkdirSync, realpathSync } from "node:fs";
-import { z } from "zod";
 import packageJson from "../../package.json";
-import {
-  AgentRuntime,
-  RUNTIME_RESET_INTERRUPTED_RUN_MESSAGE,
-} from "./agent-runtime/agentRuntime";
+import { AgentRuntime, RUNTIME_RESET_INTERRUPTED_RUN_MESSAGE } from "./agent-runtime/agentRuntime";
 import type { AgentRuntimeFeatures } from "./agent-runtime/agentRuntimeFeatures";
-import {
-  createAgentRuntimeFeatureFactory,
-  type AgentRuntimeFeatureFactoryContext,
-} from "./agent-runtime/agentRuntimeFeatureFactory";
+import { createAgentRuntimeFeatureFactory, type AgentRuntimeFeatureFactoryContext } from "./agent-runtime/agentRuntimeFeatureFactory";
 import {
   archiveAmbientWorkflowPlaybook,
   describeAmbientWorkflowPlaybook,
@@ -41,7 +24,6 @@ import { createSubagentRuntimeStartupReconciliationService } from "./subagents/s
 import { installAppMenu } from "./desktop-shell/menu";
 import { createDesktopAppearanceService } from "./desktop-shell/desktopAppearanceService";
 import { createDesktopAppLifecycleService } from "./desktop-shell/desktopAppLifecycleService";
-import { repairProjectBoardWorkflow, updateProjectBoardWorkflowRaw, updateProjectBoardWorkflowSettings } from "./project-board/projectBoardWorkflowBootstrap";
 import {
   activeProjectBoardForState,
   activeProjectBoardThreadIdForStore,
@@ -65,8 +47,6 @@ import {
   activeProjectSummary,
   createProjectRuntimeIpcContextService,
   initialActiveThreadIdForStore,
-  permanentWorktreeBranchName,
-  workflowAgentControlThread,
 } from "./project-runtime/projectRuntimeIpcContextService";
 import {
   applyProjectBoardIncrementalSynthesisFromRun,
@@ -103,37 +83,19 @@ import { currentSecureStorageStatus, electronSecureSecretStore, secureStorageRep
 import { selectStartupWorkspacePath } from "./workspace/workspaceDefaults";
 import { shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate } from "../shared/agentMemorySettings";
 import type { DesktopEvent, DesktopState, ThinkingDisplaySettings } from "../shared/desktopTypes";
-import type { LocalDeepResearchSettings, SttSettings, SttTestAudioInput } from "../shared/localRuntimeTypes";
+import type { LocalDeepResearchSettings, SttSettings } from "../shared/localRuntimeTypes";
 import type { PlannerSettings } from "../shared/plannerTypes";
 import type { ThreadSummary } from "../shared/threadTypes";
 import type { SearchRoutingSettings } from "../shared/webResearchTypes";
 import { emptyQueueState } from "../shared/messageDelivery";
-import {
-  clearImportedWorkspaceContext,
-  clearImportedWorkspaceContextSync,
-  describeWorkspaceAbsoluteContextPaths,
-  describeWorkspaceContextReferences,
-  getWorkspaceDiff,
-  listWorkspaceFiles,
-  resolveWorkspacePath,
-  resolveWorkspacePathForOpen,
-} from "./workspace/workspaceFiles";
+import { clearImportedWorkspaceContext, clearImportedWorkspaceContextSync, resolveWorkspacePath } from "./workspace/workspaceFiles";
 import { createActiveWorkspaceFileService } from "./workspace/activeWorkspaceFileService";
 import { createWorkspaceContextCacheService } from "./workspace/workspaceContextCacheService";
 import { createWorkspaceSearchDesktopService } from "./workspace/workspaceSearchDesktopService";
 import { registerWorkspaceMediaProtocol, WorkspaceMediaServer } from "./workspace/workspaceMedia";
 import { OfficePreviewService } from "./office/officePreviewService";
 import { createOfficePreviewPublisher } from "./office/officePreviewPublisher";
-import {
-  commitGitPaths,
-  createGitBranch,
-  discardGitFile,
-  fetchGit,
-  getGitReview,
-  getWorkspaceGitStatus,
-  pullGit,
-  pushGit,
-} from "./workspace/workspaceGit";
+import { commitGitPaths, getGitReview, getWorkspaceGitStatus } from "./workspace/workspaceGit";
 import { createGitCheckpoint, latestGitCheckpoint } from "./git/gitCheckpoints";
 import { attachExistingThreadWorktree, prepareThreadWorktree } from "./git/gitWorktrees";
 import { createThreadWorkspaceGitService } from "./git/threadWorkspaceGitService";
@@ -149,63 +111,34 @@ import { AmbientPluginHost } from "./plugins/pluginHost";
 import { createPluginDesktopService } from "./plugins/pluginDesktopService";
 import { createProjectRuntimeMcpRuntimeService } from "./project-runtime/projectRuntimeMcpRuntimeService";
 import {
-  ambientMcpInstallPreview,
   configureDesktopMcpInstallService,
   createMcpInstallCatalog,
-  probeAmbientMcpContainerRuntimeStatus,
   reconcileMcpContainerRuntimeOnStartup,
-  uninstallMcpServerForDesktop,
 } from "./mcp/mcpDesktopInstallService";
 import { McpToolBridge } from "./mcp/mcpToolBridge";
-import {
-  discoverPiExtensionSandboxPackages,
-  installPiExtensionSandboxPackage,
-  previewPiExtensionSandboxInstall,
-  uninstallPiExtensionSandboxPackage,
-} from "./agent-runtime/pi-package-tools/piExtensionSandboxPackages";
-import {
-  disablePiPrivilegedPackage,
-  discoverPiPrivilegedPackages,
-  installPiPrivilegedPackage,
-  uninstallPiPrivilegedPackage,
-} from "./agent-runtime/pi-package-tools/piPrivilegedPackages";
 import { createPiToolingApprovalDetailFormatter } from "./agent-runtime/pi-package-tools/piToolingApprovalDetails";
 import { selectAmbientCliPackageForRuntime as selectAmbientCliPackageForSecret } from "./agent-runtime/ambient-cli-package/agentRuntimeAmbientCliPackageSelection";
 import { PluginAuthService } from "./plugins/pluginAuthService";
 import {
   configureOrchestrationAutoDispatchService,
   createAutoDispatchState,
-  readAutoDispatchStatus,
   scheduleAutoDispatch,
-  setAutoDispatchEnabled,
   stopAutoDispatch,
   workflowAutoDispatchDisabledMessage,
   type OrchestrationAutoDispatchState,
 } from "./orchestration/orchestrationAutoDispatchService";
 import {
-  prepareAndRecordNextOrchestrationRuns,
-} from "./orchestration/orchestrationDispatch";
-import { startPreparedOrchestrationRun } from "./orchestration/orchestrationRunner";
-import { readOrchestrationBoardWithWorkflowReadiness, readOrchestrationWorkflowReadiness } from "./orchestration/orchestrationWorkflowReadiness";
-import {
-  readWorkflowDashboard,
-  readWorkflowRunDetail,
-  reviewWorkflowArtifact,
-  updateWorkflowArtifactSource,
-  updateWorkflowConnectorGrant,
-} from "./workflow/workflowDashboard";
+  readOrchestrationBoardWithWorkflowReadiness,
+  readOrchestrationWorkflowReadiness,
+} from "./orchestration/orchestrationWorkflowReadiness";
+import { reviewWorkflowArtifact } from "./workflow/workflowDashboard";
 import {
   agentMemoryDefaultManagedEmbeddingAutoStartEnabled,
   agentMemoryDefaultManagedEmbeddingAutoStartEnabledForFeature,
-  clearAgentMemory,
   configureAgentMemoryDesktopService,
-  disableAgentMemoryStarter,
-  enableAgentMemoryStarter,
   getAgentMemoryDiagnostics,
   getAgentMemoryStarterStatus,
   releaseAgentMemoryEmbeddingRuntimeForHost,
-  repairAgentMemoryStarter,
-  runAgentMemoryEmbeddingLifecycleAction,
   runAgentMemoryStartupReconciliation,
   startAgentMemoryManagedEmbeddingsAfterSettingsUpdate,
   stopAgentMemoryManagedEmbeddingsAfterSettingsUpdate,
@@ -217,33 +150,16 @@ import { BrowserCredentialStore } from "./browser/browserCredentialStore";
 import { InternalBrowserHost } from "./browser/internalBrowserHost";
 import { compileWorkflowArtifact } from "./workflow-compiler/workflowCompilerService";
 import { createWorkflowActiveRunRegistry } from "./workflow/workflowActiveRunRegistry";
-import {
-  buildWorkflowDebugRewriteContext,
-  buildWorkflowDebugRewritePromptSection,
-  createWorkflowDebugRewriteRevision,
-  workflowDebugRewriteUserRequest,
-} from "./workflow/workflowDebugRewrite";
-import {
-  answerWorkflowDiscoveryQuestion,
-  resolveWorkflowDiscoveryAccessRequest,
-  startWorkflowDiscovery,
-  startWorkflowRevisionDiscovery,
-} from "./workflow-discovery/workflowDiscoveryService";
+import { buildWorkflowDebugRewriteContext } from "./workflow/workflowDebugRewrite";
 import { createWorkflowDiscoveryDesktopService } from "./workflow-discovery/workflowDiscoveryDesktopService";
-import { describeWorkflowDiscoveryCapability, searchWorkflowDiscoveryCapabilities } from "./workflow-discovery/workflowDiscoveryCapabilitySearch";
 import { workspaceInventoryConnector, workspaceInventoryConnectorDescriptor } from "./workflow/workflowConnectors";
 import { AmbientWorkflowExplorationProvider, runWorkflowThreadExploration } from "./workflow/workflowExplorationService";
 import { workflowToolDescriptorsFromPluginRegistry } from "./workflow/workflowPluginCapabilities";
-import { invokeWorkflowNativeTool } from "./workflow/workflowNativeTools";
-import { discoverCapabilityBuilderHistory } from "./capability-builder/capabilityBuilderMainContract";
 import { runWorkflowArtifact } from "./workflow/workflowRunService";
 import { buildWorkflowRecoveryPlan } from "./workflow/workflowRecovery";
 import { markStaleWorkflowRunForRecoveryIfNeeded } from "./workflow/workflowStaleRunRecovery";
 import { createWorkflowTraceRetentionService } from "./workflow/workflowTraceRetention";
-import { recordWorkflowRevisionDecisionInChat } from "./workflow/workflowRevisionDecisionChat";
-import {
-  createWorkflowRuntimeFeatureActionsService,
-} from "./workflow/workflowRuntimeFeatureActionsService";
+import { createWorkflowRuntimeFeatureActionsService } from "./workflow/workflowRuntimeFeatureActionsService";
 import { SafeStorageWorkflowConnectorTokenVault } from "./workflow/workflowConnectorAuth";
 import { googleWorkspaceOAuthProvidersFromEnv } from "./google-workspace/googleOAuthProvider";
 import { createGoogleWorkspaceDesktopIntegrationService } from "./google-workspace/googleWorkspaceDesktopIntegrationService";
@@ -252,17 +168,10 @@ import { GoogleWorkspaceCliAdapter } from "./google-workspace/googleWorkspaceCli
 import { GoogleWorkspaceCliInstaller } from "./google-workspace/googleWorkspaceCliInstaller";
 import { GoogleWorkspaceSetupService } from "./google-workspace/googleWorkspaceSetupService";
 import { GoogleWorkspaceMethodBroker } from "./google-workspace/googleWorkspaceMethodBroker";
-import { restoreWorkflowVersion } from "./workflow/workflowVersionRestore";
 import { readAmbientApiKey } from "./security/credentialStore";
-import {
-  LAMBDA_RLM_SOURCE_COMMIT,
-  LAMBDA_RLM_SOURCE_PAPER,
-  LAMBDA_RLM_SOURCE_REPOSITORY,
-} from "./tool-runtime/lambdaRlm";
+import { LAMBDA_RLM_SOURCE_COMMIT, LAMBDA_RLM_SOURCE_PAPER, LAMBDA_RLM_SOURCE_REPOSITORY } from "./tool-runtime/lambdaRlm";
 import { thirdPartyCreditAboutText, thirdPartyCredits } from "./desktop-shell/thirdPartyCredits";
-import {
-  createWindowStateService,
-} from "./desktop-shell/windowState";
+import { createWindowStateService } from "./desktop-shell/windowState";
 import {
   normalizePlannerSettings,
   normalizeLocalDeepResearchAppSettings,
@@ -286,26 +195,20 @@ import {
 } from "./desktop-shell/appAppearanceDefaultPreferences";
 import { ambientLegacyUserDataPaths, hasRestorableWorkspaceState, migrateAmbientUserData } from "./desktop-shell/userDataMigration";
 import { renderThreadMiniWindowHtml } from "./thread/threadMiniWindowHtml";
-import {
-  discoverAmbientCliPackages,
-  runAmbientCliPackageCommand,
-  searchAmbientCliCapabilities,
-} from "./ambient-cli/ambientCliPackages";
+import { discoverAmbientCliPackages, runAmbientCliPackageCommand, searchAmbientCliCapabilities } from "./ambient-cli/ambientCliPackages";
 import { hydrateWebResearchSettings } from "./web-research/webResearchSettingsHydration";
 import { createVoiceArtifactDesktopService } from "./voice/voiceArtifactDesktopService";
 import { createVoiceSettingsDesktopService, type VoiceSettingsDesktopService } from "./voice/voiceSettingsDesktopService";
-import { collectVoiceOnboardingHostFacts } from "./voice/voiceOnboardingHostFacts";
 import { createSttDesktopService } from "./stt/sttDesktopService";
 import { createMiniCpmVisionDesktopService } from "./mini-cpm/miniCpmVisionDesktopService";
 import { createLocalDeepResearchDesktopService } from "./local-deep-research/localDeepResearchDesktopService";
 import { reconcileLocalDeepResearchInstallJob } from "./local-deep-research/localDeepResearchInstallService";
-import { saveSttTestAudio } from "./stt/sttTestAudio";
 import { validatePlannerDurableHtmlFileInBrowser } from "./planner/plannerDurableBrowserValidation";
 import { writePlannerDurableHtmlArtifact } from "./planner/plannerDurableHtml";
 import { plannerDurableFallbackWarnings } from "./planner/plannerDurableRepair";
 import { createPlannerDurableArtifactDesktopService } from "./planner/plannerDurableArtifactDesktopService";
 import { registerMainIpc } from "./ipc/registerMainIpc";
-import { mainIpcStaticDependencies } from "./ipc/mainIpcStaticDependencies";
+import { mainIpcStaticDependencies } from "./mainIpcStaticDependencies";
 
 installAppLogCapture();
 
@@ -316,13 +219,6 @@ const lambdaRlmThirdPartyCreditSource = {
   repository: LAMBDA_RLM_SOURCE_REPOSITORY,
 };
 
-const projectIdSchema = z.string().min(1).max(128);
-const threadActionSchema = z.object({
-  threadId: z.string().min(1),
-  projectId: projectIdSchema.optional(),
-});
-const terminalIdSchema = z.string().min(1);
-const terminalSessionTokenSchema = z.string().min(1).max(200);
 let mainWindow: BrowserWindow | undefined;
 let mediaPlaybackSettings = { generatedMediaAutoplay: false };
 let thinkingDisplaySettings: ThinkingDisplaySettings = { mode: "transient", showRunStatusCard: false };
@@ -399,11 +295,7 @@ const desktopIpcTrustService = createDesktopIpcTrustService({
   rendererUrl: () => process.env.ELECTRON_RENDERER_URL,
   builtRendererUrl: () => pathToFileURL(resolveBuiltOutputPath("renderer", "index.html")),
 });
-const {
-  assertTrustedMainWindowIpc,
-  handleIpc,
-  isTrustedRendererUrl,
-} = desktopIpcTrustService;
+const { assertTrustedMainWindowIpc, handleIpc, isTrustedRendererUrl } = desktopIpcTrustService;
 for (const warning of localTextSubagentStartup.warnings) {
   console.warn(`[startup] Local text sub-agent runtime disabled: ${warning}`);
 }
@@ -465,11 +357,7 @@ const projectRuntimeMcpRuntimeService = createProjectRuntimeMcpRuntimeService<Pr
   pluginMcpRuntimeSnapshots: () => pluginHost.pluginMcpRuntimeSnapshots(),
   projectRuntimeHosts: () => projectRuntimeHostList(),
 });
-const {
-  allPluginMcpRuntimeSnapshots,
-  restartProjectRuntimeMcpRuntime,
-  stopProjectRuntimeMcpRuntime,
-} = projectRuntimeMcpRuntimeService;
+const { allPluginMcpRuntimeSnapshots, restartProjectRuntimeMcpRuntime, stopProjectRuntimeMcpRuntime } = projectRuntimeMcpRuntimeService;
 const pluginDesktopService = createPluginDesktopService<ProjectRuntimeHost, ProjectStore>({
   defaultStore: () => store,
   defaultHost: () => requireActiveProjectRuntimeHost(),
@@ -508,7 +396,11 @@ const {
 } = workflowDiscoveryDesktopService;
 const projectRuntimeHostFactory = createProjectRuntimeHostFactory({
   createProjectStore: () => new ProjectStore(),
-  createInternalBrowserHost: (hostStore: ProjectStore) => new InternalBrowserHost(() => hostStore.getWorkspace(), () => mainWindow),
+  createInternalBrowserHost: (hostStore: ProjectStore) =>
+    new InternalBrowserHost(
+      () => hostStore.getWorkspace(),
+      () => mainWindow,
+    ),
   createBrowserService: (hostStore: ProjectStore, hostInternalBrowser: InternalBrowserHost, onStateChanged) =>
     new BrowserService(() => hostStore.getWorkspace(), hostInternalBrowser, {
       browserLoginBrokerAvailable: browserLoginBrokerEnabled,
@@ -518,7 +410,8 @@ const projectRuntimeHostFactory = createProjectRuntimeHostFactory({
   onBrowserServiceStateChanged: (hostBrowser: BrowserService) => {
     if (activeHost?.browserService === hostBrowser) emitBrowserState();
   },
-  createBrowserCredentialStore: (hostStore: ProjectStore) => new BrowserCredentialStore(() => hostStore.getWorkspace(), electronSecureSecretStore({ appAvailable: true })),
+  createBrowserCredentialStore: (hostStore: ProjectStore) =>
+    new BrowserCredentialStore(() => hostStore.getWorkspace(), electronSecureSecretStore({ appAvailable: true })),
   createTerminalService: (workspacePath: string) => new TerminalService(() => mainWindow, workspacePath),
   initialActiveThreadIdForStore: (hostStore: ProjectStore) => initialActiveThreadIdForStore(hostStore),
   createRuntime: ({ store: hostStore, browserService: hostBrowser, browserCredentialStore: hostBrowserCredentials, activeThreadId }) =>
@@ -569,12 +462,8 @@ const projectRuntimeHostActivationService = createProjectRuntimeHostActivationSe
   registerProjectWorkspacePath: (workspacePath) => projectRegistry.register(workspacePath),
   onActiveHostChanged: (host) => syncActiveProjectRuntimeHost(host),
 });
-const {
-  activateProjectRuntimeHost,
-  ensureProjectRuntimeHostForWorkspacePath,
-  projectRuntimeHostForWorkspacePath,
-  projectRuntimeHostList,
-} = projectRuntimeHostActivationService;
+const { activateProjectRuntimeHost, ensureProjectRuntimeHostForWorkspacePath, projectRuntimeHostForWorkspacePath, projectRuntimeHostList } =
+  projectRuntimeHostActivationService;
 const projectRuntimeHostResolver = createProjectRuntimeHostResolver<ProjectRuntimeHost, ProjectStore>({
   normalizeWorkspacePath,
   projectRuntimeHostList: () => projectRuntimeHostList(),
@@ -705,22 +594,14 @@ const localDeepResearchDesktopService = createLocalDeepResearchDesktopService({
   getSearchRoutingSettings: () => searchRoutingSettings,
   listEmbeddingProvidersForSettings: () => listEmbeddingProvidersForSettings(),
   listVoiceProvidersWithCachedVoices: () => listVoiceProvidersWithCachedVoices(),
-  showMessageBox: (options) => mainWindow
-    ? dialog.showMessageBox(mainWindow, options)
-    : dialog.showMessageBox(options),
+  showMessageBox: (options) => (mainWindow ? dialog.showMessageBox(mainWindow, options) : dialog.showMessageBox(options)),
 });
-const {
-  listLocalDeepResearchRunsForSettings,
-  setupLocalDeepResearch,
-} = localDeepResearchDesktopService;
+const { listLocalDeepResearchRunsForSettings, setupLocalDeepResearch } = localDeepResearchDesktopService;
 const miniCpmVisionDesktopService = createMiniCpmVisionDesktopService({
   activeWorkspacePath: () => activeVoiceSttContextForProjectHost().workspacePath,
   env: process.env,
 });
-const {
-  analyzeMiniCpmVision,
-  setupMiniCpmVision,
-} = miniCpmVisionDesktopService;
+const { analyzeMiniCpmVision, setupMiniCpmVision } = miniCpmVisionDesktopService;
 const projectRuntimeLifecycleService = createProjectRuntimeLifecycleService<ProjectRuntimeHost>({
   defaultRuntimeResetReason: RUNTIME_RESET_INTERRUPTED_RUN_MESSAGE,
   normalizeWorkspacePath,
@@ -738,12 +619,8 @@ const projectRuntimeLifecycleService = createProjectRuntimeLifecycleService<Proj
   shutdownPluginMcpServersForWorkspace: (workspacePath) => pluginHost.shutdownPluginMcpServersForWorkspace(workspacePath),
   warn: (message) => console.warn(message),
 });
-const {
-  resetRuntimeAndPluginServers,
-  resetProjectRuntimeAndPluginServers,
-  disposeProjectRuntimeHost,
-  disposeAllProjectRuntimeHosts,
-} = projectRuntimeLifecycleService;
+const { resetRuntimeAndPluginServers, resetProjectRuntimeAndPluginServers, disposeProjectRuntimeHost, disposeAllProjectRuntimeHosts } =
+  projectRuntimeLifecycleService;
 const desktopStateSnapshotService = createDesktopStateSnapshotService<ProjectStore>({
   activeThreadId: () => activeThreadId,
   setActiveThreadId: (threadId) => {
@@ -835,9 +712,7 @@ const permissionGrantRegistryDesktopService = createPermissionGrantRegistryDeskt
   requester: permissions,
   emitPermissionGrantCreated,
 });
-const {
-  requestPermissionWithGrantRegistry,
-} = permissionGrantRegistryDesktopService;
+const { requestPermissionWithGrantRegistry } = permissionGrantRegistryDesktopService;
 const plannerDurableArtifactDesktopService = createPlannerDurableArtifactDesktopService<ProjectRuntimeHost, ProjectStore>({
   requireProjectRuntimeHostForPlannerPlanArtifact,
   emitPlannerPlanArtifactUpdated,
@@ -848,9 +723,7 @@ const plannerDurableArtifactDesktopService = createPlannerDurableArtifactDesktop
   commitGitPaths,
   warn: (message) => console.warn(message),
 });
-const {
-  generatePlannerDurableArtifact,
-} = plannerDurableArtifactDesktopService;
+const { generatePlannerDurableArtifact } = plannerDurableArtifactDesktopService;
 const browserDesktopStateService = createBrowserDesktopStateService<
   ThreadSummary,
   ReturnType<ProjectStore["addPermissionAudit"]>,
@@ -863,13 +736,8 @@ const browserDesktopStateService = createBrowserDesktopStateService<
   emitDesktopEvent: emitMainWindowDesktopEvent,
   emitPermissionAuditCreated,
 });
-const {
-  emitBrowserState,
-  emitBrowserStateForHost,
-  recordBrowserControlAudit,
-  recordBrowserProfileAudit,
-  withBrowserState,
-} = browserDesktopStateService;
+const { emitBrowserState, emitBrowserStateForHost, recordBrowserControlAudit, recordBrowserProfileAudit, withBrowserState } =
+  browserDesktopStateService;
 const workflowTraceRetentionService = createWorkflowTraceRetentionService<ProjectRuntimeHost>({
   projectRuntimeHostList: () => projectRuntimeHostList(),
   emitWorkflowUpdated,
@@ -878,11 +746,8 @@ const workflowTraceRetentionService = createWorkflowTraceRetentionService<Projec
   log: (message) => console.log(message),
   warn: (message) => console.warn(message),
 });
-const {
-  stopWorkflowTraceRetentionSweep,
-  scheduleWorkflowTraceRetentionSweep,
-  runWorkflowTraceRetentionSweep,
-} = workflowTraceRetentionService;
+const { stopWorkflowTraceRetentionSweep, scheduleWorkflowTraceRetentionSweep, runWorkflowTraceRetentionSweep } =
+  workflowTraceRetentionService;
 const workspaceContextCacheService = createWorkspaceContextCacheService<ProjectRuntimeHost, ProjectStore>({
   projectRuntimeHostList: () => projectRuntimeHostList(),
   activeStore: () => store,
@@ -890,10 +755,7 @@ const workspaceContextCacheService = createWorkspaceContextCacheService<ProjectR
   clearImportedWorkspaceContextSync,
   warn: (message) => console.warn(message),
 });
-const {
-  clearImportedWorkspaceContextCache,
-  clearImportedWorkspaceContextCacheSync,
-} = workspaceContextCacheService;
+const { clearImportedWorkspaceContextCache, clearImportedWorkspaceContextCacheSync } = workspaceContextCacheService;
 const projectRuntimeWorkspaceSwitchService = createProjectRuntimeWorkspaceSwitchService<ProjectRuntimeHost, DesktopState>({
   activateProjectRuntimeHost: (workspacePath) => activateProjectRuntimeHost(workspacePath),
   clearImportedWorkspaceContextCacheSync: (reason) => clearImportedWorkspaceContextCacheSync(reason),
@@ -906,7 +768,13 @@ const projectRuntimeWorkspaceSwitchService = createProjectRuntimeWorkspaceSwitch
   readState: (threadId) => readState(threadId),
 });
 const { switchWorkspace } = projectRuntimeWorkspaceSwitchService;
-const projectRuntimeIpcContextService = createProjectRuntimeIpcContextService<ProjectRuntimeHost, ProjectStore, BrowserService, DesktopState, ReturnType<typeof buildWorkflowDebugRewriteContext>>({
+const projectRuntimeIpcContextService = createProjectRuntimeIpcContextService<
+  ProjectRuntimeHost,
+  ProjectStore,
+  BrowserService,
+  DesktopState,
+  ReturnType<typeof buildWorkflowDebugRewriteContext>
+>({
   activeThreadId: () => activeThreadId,
   defaultStore: () => store,
   activeProjectRuntimeHost: () => projectRuntimeHostActivationService.activeProjectRuntimeHost(),
@@ -961,9 +829,7 @@ const workspaceSearchDesktopService = createWorkspaceSearchDesktopService<Projec
   requireActiveProjectRuntimeHost: () => requireActiveProjectRuntimeHost(),
   requireProjectRuntimeHostForThread,
 });
-const {
-  searchWorkspace,
-} = workspaceSearchDesktopService;
+const { searchWorkspace } = workspaceSearchDesktopService;
 const mainWindowRendererDiagnosticsService = createMainWindowRendererDiagnosticsService<ProjectRuntimeHost, BrowserWindow>({
   activeProjectRuntimeHost: () => projectRuntimeHostActivationService.activeProjectRuntimeHost(),
   activeThreadIdForHost: (host) => activeThreadIdForHost(host),
@@ -978,11 +844,7 @@ const mainWindowRendererDiagnosticsService = createMainWindowRendererDiagnostics
   warn: (message) => console.warn(message),
   error: (message) => console.error(message),
 });
-const {
-  recordRendererDiagnosticBreadcrumb,
-  installMainWindowDiagnostics,
-  loadMainWindowRenderer,
-} = mainWindowRendererDiagnosticsService;
+const { recordRendererDiagnosticBreadcrumb, installMainWindowDiagnostics, loadMainWindowRenderer } = mainWindowRendererDiagnosticsService;
 const containerRuntimeApplicationOpener = createContainerRuntimeApplicationOpener({
   platform: process.platform,
   log: (message) => console.log(message),
@@ -1020,15 +882,15 @@ const settingsRuntimeService = createSettingsRuntimeService<ProjectRuntimeHost>(
   emitDesktopState,
   emitProjectStateIfActive: (host) => emitProjectStateIfActive(host),
   memoryLifecycle: {
-    defaultManagedEmbeddingAutoStartEnabled: (settings, targetStore) => agentMemoryDefaultManagedEmbeddingAutoStartEnabled(settings, targetStore),
+    defaultManagedEmbeddingAutoStartEnabled: (settings, targetStore) =>
+      agentMemoryDefaultManagedEmbeddingAutoStartEnabled(settings, targetStore),
     defaultManagedEmbeddingAutoStartEnabledForFeature: (settings, featureEnabled) =>
       agentMemoryDefaultManagedEmbeddingAutoStartEnabledForFeature(settings, featureEnabled),
     shouldStartManagedEmbeddingsAfterSettingsUpdate: (previous, next) =>
       shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate(previous, next),
     startManagedEmbeddingsAfterSettingsUpdate: (host, targetStore) =>
       startAgentMemoryManagedEmbeddingsAfterSettingsUpdate(host, targetStore),
-    stopManagedEmbeddingsAfterSettingsUpdate: (host, targetStore) =>
-      stopAgentMemoryManagedEmbeddingsAfterSettingsUpdate(host, targetStore),
+    stopManagedEmbeddingsAfterSettingsUpdate: (host, targetStore) => stopAgentMemoryManagedEmbeddingsAfterSettingsUpdate(host, targetStore),
   },
   mediaPlaybackSettings: {
     get: () => mediaPlaybackSettings,
@@ -1111,16 +973,17 @@ const mainWindowBootstrapService = createMainWindowBootstrapService<ProjectRunti
   scheduleWorkflowTraceRetentionSweep,
   scheduleAutoDispatch: (delayMs, host) => scheduleAutoDispatch(delayMs, host),
   registerProjectWorkspacePath: (workspacePath) => projectRegistry.register(workspacePath),
-  ensureWelcomeOnboardingProject: () => ensureWelcomeOnboardingProject({
-    userDataPath: app.getPath("userData"),
-    projectRegistry,
-    createProjectStore: () => new ProjectStore(),
-    assetsSourcePath: resolveWelcomeOnboardingAssetsPath([
-      process.resourcesPath ? join(process.resourcesPath, "welcome-onboarding") : undefined,
-      join(app.getAppPath(), "resources", "welcome-onboarding"),
-      join(process.cwd(), "resources", "welcome-onboarding"),
-    ]),
-  }),
+  ensureWelcomeOnboardingProject: () =>
+    ensureWelcomeOnboardingProject({
+      userDataPath: app.getPath("userData"),
+      projectRegistry,
+      createProjectStore: () => new ProjectStore(),
+      assetsSourcePath: resolveWelcomeOnboardingAssetsPath([
+        process.resourcesPath ? join(process.resourcesPath, "welcome-onboarding") : undefined,
+        join(app.getAppPath(), "resources", "welcome-onboarding"),
+        join(process.cwd(), "resources", "welcome-onboarding"),
+      ]),
+    }),
   resolveAppIconPath,
   readWindowState: () => windowStateService.readWindowState(),
   setDockIcon,
@@ -1133,17 +996,15 @@ const mainWindowBootstrapService = createMainWindowBootstrapService<ProjectRunti
   mainWindow: () => mainWindow,
   ensureWindowVisible: (window) => windowStateService.ensureWindowVisible(window),
   trackWindowState: (window) => windowStateService.trackWindowState(window),
-  installExternalNavigationGuards: (window) => installExternalNavigationGuards(window, {
-    source: "main-window",
-    allowNavigation: isTrustedRendererUrl,
-  }),
+  installExternalNavigationGuards: (window) =>
+    installExternalNavigationGuards(window, {
+      source: "main-window",
+      allowNavigation: isTrustedRendererUrl,
+    }),
   installMainWindowDiagnostics,
   loadMainWindowRenderer,
 });
-const {
-  createWindow,
-  showOrCreateMainWindow,
-} = mainWindowBootstrapService;
+const { createWindow, showOrCreateMainWindow } = mainWindowBootstrapService;
 const threadMiniWindowService = createThreadMiniWindowService<BrowserWindow>({
   platform: process.platform,
   currentTheme: () => currentResolvedTheme(),
@@ -1152,24 +1013,24 @@ const threadMiniWindowService = createThreadMiniWindowService<BrowserWindow>({
   resolveAppIconPath,
   currentBackgroundColor: () => currentBackgroundColor(),
   createBrowserWindow: (options) => new BrowserWindow(options),
-  installExternalNavigationGuards: (window) => installExternalNavigationGuards(window, {
-    source: "thread-mini-window",
-    allowNavigation: isThreadMiniWindowRendererUrl,
-  }),
+  installExternalNavigationGuards: (window) =>
+    installExternalNavigationGuards(window, {
+      source: "thread-mini-window",
+      allowNavigation: isThreadMiniWindowRendererUrl,
+    }),
 });
-const {
-  openThreadMiniWindow,
-} = threadMiniWindowService;
+const { openThreadMiniWindow } = threadMiniWindowService;
 const desktopAppLifecycleService = createDesktopAppLifecycleService({
   app,
   isDarwin: process.platform === "darwin",
   startDesktopUpdateService: () => desktopUpdateService.start(),
   disposeDesktopUpdateService: () => desktopUpdateService.dispose(),
-  installAppMenu: () => installAppMenu(() => mainWindow, {
-    onCheckForUpdates: () => {
-      void appMenuUpdateService.checkForUpdatesFromAppMenu();
-    },
-  }),
+  installAppMenu: () =>
+    installAppMenu(() => mainWindow, {
+      onCheckForUpdates: () => {
+        void appMenuUpdateService.checkForUpdatesFromAppMenu();
+      },
+    }),
   showOrCreateMainWindow: () => showOrCreateMainWindow(),
   reconcileMcpContainerRuntimeOnStartup,
   reconcileLocalDeepResearchInstallJob: () => reconcileLocalDeepResearchInstallJob(undefined),
@@ -1184,10 +1045,7 @@ const desktopAppLifecycleService = createDesktopAppLifecycleService({
   quitApp: () => app.quit(),
   warn: (message) => console.warn(message),
 });
-const {
-  startPostWindowStartupLifecycle,
-  installShutdownHandlers,
-} = desktopAppLifecycleService;
+const { startPostWindowStartupLifecycle, installShutdownHandlers } = desktopAppLifecycleService;
 const workflowRecordingGlobalLibraryDesktopService = createWorkflowRecordingGlobalLibraryDesktopService<ProjectRuntimeHost, ProjectStore>({
   normalizeWorkspacePath,
   projectRuntimeHostList: () => projectRuntimeHostList(),
@@ -1258,11 +1116,12 @@ const workflowRuntimeFeatureActionsService = createWorkflowRuntimeFeatureActions
   connectorAccountAuthorizer: () => firstPartyWorkflowConnectorAccountAuthorizer(),
   connectorDescriptors: () => firstPartyWorkflowConnectorDescriptors(),
   connectorRegistrations: () => firstPartyWorkflowConnectorRegistrations(),
-  createExplorationProvider: ({ apiKey, baseUrl, retryPolicy }) => new AmbientWorkflowExplorationProvider({
-    apiKey,
-    baseUrl,
-    retryPolicy,
-  }),
+  createExplorationProvider: ({ apiKey, baseUrl, retryPolicy }) =>
+    new AmbientWorkflowExplorationProvider({
+      apiKey,
+      baseUrl,
+      retryPolicy,
+    }),
   emitDesktopEvent: emitMainWindowDesktopEvent,
   emitWorkflowEvent,
   emitWorkflowUpdated,
@@ -1301,10 +1160,8 @@ configureAgentMemoryDesktopService({
   emitProjectStateIfActive: (host, threadId) => emitProjectStateIfActive(host as ProjectRuntimeHost, threadId),
   normalizeWorkspacePath,
   requireActiveProjectRuntimeHost: () => requireActiveProjectRuntimeHost(),
-  updateFeatureFlagSettings: (input, host, options) =>
-    updateFeatureFlagSettings(input, host as ProjectRuntimeHost, options),
-  updateMemorySettings: (input, host, options) =>
-    updateMemorySettings(input, host as ProjectRuntimeHost, options),
+  updateFeatureFlagSettings: (input, host, options) => updateFeatureFlagSettings(input, host as ProjectRuntimeHost, options),
+  updateMemorySettings: (input, host, options) => updateMemorySettings(input, host as ProjectRuntimeHost, options),
 });
 configureOrchestrationAutoDispatchService({
   activeThreadIdForHost: (host) => activeThreadIdForHost(host as ProjectRuntimeHost),
@@ -1396,11 +1253,11 @@ const agentRuntimeFeatureFactory = createAgentRuntimeFeatureFactory<ProjectStore
   },
   localTextSubagents: localTextSubagentStartup.feature
     ? {
-      resolveModelRuntimeProfile: localTextSubagentStartup.feature.resolveModelRuntimeProfile,
-      resolveRuntimeForMain: localTextSubagentStartup.feature.resolveRuntimeForMain,
-      resolveRuntimeForLaunch: localTextSubagentStartup.feature.resolveRuntimeForLaunch,
-      resolveRuntime: localTextSubagentStartup.feature.resolveRuntime,
-    }
+        resolveModelRuntimeProfile: localTextSubagentStartup.feature.resolveModelRuntimeProfile,
+        resolveRuntimeForMain: localTextSubagentStartup.feature.resolveRuntimeForMain,
+        resolveRuntimeForLaunch: localTextSubagentStartup.feature.resolveRuntimeForLaunch,
+        resolveRuntime: localTextSubagentStartup.feature.resolveRuntime,
+      }
     : undefined,
   readSearchSettings: () => searchRoutingSettings,
   updateSearchSettings: (input, options) => updateSearchRoutingSettings(input, options),
@@ -1459,12 +1316,8 @@ type RuntimeFeatureHostContext = AgentRuntimeFeatureFactoryContext<ProjectStore,
 
 let activeHost: ProjectRuntimeHost | undefined;
 let store: ProjectStore;
-let internalBrowserHost: InternalBrowserHost;
 let browserService: BrowserService;
-let browserCredentialStore: BrowserCredentialStore;
 let namedSecretStore: NamedSecretStore;
-let runtime: AgentRuntime;
-let terminals: TerminalService;
 const projectRuntimeActiveThreadService = createProjectRuntimeActiveThreadService<ProjectStore, ProjectRuntimeHost>({
   activeHost: () => activeHost,
   activeStore: () => store,
@@ -1503,12 +1356,14 @@ const {
   workspacePathForRelativeArtifactPath,
 } = activeWorkspaceFileService;
 function createThreadLocalFolderAllowlistGrant(folderPath: string, context: ReturnType<typeof activeWorkspaceFileContextForProjectHost>) {
-  const grant = context.targetStore.createPermissionGrant(createLocalFolderAllowlistGrantInput({
-    folderPath,
-    threadId: context.threadId,
-    workspacePath: context.workspacePath,
-    permissionMode: context.thread.permissionMode,
-  }));
+  const grant = context.targetStore.createPermissionGrant(
+    createLocalFolderAllowlistGrantInput({
+      folderPath,
+      threadId: context.threadId,
+      workspacePath: context.workspacePath,
+      permissionMode: context.thread.permissionMode,
+    }),
+  );
   emitPermissionGrantCreated(grant, context.targetStore.getWorkspace().path);
   return grant;
 }
@@ -1517,8 +1372,7 @@ const voiceArtifactDesktopService = createVoiceArtifactDesktopService<ProjectRun
   activeStore: () => store,
   activeThreadIdForHost,
   activeWorkspacePath: () => activeWorkspacePath(),
-  artifactCacheMaxBytes: () =>
-    Math.max(0, Math.floor(readCurrentVoiceSettings().artifactCacheMaxMb) * 1024 * 1024),
+  artifactCacheMaxBytes: () => Math.max(0, Math.floor(readCurrentVoiceSettings().artifactCacheMaxMb) * 1024 * 1024),
   createMediaUrl: (input) => workspaceMediaServer.createUrl(input),
   emitProjectStateIfActive,
   emitRuntimeFeatureStateUpdated,
@@ -1555,11 +1409,8 @@ voiceArtifactBudgetBridge.enforceVoiceArtifactBudget = enforceVoiceArtifactBudge
 const piToolingApprovalDetailFormatter = createPiToolingApprovalDetailFormatter({
   workspacePath: () => store.getWorkspace().path,
 });
-const {
-  formatPiExtensionSandboxInstallApprovalDetail,
-  formatPiPrivilegedInstallApprovalDetail,
-  formatPiResourceCountsForPermission,
-} = piToolingApprovalDetailFormatter;
+const { formatPiExtensionSandboxInstallApprovalDetail, formatPiPrivilegedInstallApprovalDetail, formatPiResourceCountsForPermission } =
+  piToolingApprovalDetailFormatter;
 
 function currentFeatureFlagSnapshot(targetStore: ProjectStore = store) {
   return resolveAmbientFeatureFlags({
@@ -1575,11 +1426,17 @@ function currentModelRuntimeCatalog(generatedAt: string, targetStore: ProjectSto
   );
 }
 
-function setActiveThreadId(threadId: string): string { return projectRuntimeActiveThreadService.setActiveThreadId(threadId); }
+function setActiveThreadId(threadId: string): string {
+  return projectRuntimeActiveThreadService.setActiveThreadId(threadId);
+}
 
-function setProjectHostActiveThreadId(host: ProjectRuntimeHost, threadId: string): string { return projectRuntimeActiveThreadService.setProjectHostActiveThreadId(host, threadId); }
+function setProjectHostActiveThreadId(host: ProjectRuntimeHost, threadId: string): string {
+  return projectRuntimeActiveThreadService.setProjectHostActiveThreadId(host, threadId);
+}
 
-function activeThreadIdForHost(host: ProjectRuntimeHost): string { return projectRuntimeActiveThreadService.activeThreadIdForHost(host); }
+function activeThreadIdForHost(host: ProjectRuntimeHost): string {
+  return projectRuntimeActiveThreadService.activeThreadIdForHost(host);
+}
 
 function activeRuntimeFeatureHostContext(): RuntimeFeatureHostContext {
   return {
@@ -1593,11 +1450,7 @@ function syncActiveProjectRuntimeHost(host: ProjectRuntimeHost | undefined): voi
   activeHost = host;
   if (!host) return;
   store = host.store;
-  internalBrowserHost = host.internalBrowserHost;
   browserService = host.browserService;
-  browserCredentialStore = host.browserCredentialStore;
-  runtime = host.runtime;
-  terminals = host.terminals;
   setActiveThreadId(host.activeThreadId);
 }
 
@@ -1657,7 +1510,7 @@ function readState(threadId = activeThreadId, options: { markActiveRead?: boolea
 }
 
 function packageVersion(name: string): string {
-  const dependencies = (packageJson as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> });
+  const dependencies = packageJson as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
   return dependencies.dependencies?.[name] ?? dependencies.devDependencies?.[name] ?? "unknown";
 }
 
@@ -1671,9 +1524,13 @@ function workspaceStateForThread(thread = store.getThread(activeThreadId), targe
   };
 }
 
-function activeWorkspacePath(): string { return projectRuntimeActiveThreadService.activeWorkspacePath(); }
+function activeWorkspacePath(): string {
+  return projectRuntimeActiveThreadService.activeWorkspacePath();
+}
 
-function initialActiveThreadId(): string { return projectRuntimeActiveThreadService.initialActiveThreadId(); }
+function initialActiveThreadId(): string {
+  return projectRuntimeActiveThreadService.initialActiveThreadId();
+}
 
 function requireActiveProjectRuntimeHost(): ProjectRuntimeHost {
   const host = projectRuntimeHostActivationService.activeProjectRuntimeHost();
@@ -1734,58 +1591,35 @@ function registerIpc(): void {
     activeWorkspaceFileContextForProjectHost,
     allPluginMcpRuntimeSnapshots,
     ambientCliCapabilityGrantsForWorkflowRequest,
-    ambientMcpInstallPreview,
     ambientRetryPolicyFromCurrentSettings,
     ambientRetryPolicyFromSettings,
     analyzeMiniCpmVision,
-    answerWorkflowDiscoveryQuestion,
     app,
     assertTrustedMainWindowIpc,
     attachWorktreeForThread,
     browserLoginBrokerEnabled,
     buildWorkflowDebugRewriteContext,
-    buildWorkflowDebugRewritePromptSection,
     buildWorkflowRecoveryPlan,
     cancelSttTranscription,
-    clearAgentMemory,
-    disableAgentMemoryStarter,
-    enableAgentMemoryStarter,
     getAgentMemoryDiagnostics,
     getAgentMemoryStarterStatus,
-    repairAgentMemoryStarter,
-    runAgentMemoryEmbeddingLifecycleAction,
     clearMessageVoiceArtifact,
-    clipboard,
-    collectVoiceOnboardingHostFacts,
     compileWorkflowArtifact,
     createAndRecordCheckpoint,
-    createChatPdfExport: (
-      store: ProjectStore,
-      threadId: string,
-      options: { appName: string; appVersion: string },
-    ) => createChatPdfExport(store, threadId, {
-      ...options,
-      renderHtmlToPdf: createElectronPrintToPdfRenderer(BrowserWindow),
-    }),
-    createGitBranch,
+    createChatPdfExport: (store: ProjectStore, threadId: string, options: { appName: string; appVersion: string }) =>
+      createChatPdfExport(store, threadId, {
+        ...options,
+        renderHtmlToPdf: createElectronPrintToPdfRenderer(BrowserWindow),
+      }),
     createThreadLocalFolderAllowlistGrant,
     createMainDiagnosticSource,
     createMcpInstallCatalog,
-    createWorkflowDebugRewriteRevision,
     createWorkflowDiscoveryProvider,
     currentFeatureFlagSnapshot,
-    describeWorkflowDiscoveryCapability,
-    describeWorkspaceAbsoluteContextPaths,
-    describeWorkspaceContextReferences,
     desktopUpdateService,
     dialog,
     deleteNamedSecret,
-    disablePiPrivilegedPackage,
-    discardGitFile,
     discoverAmbientCliPackages,
-    discoverCapabilityBuilderHistory,
-    discoverPiExtensionSandboxPackages,
-    discoverPiPrivilegedPackages,
     disposeProjectRuntimeHost,
     emitBrowserStateForHost,
     emitMainWindowDesktopEvent,
@@ -1805,7 +1639,6 @@ function registerIpc(): void {
     ensureProjectRuntimeHostForWorkspacePath,
     ensureWorkflowPluginTrusted,
     existsSync,
-    fetchGit,
     firstPartyWorkflowConnectorAccountAuthorizer,
     firstPartyWorkflowConnectorDescriptors,
     firstPartyWorkflowConnectorRegistrations,
@@ -1815,7 +1648,6 @@ function registerIpc(): void {
     formatPiResourceCountsForPermission,
     generatePlannerDurableArtifact,
     getAmbientProviderStatus,
-    getWorkspaceDiff,
     getWorkspaceGitStatus,
     googleWorkspaceCliInstaller,
     googleWorkspaceSetupService,
@@ -1824,9 +1656,6 @@ function registerIpc(): void {
     initialActiveThreadIdForStore,
     inspectVoiceArtifacts,
     installModelProviderEndpoint,
-    installPiExtensionSandboxPackage,
-    installPiPrivilegedPackage,
-    invokeWorkflowNativeTool,
     isActiveProjectRuntimeHost,
     isGoogleWorkspaceSetupUrl,
     isLoopbackWebUrl,
@@ -1836,7 +1665,6 @@ function registerIpc(): void {
     listLocalDeepResearchRunsForSettings,
     listSttProvidersWithValidation,
     listVoiceProvidersWithCachedVoices,
-    listWorkspaceFiles,
     mainWindow,
     markStaleWorkflowRunForRecoveryIfNeeded,
     mkdirSync,
@@ -1849,18 +1677,14 @@ function registerIpc(): void {
     openThreadMiniWindow,
     packageJson,
     parseExternalOpenUrl,
-    permanentWorktreeBranchName,
     permissionGrantTargetHash,
     permissionGrantWorkspacePath,
     permissions,
     pluginHost,
     pluginMcpRegistrationsForThread,
     pluginStateReaderForStore,
-    prepareAndRecordNextOrchestrationRuns,
     prepareWorktreeForThread,
-    previewPiExtensionSandboxInstall,
     privilegedCredentials,
-    probeAmbientMcpContainerRuntimeStatus,
     projectRegistry,
     projectBoardDesktopIpcDependencies: createProjectBoardDesktopIpcDependencies({
       emitProjectStateIfActive,
@@ -1874,13 +1698,10 @@ function registerIpc(): void {
     projectRuntimeHostForWorkflowRun,
     projectRuntimeHostForWorkspacePath,
     pruneVoiceArtifacts,
-    pullGit,
-    pushGit,
     readActiveLocalFilePreview,
     readActiveWorkspaceFile,
     readAmbientApiKey,
     readAmbientPluginRegistry,
-    readAutoDispatchStatus,
     readCodexHostedMarketplaceReport,
     readCodexPluginCatalog,
     readCurrentOrchestrationBoard,
@@ -1889,12 +1710,9 @@ function registerIpc(): void {
     readOrchestrationWorkflowReadiness,
     readState,
     readStateForProjectHostAction,
-    readWorkflowDashboard,
-    readWorkflowRunDetail,
     recordActiveProjectBoardExecutionReadinessBlocker,
     recordBrowserControlAudit,
     recordBrowserProfileAudit,
-    recordWorkflowRevisionDecisionInChat,
     redactGoogleWorkspaceSetupState,
     refreshGoogleWorkspaceConnectorMode,
     refreshSecureStorageStatus,
@@ -1902,7 +1720,6 @@ function registerIpc(): void {
     regenerateMessageVoice,
     rememberActiveWorkflowRun: activeWorkflowRunRegistry.rememberActiveWorkflowRun,
     rendererLocalPreviewServers,
-    repairProjectBoardWorkflow,
     requestPermissionWithGrantRegistry,
     requireActiveProjectRuntimeHost,
     requireProjectRuntimeHostForAutomationSchedule,
@@ -1933,10 +1750,7 @@ function registerIpc(): void {
     localPathInsideActiveWorkspace,
     resolveLocalFilePath,
     resolveRegisteredProjectPathForHost,
-    resolveWorkflowDiscoveryAccessRequest,
-    resolveWorkspacePathForOpen,
     restartProjectRuntimeMcpRuntime,
-    restoreWorkflowVersion,
     revealMessageVoiceArtifact,
     reviewFinishedProjectBoardRun,
     reviewWorkflowArtifact,
@@ -1947,13 +1761,10 @@ function registerIpc(): void {
     brokerNamedSecretToLocalFixture,
     saveModelProviderCredential,
     saveNamedSecret,
-    saveSttTestAudio,
     searchRoutingSettings,
-    searchWorkflowDiscoveryCapabilities,
     searchWorkspace,
     secureInputs,
     selectAmbientCliPackageForSecret,
-    setAutoDispatchEnabled,
     setProjectHostActiveThreadId,
     setSttTtsSpeaking,
     setThemePreference,
@@ -1961,18 +1772,12 @@ function registerIpc(): void {
     setupMiniCpmVision,
     setupSttProvider,
     shell,
-    startPreparedOrchestrationRun,
-    startWorkflowDiscovery,
-    startWorkflowRevisionDiscovery,
     stopProjectRuntimeMcpRuntime,
     store,
     switchWorkspace,
     terminalStartTokens,
     threadWorkingDirectory,
     transcribeSttAudio,
-    uninstallMcpServerForDesktop,
-    uninstallPiExtensionSandboxPackage,
-    uninstallPiPrivilegedPackage,
     updateFeatureFlagSettings,
     updateMemorySettings,
     updateLocalDeepResearchSettings,
@@ -1980,24 +1785,18 @@ function registerIpc(): void {
     updateModelRuntimeSettings,
     updateNamedSecret,
     updatePlannerSettings,
-    updateProjectBoardWorkflowRaw,
-    updateProjectBoardWorkflowSettings,
     updateSearchRoutingSettings,
     updateSttSettings,
     updateThinkingDisplaySettings,
     updateVoiceSettings,
-    updateWorkflowArtifactSource,
-    updateWorkflowConnectorGrant,
     exportNamedSecretMetadata,
     withBrowserState,
-    workflowAgentControlThread,
     workflowAgentIpcContextForDiscoveryQuestion,
     workflowAgentIpcContextForWorkflowThread,
     workflowArtifactIpcContext,
     workflowArtifactIpcContextForHost,
     workflowCompileIpcContext,
     workflowDebugRewriteIpcContext,
-    workflowDebugRewriteUserRequest,
     workflowDiscoveryPolicyContextForCapabilityLookup,
     workflowProjectIpcContext,
     workflowToolDescriptorsFromPluginRegistry,
@@ -2072,7 +1871,10 @@ async function startApp(): Promise<void> {
   });
   pluginAuthService = new PluginAuthService({
     providers: googleOAuthProviders,
-    tokenVault: new SafeStorageWorkflowConnectorTokenVault(join(userDataPath, "plugin-auth", "tokens.json"), electronSecureSecretStore({ appAvailable: true })),
+    tokenVault: new SafeStorageWorkflowConnectorTokenVault(
+      join(userDataPath, "plugin-auth", "tokens.json"),
+      electronSecureSecretStore({ appAvailable: true }),
+    ),
   });
   if (googleWorkspaceDesktopIntegrationService.connectorMode() === "ambient_oauth") {
     googleSidecarSupervisor = new GoogleSidecarSupervisor({
@@ -2081,7 +1883,9 @@ async function startApp(): Promise<void> {
       resourcesPath: process.resourcesPath,
       onDiagnostic: (entry) => {
         const details = entry.details ? ` ${JSON.stringify(entry.details)}` : "";
-        console[entry.level === "error" ? "error" : entry.level === "warning" ? "warn" : "log"](`[google-sidecar] ${entry.message}${details}`);
+        console[entry.level === "error" ? "error" : entry.level === "warning" ? "warn" : "log"](
+          `[google-sidecar] ${entry.message}${details}`,
+        );
       },
     });
   }
@@ -2093,9 +1897,7 @@ async function startApp(): Promise<void> {
     applicationVersion: app.getVersion(),
     version: `Electron ${process.versions.electron ?? "unknown"}`,
     website: "https://ambient.xyz",
-    credits: thirdPartyCredits(lambdaRlmThirdPartyCreditSource)
-      .map(thirdPartyCreditAboutText)
-      .join("\n\n"),
+    credits: thirdPartyCredits(lambdaRlmThirdPartyCreditSource).map(thirdPartyCreditAboutText).join("\n\n"),
   });
   projectRegistry = new ProjectRegistry(join(userDataPath, "projects.json"));
   setDockIcon(resolveAppIconPath());

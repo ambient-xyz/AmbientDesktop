@@ -1,51 +1,39 @@
-import { execFile, type ExecFileException } from "node:child_process";
+import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { appendFile, chmod, mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
-import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
+import { chmod, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { isPathInside } from "./capabilityBuilderSessionFacade";
 import {
   discoverAmbientCliPackages,
   discoverAmbientCliVoiceProviders,
   installAmbientCliPackageSource,
-  setAmbientCliPackageEnvBinding,
-  setAmbientCliPackageSecretBinding,
   uninstallAmbientCliPackageSource,
   type AmbientCliPackageSummary,
 } from "./capabilityBuilderAmbientCliFacade";
 import type { VoiceProviderCandidate } from "../../shared/localRuntimeTypes";
 import { ambientRuntimeEnv, managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "./capabilityBuilderSetupFacade";
+import { redactSensitiveText } from "../security/securityCapabilityBuilderContract";
 import {
-  isSecretReference,
-  readSecretReference,
-  redactSensitiveText,
-  saveSecretReference,
-} from "../security/securityCapabilityBuilderContract";
+  copyBuilderEnvBindingsToInstalledPackage,
+  normalizeCapabilityEnvName,
+  saveCapabilityBuilderEnvSecretBinding,
+} from "./capabilityBuilderEnvBindings";
 import { buildManifest, normalizedInstallerShape, scaffoldFiles } from "./capabilityBuilderScaffold";
-import {
-  executeProfiledCommand,
-  isCommandTimeoutProfile,
-  type CommandDevicePolicy,
-  type CommandTimeoutProfile,
-  type ProfiledCommandResult,
-  ProfiledCommandError,
-} from "../tool-runtime/commandExecutionProfiles";
+import { isCommandTimeoutProfile } from "../tool-runtime/commandExecutionProfiles";
 import {
   capabilityBuilderListInventoryArtifactMaxEntries,
   listCapabilityBuilderSourceFiles,
-  listPackageFileMetadata,
   listPackageFiles,
   materializeCapabilityBuilderListInventoryArtifact,
 } from "./capabilityBuilderListing";
 import {
-  artifactPathMatchesOutputTypes,
   inspectCapabilityBuilderDescriptor,
   inspectCapabilityBuilderPackageJson,
-  mimeTypeForCapabilityBuilderVoiceFormat,
   needsTtsProviderRepairConversion,
-  normalizeCapabilityBuilderVoiceOutputFormat,
 } from "./capabilityBuilderPreviewInspection";
+import { createCapabilityBuilderValidationServices } from "./capabilityBuilderValidation";
 import type { CapabilityBuilderInstallerShape, CapabilityBuilderScaffoldInput } from "./capabilityBuilderScaffold";
 import type {
   CapabilityBuilderSourceRef,
@@ -62,20 +50,13 @@ import type {
   CapabilityBuilderApplyRepairInput,
   CapabilityBuilderApplyRepairFileResult,
   CapabilityBuilderApplyRepairResult,
-  CapabilityBuilderDependencyCommand,
-  CapabilityBuilderInstallDepsInput,
-  CapabilityBuilderDependencyCommandResult,
-  CapabilityBuilderInstallDepsResult,
-  CapabilityBuilderValidateInput,
   CapabilityBuilderSecretSaveInput,
   CapabilityBuilderSecretSaveResult,
   CapabilityBuilderRegisterInput,
   CapabilityBuilderUnregisterInput,
   CapabilityBuilderHistoryInput,
-  CapabilityBuilderValidationCommand,
   CapabilityBuilderValidationArtifact,
   CapabilityBuilderValidationEvidence,
-  CapabilityBuilderValidateResult,
   CapabilityBuilderRegisterResult,
   CapabilityBuilderRegisteredVoiceProvider,
   CapabilityBuilderUnregisterResult,
@@ -90,12 +71,8 @@ import type {
   CapabilityBuilderInstallerRecoveryTemplate,
   CapabilityBuilderPreviewResult,
 } from "./capabilityBuilderTypes";
-import type {
-  CapabilityBuilderFileMetadata,
-  CapabilityBuilderListFilesInput,
-  CapabilityBuilderListFilesResult,
-} from "./capabilityBuilderListing";
-import { formatCommand, requiredEnvRequirementNames } from "./capabilityBuilderText";
+import type { CapabilityBuilderListFilesInput, CapabilityBuilderListFilesResult } from "./capabilityBuilderListing";
+import { requiredEnvRequirementNames } from "./capabilityBuilderText";
 
 export type { CapabilityBuilderInstallerShape, CapabilityBuilderScaffoldInput } from "./capabilityBuilderScaffold";
 export type {
@@ -176,13 +153,30 @@ export type {
 
 const execFileAsync = promisify(execFile);
 const builderRoot = ".ambient/capability-builder/packages";
-const dependencyOutputPreviewChars = 4_000;
-const legacyValidationCommandTimeoutMs = 120_000;
 const builderFileReadPreviewChars = 120_000;
 async function ensureCapabilityBuilderManagedWorkspace(workspacePath: string): Promise<string> {
   await migrateWorkspaceManagedInstallPath(workspacePath, ".ambient/capability-builder");
   return managedInstallWorkspacePath(workspacePath);
 }
+
+const capabilityBuilderValidationServices = createCapabilityBuilderValidationServices({
+  currentGitSha,
+  installerShapeFromManifest,
+  isCapabilityBuilderMetadataFile,
+  packageContentHash,
+  parseJsonObject,
+  previewCapabilityBuilderPackage,
+  readBuildManifestIfPresent,
+  recordField,
+  stringArrayField,
+  stringField,
+  toManagedInstallRelative,
+  toWorkspaceRelative,
+  updateValidationManifest,
+});
+export const capabilityBuilderValidationPreviewText = capabilityBuilderValidationServices.capabilityBuilderValidationPreviewText;
+export const installCapabilityBuilderDependencies = capabilityBuilderValidationServices.installCapabilityBuilderDependencies;
+export const validateCapabilityBuilderPackage = capabilityBuilderValidationServices.validateCapabilityBuilderPackage;
 
 export async function scaffoldCapabilityBuilderPackage(
   workspacePath: string,
@@ -812,229 +806,6 @@ export async function applyCapabilityBuilderRepair(
   };
 }
 
-export async function installCapabilityBuilderDependencies(
-  workspacePath: string,
-  input: CapabilityBuilderInstallDepsInput,
-): Promise<CapabilityBuilderInstallDepsResult> {
-  if (!input.commands.length) throw new Error("At least one dependency command is required.");
-  const startedAtMs = Date.now();
-  const startedAt = new Date(startedAtMs).toISOString();
-  const workspace = resolve(workspacePath);
-  const preview = await previewCapabilityBuilderPackage(workspace, input);
-  if (!preview.valid) throw new Error(`Capability package preview has errors: ${preview.errors.join("; ")}`);
-  const rootPath = preview.rootPath;
-  const logPath = join(rootPath, "capability-deps-log.jsonl");
-  const commands = input.commands.map((command) => normalizeDependencyCommand(rootPath, command));
-  const results: CapabilityBuilderDependencyCommandResult[] = [];
-
-  for (const command of commands) {
-    let result: CapabilityBuilderDependencyCommandResult;
-    try {
-      const output = await executeProfiledCommand({
-        command: command.command,
-        args: command.args,
-        cwd: command.resolvedCwd,
-        maxBuffer: 2 * 1024 * 1024,
-        env: ambientRuntimeEnv(),
-        timeoutProfile: command.timeoutProfile ?? "dependencyInstall",
-        progressPatterns: command.progressPatterns,
-        devicePolicy: command.devicePolicy,
-        phase: `capability-builder dependency ${preview.packageName}`,
-      });
-      result = dependencyCommandResult(
-        { ...command, args: output.args },
-        "succeeded",
-        output.durationMs,
-        output.stdout,
-        output.stderr,
-        undefined,
-        undefined,
-        output,
-      );
-    } catch (error) {
-      const execError = error as ExecFileException & { stdout?: string | Buffer; stderr?: string | Buffer };
-      result = dependencyCommandResult(
-        command,
-        "failed",
-        commandDurationMs(error),
-        execError.stdout,
-        execError.stderr,
-        execError.code ?? undefined,
-        execError.message,
-        error instanceof ProfiledCommandError ? error : undefined,
-      );
-    }
-    results.push(result);
-    await appendFile(logPath, `${JSON.stringify({ timestamp: new Date().toISOString(), ...result })}\n`, "utf8");
-    if (result.status === "failed") break;
-  }
-  const completedAtMs = Date.now();
-
-  return {
-    packageName: preview.packageName,
-    rootPath,
-    relativeRootPath: preview.relativeRootPath,
-    gitSha: await currentGitSha(rootPath),
-    succeeded: results.every((result) => result.status === "succeeded"),
-    startedAt,
-    completedAt: new Date(completedAtMs).toISOString(),
-    durationMs: completedAtMs - startedAtMs,
-    logPath,
-    relativeLogPath: toManagedInstallRelative(workspace, logPath),
-    commands: results,
-  };
-}
-
-export async function validateCapabilityBuilderPackage(
-  workspacePath: string,
-  input: CapabilityBuilderValidateInput,
-): Promise<CapabilityBuilderValidateResult> {
-  const startedAtMs = Date.now();
-  const startedAt = new Date(startedAtMs).toISOString();
-  const workspace = resolve(workspacePath);
-  const preview = await previewCapabilityBuilderPackage(workspace, input);
-  if (!preview.valid) throw new Error(`Capability package preview has errors: ${preview.errors.join("; ")}`);
-  const rootPath = preview.rootPath;
-  const envRequirements = preview.descriptor?.envRequirements ?? [];
-  const networkHosts = preview.descriptor?.networkHosts ?? [];
-  const artifactOutputTypes = preview.descriptor?.artifactOutputTypes ?? [];
-  const smokeTestPath = join(rootPath, "tests", "smoke.test.mjs");
-  if (artifactOutputTypes.length && input.includeSmokeTests === false) {
-    throw new Error("Artifact-generating capability packages must run smoke tests during validation.");
-  }
-  if (artifactOutputTypes.length && !existsSync(smokeTestPath)) {
-    throw new Error(
-      "Artifact-generating capability packages must include tests/smoke.test.mjs that exercises the primary command and writes a declared artifact.",
-    );
-  }
-  const beforeFiles = await listPackageFileMetadata(rootPath);
-  const commands = await capabilityBuilderValidationCommands(workspace, rootPath, input);
-  if (!commands.length)
-    throw new Error("No validation commands are available. Add descriptor healthCheck entries or a tests/smoke.test.mjs file.");
-  const logPath = join(rootPath, "capability-validation-log.jsonl");
-  const results: CapabilityBuilderValidateResult["commands"] = [];
-  const validationEnv = await capabilityBuilderValidationProcessEnv(workspace, preview);
-
-  for (const command of commands) {
-    let result: CapabilityBuilderDependencyCommandResult;
-    try {
-      const legacyValidationBudget = command.timeoutProfile ? undefined : legacyValidationCommandTimeoutMs;
-      const output = await executeProfiledCommand({
-        command: command.command,
-        args: command.args ?? [],
-        cwd: command.resolvedCwd,
-        maxBuffer: 2 * 1024 * 1024,
-        env: validationEnv,
-        ...(legacyValidationBudget ? { timeoutMs: legacyValidationBudget, idleTimeoutMs: legacyValidationBudget } : {}),
-        timeoutProfile: command.timeoutProfile ?? validationCommandDefaultTimeoutProfile(command),
-        progressPatterns: command.progressPatterns,
-        devicePolicy: command.devicePolicy,
-        phase: `capability-builder validation ${preview.packageName}:${command.source}`,
-      });
-      result = dependencyCommandResult(
-        { ...command, args: output.args },
-        "succeeded",
-        output.durationMs,
-        output.stdout,
-        output.stderr,
-        undefined,
-        undefined,
-        output,
-      );
-      if (command.source === "providerContract") {
-        const providerContractError = await validateProviderContractCommandOutput(workspace, command, output.stdout);
-        if (providerContractError) {
-          result = {
-            ...dependencyCommandResult(
-              { ...command, args: output.args },
-              "failed",
-              output.durationMs,
-              output.stdout,
-              output.stderr,
-              "provider-contract-invalid",
-              providerContractError,
-              output,
-            ),
-          };
-        }
-      }
-    } catch (error) {
-      const execError = error as ExecFileException & { stdout?: string | Buffer; stderr?: string | Buffer };
-      result = dependencyCommandResult(
-        { ...command, args: command.args ?? [] },
-        "failed",
-        commandDurationMs(error),
-        execError.stdout,
-        execError.stderr,
-        execError.code ?? undefined,
-        execError.message,
-        error instanceof ProfiledCommandError ? error : undefined,
-      );
-    }
-    const validationResult = { ...result, source: command.source, ...(command.commandName ? { commandName: command.commandName } : {}) };
-    results.push(validationResult);
-    await appendFile(logPath, `${JSON.stringify({ timestamp: new Date().toISOString(), ...validationResult })}\n`, "utf8");
-    if (result.status === "failed") break;
-  }
-
-  const afterFiles = await listPackageFileMetadata(rootPath);
-  const artifacts = validationArtifactFiles(beforeFiles, afterFiles, artifactOutputTypes);
-  if (results.every((result) => result.status === "succeeded") && artifactOutputTypes.length && !artifacts.length) {
-    const existingCandidates = existingDeclaredArtifactCandidates(beforeFiles, afterFiles, artifactOutputTypes);
-    const artifactError = missingDeclaredArtifactError(preview, artifactOutputTypes, existingCandidates);
-    const artifactResult = {
-      ...dependencyCommandResult(
-        {
-          command: "ambient-artifact-check",
-          args: [],
-          cwd: ".",
-          rationale: `Verify validation produced at least one declared artifact: ${artifactOutputTypes.join(", ")}.`,
-        },
-        "failed",
-        0,
-        "",
-        "",
-        "artifact-missing",
-        artifactError,
-      ),
-      source: "smokeTest" as const,
-    };
-    results.push(artifactResult);
-    await appendFile(logPath, `${JSON.stringify({ timestamp: new Date().toISOString(), ...artifactResult })}\n`, "utf8");
-  }
-  const succeeded = results.every((result) => result.status === "succeeded");
-  const validatedAt = succeeded ? new Date().toISOString() : undefined;
-  const providerContractCommands = results.filter((result) => result.source === "providerContract");
-  const providerContractValidated =
-    providerContractCommands.length > 0 && providerContractCommands.every((result) => result.status === "succeeded");
-  if (validatedAt) {
-    await updateValidationManifest(rootPath, validatedAt, await packageContentHash(rootPath), {
-      providerContractValidated,
-      logPath: toManagedInstallRelative(workspace, logPath),
-      artifacts,
-    });
-  }
-  const completedAtMs = Date.now();
-
-  return {
-    packageName: preview.packageName,
-    rootPath,
-    relativeRootPath: preview.relativeRootPath,
-    gitSha: await currentGitSha(rootPath),
-    succeeded,
-    ...(validatedAt ? { validatedAt } : {}),
-    startedAt,
-    completedAt: new Date(completedAtMs).toISOString(),
-    durationMs: completedAtMs - startedAtMs,
-    logPath,
-    relativeLogPath: toManagedInstallRelative(workspace, logPath),
-    envRequirements,
-    networkHosts,
-    commands: results,
-    artifacts,
-  };
-}
-
 export async function saveCapabilityBuilderEnvSecret(
   workspacePath: string,
   input: CapabilityBuilderSecretSaveInput,
@@ -1044,24 +815,18 @@ export async function saveCapabilityBuilderEnvSecret(
   const envName = normalizeCapabilityEnvName(input.envName);
   const requirement = preview.descriptor?.envRequirements.find((env) => env.name === envName);
   if (!requirement) throw new Error(`Capability Builder package "${preview.packageName}" does not declare env requirement "${envName}".`);
-  const value = input.value.trim();
-  if (!value) throw new Error("Capability Builder secret value is empty.");
-  const secretRef = await saveSecretReference({
-    scope: "capability-builder",
-    workspacePath: workspace,
-    ownerId: `${preview.packageName}\0${preview.relativeRootPath}`,
+  const saved = await saveCapabilityBuilderEnvSecretBinding(workspace, preview, {
     envName,
-    value,
+    value: input.value,
   });
-  await setCapabilityBuilderSecretBinding(workspace, preview, envName, secretRef);
   return {
     packageName: preview.packageName,
     rootPath: preview.rootPath,
     relativeRootPath: preview.relativeRootPath,
     sourcePath: preview.relativeRootPath,
-    envName,
+    envName: saved.envName,
     source: "managed-secret",
-    secretRef,
+    secretRef: saved.secretRef,
     configured: true,
   };
 }
@@ -1122,27 +887,6 @@ export async function registerCapabilityBuilderPackage(
     installedPackage,
     ...(registeredVoiceProvider ? { voiceProvider: registeredVoiceProvider } : {}),
   };
-}
-
-async function copyBuilderEnvBindingsToInstalledPackage(workspace: string, preview: CapabilityBuilderPreviewResult): Promise<void> {
-  const bindings = await readCapabilityBuilderEnvBindings(workspace, preview);
-  for (const requirement of preview.descriptor?.envRequirements ?? []) {
-    const binding = bindings[requirement.name];
-    if (!binding) continue;
-    if (binding.source === "managed-secret") {
-      await setAmbientCliPackageSecretBinding(workspace, {
-        packageName: preview.packageName,
-        envName: requirement.name,
-        secretRef: binding.secretRef,
-      });
-    } else {
-      await setAmbientCliPackageEnvBinding(workspace, {
-        packageName: preview.packageName,
-        envName: requirement.name,
-        filePath: binding.filePath,
-      });
-    }
-  }
 }
 
 async function requireRegisteredVoiceProvider(
@@ -1289,550 +1033,6 @@ export async function repairCapabilityBuilderRegistrationMetadata(
     refs: nextRefs,
     ...(input.reason ? { reason: input.reason } : {}),
   };
-}
-
-async function capabilityBuilderValidationProcessEnv(
-  workspace: string,
-  preview: CapabilityBuilderPreviewResult,
-): Promise<NodeJS.ProcessEnv> {
-  const env = ambientRuntimeEnv();
-  const bindings = await readCapabilityBuilderEnvBindings(workspace, preview);
-  for (const requirement of preview.descriptor?.envRequirements ?? []) {
-    const binding = bindings[requirement.name];
-    if (!binding) continue;
-    const value =
-      binding.source === "managed-secret"
-        ? (await readSecretReference(binding.secretRef))?.trim()
-        : await readCapabilityBuilderEnvFile(workspace, requirement.name, binding.filePath);
-    if (value) env[requirement.name] = value;
-  }
-  return env;
-}
-
-async function setCapabilityBuilderSecretBinding(
-  workspace: string,
-  preview: Pick<CapabilityBuilderPreviewResult, "packageName" | "relativeRootPath">,
-  envName: string,
-  secretRef: string,
-): Promise<void> {
-  if (!isSecretReference(secretRef)) throw new Error("Capability Builder secret reference is invalid.");
-  const value = (await readSecretReference(secretRef))?.trim();
-  if (!value) throw new Error("Capability Builder secret reference is empty or missing.");
-  const bindingsPath = capabilityBuilderEnvBindingsPath(workspace);
-  const existing = await readCapabilityBuilderEnvBindingRows(workspace);
-  const rows = [
-    ...existing.filter(
-      (binding) =>
-        normalizeCapabilityEnvName(binding.envName) !== envName ||
-        (binding.packageName !== preview.packageName && binding.sourcePath !== preview.relativeRootPath),
-    ),
-    { packageName: preview.packageName, sourcePath: preview.relativeRootPath, envName, secretRef },
-  ].sort((left, right) => left.packageName.localeCompare(right.packageName) || left.envName.localeCompare(right.envName));
-  await mkdir(dirname(bindingsPath), { recursive: true });
-  await writeFile(bindingsPath, `${JSON.stringify({ bindings: rows }, null, 2)}\n`, "utf8");
-}
-
-async function readCapabilityBuilderEnvBindings(
-  workspace: string,
-  preview: Pick<CapabilityBuilderPreviewResult, "packageName" | "relativeRootPath">,
-): Promise<Record<string, CapabilityBuilderEnvBindingResolution>> {
-  const entries: Record<string, CapabilityBuilderEnvBindingResolution> = {};
-  for (const binding of await readCapabilityBuilderEnvBindingRows(workspace)) {
-    if (binding.packageName !== preview.packageName && binding.sourcePath !== preview.relativeRootPath) continue;
-    const envName = normalizeCapabilityEnvName(binding.envName);
-    if (binding.secretRef) entries[envName] = { source: "managed-secret", secretRef: binding.secretRef };
-    else if (binding.filePath) entries[envName] = { source: "file", filePath: binding.filePath };
-  }
-  return entries;
-}
-
-type CapabilityBuilderEnvBindingResolution = { source: "file"; filePath: string } | { source: "managed-secret"; secretRef: string };
-
-type CapabilityBuilderEnvBindingRow = {
-  packageName: string;
-  sourcePath?: string;
-  envName: string;
-  filePath?: string;
-  secretRef?: string;
-};
-
-async function readCapabilityBuilderEnvBindingRows(workspace: string): Promise<CapabilityBuilderEnvBindingRow[]> {
-  const bindingsPath = capabilityBuilderEnvBindingsPath(workspace);
-  if (!existsSync(bindingsPath)) return [];
-  const errors: string[] = [];
-  const parsed = parseJsonObject(await readFile(bindingsPath, "utf8"), "capability-builder env bindings", errors);
-  if (!parsed || errors.length) return [];
-  const rows = Array.isArray(parsed.bindings) ? parsed.bindings : [];
-  const parsedRows = rows.flatMap((item) => {
-    const record = recordField(item);
-    const packageName = stringField(record.packageName);
-    const envName = stringField(record.envName);
-    const filePath = stringField(record.filePath);
-    const secretRef = stringField(record.secretRef);
-    if (!packageName || !envName || (!filePath && !secretRef)) return [];
-    return [
-      {
-        packageName,
-        ...(stringField(record.sourcePath) ? { sourcePath: stringField(record.sourcePath) } : {}),
-        envName: normalizeCapabilityEnvName(envName),
-        ...(filePath ? { filePath } : {}),
-        ...(secretRef ? { secretRef } : {}),
-      },
-    ];
-  });
-  const migrated = await migrateCapabilityBuilderLegacySecretBindings(workspace, parsedRows);
-  if (migrated.changed) await writeFile(bindingsPath, `${JSON.stringify({ bindings: migrated.bindings }, null, 2)}\n`, "utf8");
-  return migrated.bindings;
-}
-
-async function readCapabilityBuilderEnvFile(workspace: string, envName: string, filePath: string): Promise<string> {
-  const absolutePath = resolve(workspace, filePath);
-  if (!isPathInside(workspace, absolutePath)) throw new Error(`Capability Builder env file for ${envName} must stay inside the workspace.`);
-  return (await readFile(absolutePath, "utf8")).trim();
-}
-
-async function migrateCapabilityBuilderLegacySecretBindings(
-  workspace: string,
-  bindings: CapabilityBuilderEnvBindingRow[],
-): Promise<{ bindings: CapabilityBuilderEnvBindingRow[]; changed: boolean }> {
-  let changed = false;
-  const migrated: CapabilityBuilderEnvBindingRow[] = [];
-  for (const binding of bindings) {
-    if (!binding.filePath || binding.secretRef || !isLegacyCapabilityBuilderSecretBinding(workspace, binding.filePath)) {
-      migrated.push(binding);
-      continue;
-    }
-    try {
-      const absolutePath = resolve(workspace, binding.filePath);
-      const value = (await readFile(absolutePath, "utf8")).trim();
-      if (!value) {
-        migrated.push(binding);
-        continue;
-      }
-      const envName = normalizeCapabilityEnvName(binding.envName);
-      const secretRef = await saveSecretReference({
-        scope: "capability-builder",
-        workspacePath: workspace,
-        ownerId: `${binding.packageName}\0${binding.sourcePath ?? ""}`,
-        envName,
-        value,
-      });
-      await rm(absolutePath, { force: true });
-      migrated.push({
-        packageName: binding.packageName,
-        ...(binding.sourcePath ? { sourcePath: binding.sourcePath } : {}),
-        envName,
-        secretRef,
-      });
-      changed = true;
-    } catch {
-      migrated.push(binding);
-    }
-  }
-  return { bindings: migrated, changed };
-}
-
-function isLegacyCapabilityBuilderSecretBinding(workspace: string, filePath: string): boolean {
-  const absolutePath = resolve(workspace, filePath);
-  const legacyRoot = resolve(workspace, ".ambient", "capability-builder", "secrets");
-  return isPathInside(legacyRoot, absolutePath) && absolutePath.endsWith(".secret");
-}
-
-function capabilityBuilderEnvBindingsPath(workspace: string): string {
-  return resolve(managedInstallWorkspacePath(workspace), ".ambient", "capability-builder", "env-bindings.json");
-}
-
-function normalizeCapabilityEnvName(value: string): string {
-  const name = value.trim();
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) throw new Error(`Invalid env name: ${value}`);
-  return name;
-}
-
-export async function capabilityBuilderValidationPreviewText(
-  workspacePath: string,
-  input: CapabilityBuilderValidateInput,
-): Promise<string> {
-  const workspace = resolve(workspacePath);
-  const preview = await previewCapabilityBuilderPackage(workspace, input);
-  if (!preview.valid) throw new Error(`Capability package preview has errors: ${preview.errors.join("; ")}`);
-  const commands = await capabilityBuilderValidationCommands(workspace, preview.rootPath, input);
-  return [
-    `Package: ${preview.packageName}`,
-    `Managed root: ${preview.relativeRootPath}`,
-    `Canonical sourcePath: ${preview.relativeRootPath}`,
-    `Git SHA: ${preview.gitSha ?? "unavailable"}`,
-    "Effect: runs the validation commands below without a shell and writes capability-validation-log.jsonl in the package root.",
-    "No registration, activation, or installed Ambient CLI execution happens in this step.",
-    "",
-    "Commands:",
-    ...commands.map((command, index) =>
-      [
-        `${index + 1}. ${formatCommand(command.command, command.args ?? [])}`,
-        `   source: ${command.source}${command.commandName ? ` (${command.commandName})` : ""}`,
-        `   cwd: ${command.cwd}`,
-        `   rationale: ${command.rationale}`,
-      ].join("\n"),
-    ),
-  ].join("\n");
-}
-
-function normalizeDependencyCommand(
-  rootPath: string,
-  command: CapabilityBuilderDependencyCommand,
-): CapabilityBuilderDependencyCommand & { args: string[]; cwd: string; resolvedCwd: string } {
-  const executable = command.command.trim();
-  if (!executable) throw new Error("Dependency command executable is required.");
-  if (executable.includes("\0") || executable.includes("\n"))
-    throw new Error(`Dependency command contains unsupported characters: ${executable}`);
-  const args = command.args ?? [];
-  if (!Array.isArray(args) || args.some((arg) => typeof arg !== "string"))
-    throw new Error(`Dependency command args must be strings: ${executable}`);
-  if (args.some((arg) => arg.includes("\0"))) throw new Error(`Dependency command args contain unsupported characters: ${executable}`);
-  const cwd = command.cwd?.trim() || ".";
-  const resolvedCwd = resolve(rootPath, cwd);
-  if (!isPathInside(rootPath, resolvedCwd)) throw new Error(`Dependency command cwd escapes the package root: ${cwd}`);
-  const rationale = command.rationale.trim();
-  if (!rationale) throw new Error(`Dependency command rationale is required: ${executable}`);
-  const progressPatterns = command.progressPatterns?.map((item) => item.trim()).filter(Boolean);
-  return {
-    command: executable,
-    args,
-    cwd,
-    resolvedCwd,
-    rationale,
-    ...(command.timeoutProfile ? { timeoutProfile: command.timeoutProfile } : {}),
-    ...(progressPatterns?.length ? { progressPatterns } : {}),
-    ...(command.devicePolicy ? { devicePolicy: command.devicePolicy } : {}),
-  };
-}
-
-function dependencyCommandResult(
-  command: CapabilityBuilderDependencyCommand & { args: string[]; cwd: string },
-  status: CapabilityBuilderDependencyCommandResult["status"],
-  durationMs: number,
-  stdoutValue: string | Buffer | undefined,
-  stderrValue: string | Buffer | undefined,
-  exitCode?: number | string,
-  error?: string,
-  execution?: ProfiledCommandResult | ProfiledCommandError,
-): CapabilityBuilderDependencyCommandResult {
-  const stdout = outputText(stdoutValue);
-  const stderr = outputText(stderrValue);
-  const safeStdout = redactSensitiveText(stdout);
-  const safeStderr = redactSensitiveText(stderr);
-  const args = execution instanceof ProfiledCommandError ? execution.args : (execution?.args ?? command.args);
-  return {
-    command: command.command,
-    args: args.map(redactSensitiveText),
-    cwd: command.cwd,
-    rationale: command.rationale,
-    status,
-    durationMs,
-    ...(exitCode !== undefined ? { exitCode } : {}),
-    ...(error ? { error: redactSensitiveText(error) } : {}),
-    stdoutPreview: safeStdout.slice(0, dependencyOutputPreviewChars),
-    stderrPreview: safeStderr.slice(0, dependencyOutputPreviewChars),
-    stdoutLength: safeStdout.length,
-    stderrLength: safeStderr.length,
-    stdoutTruncated: safeStdout.length > dependencyOutputPreviewChars,
-    stderrTruncated: safeStderr.length > dependencyOutputPreviewChars,
-    ...(execution?.timeoutProfile
-      ? { timeoutProfile: execution.timeoutProfile }
-      : command.timeoutProfile
-        ? { timeoutProfile: command.timeoutProfile }
-        : {}),
-    ...(execution?.timeoutMs ? { timeoutMs: execution.timeoutMs } : {}),
-    ...(execution?.idleTimeoutMs ? { idleTimeoutMs: execution.idleTimeoutMs } : {}),
-    ...(execution instanceof ProfiledCommandError && execution.timeoutPhase ? { timeoutPhase: execution.timeoutPhase } : {}),
-    ...(execution?.lastProgressAt ? { lastProgressAt: execution.lastProgressAt } : {}),
-    ...(execution instanceof ProfiledCommandError && execution.lastProgressMs !== undefined
-      ? { lastProgressMs: execution.lastProgressMs }
-      : {}),
-    ...(execution instanceof ProfiledCommandError && execution.recommendedRetryProfile
-      ? { recommendedRetryProfile: execution.recommendedRetryProfile }
-      : {}),
-    ...(command.progressPatterns?.length ? { progressPatterns: command.progressPatterns } : {}),
-    ...(execution?.matchedProgressPatterns.length ? { matchedProgressPatterns: execution.matchedProgressPatterns } : {}),
-    ...(execution?.deviceSelection ? { deviceSelection: execution.deviceSelection } : {}),
-  };
-}
-
-function commandDurationMs(error: unknown): number {
-  return error instanceof ProfiledCommandError ? error.durationMs : 0;
-}
-
-function validationCommandDefaultTimeoutProfile(command: CapabilityBuilderValidationCommand): CommandTimeoutProfile {
-  if (command.source === "providerContract") return "liveGeneration";
-  if (command.source === "smokeTest") return "quickProbe";
-  return "healthCheck";
-}
-
-function outputText(value: string | Buffer | undefined): string {
-  if (value === undefined) return "";
-  return Buffer.isBuffer(value) ? value.toString("utf8") : value;
-}
-
-async function capabilityBuilderValidationCommands(
-  workspace: string,
-  rootPath: string,
-  input: CapabilityBuilderValidateInput,
-): Promise<
-  Array<
-    CapabilityBuilderValidationCommand & {
-      args: string[];
-      cwd: string;
-      resolvedCwd: string;
-      providerContract?: ProviderContractValidationMetadata;
-    }
-  >
-> {
-  const errors: string[] = [];
-  const descriptorPath = join(rootPath, "ambient-cli.json");
-  const descriptor = parseJsonObject(await readFile(descriptorPath, "utf8"), "ambient-cli.json", errors);
-  if (!descriptor || errors.length) throw new Error(`ambient-cli.json is invalid: ${errors.join("; ")}`);
-  const commands = recordField(descriptor.commands);
-  const validationCommands: Array<
-    CapabilityBuilderValidationCommand & {
-      args: string[];
-      cwd: string;
-      resolvedCwd: string;
-      providerContract?: ProviderContractValidationMetadata;
-    }
-  > = [];
-  for (const [commandName, value] of Object.entries(commands)) {
-    const command = recordField(value);
-    const healthCheck = stringArrayField(command.healthCheck);
-    if (!healthCheck.length) continue;
-    const executionMetadata = descriptorCommandExecutionMetadata(command);
-    const cwdPolicy = stringField(command.cwd) ?? "workspace";
-    const cwdRoot = cwdPolicy === "package" ? rootPath : workspace;
-    const normalized = normalizeDependencyCommand(cwdRoot, {
-      command: healthCheck[0],
-      args: healthCheck.slice(1),
-      cwd: ".",
-      rationale: `Run descriptor health check for ${commandName}.`,
-      ...executionMetadata,
-    });
-    validationCommands.push({ ...normalized, source: "healthCheck", commandName });
-  }
-  if (input.includeSmokeTests !== false && existsSync(join(rootPath, "tests", "smoke.test.mjs"))) {
-    validationCommands.push({
-      ...normalizeDependencyCommand(rootPath, {
-        command: "node",
-        args: ["tests/smoke.test.mjs"],
-        cwd: ".",
-        rationale: "Run package smoke test.",
-        timeoutProfile: "quickProbe",
-      }),
-      source: "smokeTest",
-    });
-  }
-  const manifest = await readBuildManifestIfPresent(rootPath);
-  if (installerShapeFromManifest(manifest) === "tts-provider") {
-    for (const [commandName, value] of Object.entries(commands)) {
-      const providerCommand = providerContractValidationCommand(workspace, rootPath, commandName, recordField(value));
-      if (providerCommand) validationCommands.push(providerCommand);
-    }
-  }
-  return validationCommands;
-}
-
-interface ProviderContractValidationMetadata {
-  outputPath: string;
-  format: "mp3" | "wav" | "ogg";
-  expectedMimeType: string;
-  maxSizeBytes: number;
-}
-
-function providerContractValidationCommand(
-  workspace: string,
-  rootPath: string,
-  commandName: string,
-  command: Record<string, unknown>,
-):
-  | (CapabilityBuilderValidationCommand & {
-      args: string[];
-      cwd: string;
-      resolvedCwd: string;
-      providerContract: ProviderContractValidationMetadata;
-    })
-  | undefined {
-  const voiceProvider = recordField(command.voiceProvider);
-  if (!Object.keys(voiceProvider).length) return undefined;
-  const executable = stringField(command.command);
-  if (!executable) return undefined;
-  const format = normalizeCapabilityBuilderVoiceOutputFormat(stringField(voiceProvider.defaultFormat) ?? "wav") ?? "wav";
-  const voices = Array.isArray(voiceProvider.voices) ? voiceProvider.voices : [];
-  const voiceId = stringField(recordField(voices[0]).id);
-  const outputPath = join(rootPath, "validation-artifacts", `ambient-voice-test-${Date.now()}-${process.pid}.${format}`);
-  const cwdPolicy = stringField(command.cwd) ?? "workspace";
-  const cwdRoot = cwdPolicy === "package" ? rootPath : workspace;
-  const commandArgs = [
-    ...stringArrayField(command.args),
-    "--text",
-    "Ambient voice test.",
-    "--output",
-    outputPath,
-    "--format",
-    format,
-    ...(voiceId ? ["--voice", voiceId] : []),
-  ];
-  const executionMetadata = descriptorCommandExecutionMetadata(command);
-  const normalized = normalizeDependencyCommand(cwdRoot, {
-    command: executable,
-    args: commandArgs,
-    cwd: ".",
-    rationale: `Run Ambient tts-provider contract synthesis for ${commandName}.`,
-    ...executionMetadata,
-    timeoutProfile: executionMetadata.timeoutProfile ?? "liveGeneration",
-  });
-  return {
-    ...normalized,
-    source: "providerContract",
-    commandName,
-    providerContract: {
-      outputPath,
-      format,
-      expectedMimeType: mimeTypeForCapabilityBuilderVoiceFormat(format),
-      maxSizeBytes: 25 * 1024 * 1024,
-    },
-  };
-}
-
-function descriptorCommandExecutionMetadata(
-  command: Record<string, unknown>,
-): Pick<CapabilityBuilderDependencyCommand, "timeoutProfile" | "progressPatterns" | "devicePolicy"> {
-  const timeoutProfileValue = stringField(command.timeoutProfile);
-  if (timeoutProfileValue && !isCommandTimeoutProfile(timeoutProfileValue)) {
-    throw new Error(`ambient-cli.json command timeoutProfile is invalid: ${timeoutProfileValue}`);
-  }
-  const timeoutProfile = timeoutProfileValue && isCommandTimeoutProfile(timeoutProfileValue) ? timeoutProfileValue : undefined;
-  const progressPatterns = stringArrayField(command.progressPatterns)
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const devicePolicy = descriptorCommandDevicePolicy(command.devicePolicy);
-  return {
-    ...(timeoutProfile ? { timeoutProfile } : {}),
-    ...(progressPatterns.length ? { progressPatterns } : {}),
-    ...(devicePolicy ? { devicePolicy } : {}),
-  };
-}
-
-function descriptorCommandDevicePolicy(value: unknown): CommandDevicePolicy | undefined {
-  const input = recordField(value);
-  if (!Object.keys(input).length) return undefined;
-  const prefer = stringArrayField(input.prefer)
-    .map((item) => item.trim())
-    .filter(Boolean);
-  const cpuReason = stringField(input.cpuReason)?.trim();
-  const forceCpuReason = stringField(input.forceCpuReason)?.trim();
-  const argName = stringField(input.argName)?.trim();
-  const requireReasonWhenCpuForced = typeof input.requireReasonWhenCpuForced === "boolean" ? input.requireReasonWhenCpuForced : undefined;
-  return {
-    ...(prefer.length ? { prefer } : {}),
-    ...(requireReasonWhenCpuForced !== undefined ? { requireReasonWhenCpuForced } : {}),
-    ...(cpuReason ? { cpuReason } : {}),
-    ...(forceCpuReason ? { forceCpuReason } : {}),
-    ...(argName ? { argName } : {}),
-  };
-}
-
-async function validateProviderContractCommandOutput(
-  workspace: string,
-  command: { providerContract?: ProviderContractValidationMetadata },
-  stdoutValue: string | Buffer | undefined,
-): Promise<string | undefined> {
-  const contract = command.providerContract;
-  if (!contract) return undefined;
-  const stdout = outputText(stdoutValue).trim();
-  let payload: Record<string, unknown>;
-  try {
-    const parsed = JSON.parse(stdout);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "Provider contract stdout must be a JSON object.";
-    payload = parsed as Record<string, unknown>;
-  } catch (error) {
-    return `Provider contract stdout must be concise JSON metadata: ${error instanceof Error ? error.message : String(error)}`;
-  }
-  const audioPathValue = stringField(payload.audioPath) ?? contract.outputPath;
-  const resolvedAudioPath = resolve(workspace, audioPathValue);
-  if (!isPathInside(workspace, resolvedAudioPath)) return "Provider contract audioPath must stay inside the workspace.";
-  if (resolvedAudioPath !== contract.outputPath) {
-    return `Provider contract must write audio to the exact requested --output path. Expected ${toWorkspaceRelative(workspace, contract.outputPath)}, got ${toWorkspaceRelative(workspace, resolvedAudioPath)}.`;
-  }
-  if (extname(resolvedAudioPath).toLowerCase() !== `.${contract.format}`) {
-    return `Provider contract audio extension must match --format ${contract.format}.`;
-  }
-  const mimeType = stringField(payload.mimeType);
-  if (mimeType && mimeType !== contract.expectedMimeType) {
-    return `Provider contract mimeType must match --format ${contract.format}: expected ${contract.expectedMimeType}, got ${mimeType}.`;
-  }
-  let file;
-  try {
-    file = await stat(resolvedAudioPath);
-  } catch {
-    return `Provider contract did not create audio at ${toWorkspaceRelative(workspace, contract.outputPath)}.`;
-  }
-  if (!file.isFile()) return "Provider contract audioPath is not a file.";
-  if (file.size <= 0) return "Provider contract created a zero-byte audio file.";
-  if (file.size > contract.maxSizeBytes) {
-    return `Provider contract tiny synthesis output is too large: ${file.size} bytes exceeds ${contract.maxSizeBytes} bytes.`;
-  }
-  return undefined;
-}
-
-function validationArtifactFiles(
-  beforeFiles: Map<string, CapabilityBuilderFileMetadata>,
-  afterFiles: Map<string, CapabilityBuilderFileMetadata>,
-  artifactOutputTypes: string[],
-): CapabilityBuilderValidationArtifact[] {
-  return [...afterFiles.entries()]
-    .filter(([file]) => isCapabilityBuilderValidationArtifactCandidate(file))
-    .filter(([file]) => !artifactOutputTypes.length || artifactPathMatchesOutputTypes(file, artifactOutputTypes))
-    .filter(([file, metadata]) => {
-      const before = beforeFiles.get(file);
-      if (!before) return true;
-      if (!artifactOutputTypes.length) return false;
-      return before.sizeBytes !== metadata.sizeBytes || before.mtimeMs !== metadata.mtimeMs;
-    })
-    .map(([path, metadata]) => ({ path, sizeBytes: metadata.sizeBytes }));
-}
-
-function existingDeclaredArtifactCandidates(
-  beforeFiles: Map<string, CapabilityBuilderFileMetadata>,
-  afterFiles: Map<string, CapabilityBuilderFileMetadata>,
-  artifactOutputTypes: string[],
-): string[] {
-  return [...afterFiles.keys()]
-    .filter((file) => beforeFiles.has(file))
-    .filter((file) => isCapabilityBuilderValidationArtifactCandidate(file))
-    .filter((file) => artifactPathMatchesOutputTypes(file, artifactOutputTypes))
-    .sort();
-}
-
-function missingDeclaredArtifactError(
-  preview: CapabilityBuilderPreviewResult,
-  artifactOutputTypes: string[],
-  existingCandidates: string[],
-): string {
-  const responseFormats = preview.descriptor?.responseFormats ?? [];
-  const stdoutContractHint =
-    preview.installerShape === "search-provider" || responseFormats.length
-      ? ` This looks like a stdout/API response contract${preview.installerShape === "search-provider" ? " for a search-provider" : ""}${responseFormats.length ? ` (${responseFormats.join(", ")})` : ""}. For search/API/text providers, put JSON/Markdown/text response shape in responseFormats and remove artifacts.outputTypes/outputFileArtifactTypes unless the command intentionally writes files.`
-      : " If this capability returns concise stdout instead of file artifacts, remove artifacts.outputTypes/outputFileArtifactTypes and describe stdout/API shape in responseFormats.";
-  const artifactRepairHint =
-    "If it is a file artifact generator, update tests/smoke.test.mjs to run the primary command and create or update a fresh declared artifact file.";
-  const base = existingCandidates.length
-    ? `Validation did not create or update any declared artifact files (${artifactOutputTypes.join(", ")}). Matching declared artifact file(s) already existed before validation: ${existingCandidates.join(", ")}.`
-    : `Validation did not create any declared artifact files (${artifactOutputTypes.join(", ")}).`;
-  return `${base}${stdoutContractHint} ${artifactRepairHint}`;
-}
-
-function isCapabilityBuilderValidationArtifactCandidate(file: string): boolean {
-  if (file.startsWith(".git/")) return false;
-  if (isCapabilityBuilderMetadataFile(file)) return false;
-  if (/^(ambient-cli\.json|SKILL\.md|package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$/.test(file)) return false;
-  if (file.startsWith("scripts/") || file.startsWith("tests/")) return false;
-  return true;
 }
 
 async function capabilityBuilderSourceInventory(rootPath: string): Promise<CapabilityBuilderRemovalPlanResult["sourceInventory"]> {

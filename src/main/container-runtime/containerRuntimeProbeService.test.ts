@@ -44,6 +44,50 @@ describe("container runtime probe service", () => {
     expect(containerRuntimeProbeSummary(result)).toContain("Post-install queue: scrapling=queued");
   });
 
+  it("starts host probes while ToolHive probing is still pending", async () => {
+    let releaseToolHiveVersion: () => void = () => undefined;
+    const toolHiveVersionGate = new Promise<void>((resolve) => {
+      releaseToolHiveVersion = resolve;
+    });
+    let hostProbeStarted = false;
+    const toolHive: ContainerRuntimeToolHiveClient = {
+      async version() {
+        await toolHiveVersionGate;
+        return toolHiveCommand("version", ["version"], "ToolHive v0.28.2\n", "", 0);
+      },
+      async preflightRuntime() {
+        const command = toolHiveCommand("runtime-check", ["runtime", "check", "--timeout", "5"], "", "no runtime available", 1);
+        return {
+          ok: false,
+          message: "no runtime available",
+          command,
+        };
+      },
+    };
+    const result = await withTimeout(probeContainerRuntime({
+      toolHive,
+      platform: "linux",
+      arch: "x64",
+      commandRunner: async (invocation) => {
+        if (invocation.command === "docker" && invocation.args[0] === "--version") {
+          hostProbeStarted = true;
+          releaseToolHiveVersion();
+        }
+        return missingCommand(invocation.command, invocation.args);
+      },
+      processDiscoveryRunner: fakeRunner({
+        "/bin/ps -axo pid=,args=": okCommand("/bin/ps", ["-axo", "pid=,args="], ""),
+      }),
+      now: fixedNow,
+    }), 1_000, "host probes did not start until ToolHive probing finished");
+
+    expect(hostProbeStarted).toBe(true);
+    expect(result).toMatchObject({
+      status: "missing",
+      nextAction: "install-runtime",
+    });
+  });
+
   it("classifies a missing host as install-runtime when ToolHive preflight fails", async () => {
     const result = await probeContainerRuntime({
       toolHive: fakeToolHive({ preflightOk: false, preflightMessage: "no container runtime found" }),
@@ -153,6 +197,201 @@ describe("container runtime probe service", () => {
       reason: "none",
       message: expect.stringContaining("/opt/homebrew/bin/podman"),
     });
+  });
+
+  it("finds Podman installed at the macOS Podman Desktop pkg path when the app PATH is sparse", async () => {
+    const result = await probeContainerRuntime({
+      toolHive: fakeToolHive({ preflightOk: true }),
+      platform: "darwin",
+      arch: "arm64",
+      commandRunner: fakeRunner({
+        "podman --version": missingCommand("podman", ["--version"]),
+        "/opt/podman/bin/podman --version": okCommand("/opt/podman/bin/podman", ["--version"], "podman version 5.8.2\n"),
+        "/opt/podman/bin/podman info --format json": okCommand("/opt/podman/bin/podman", ["info", "--format", "json"], "{}\n"),
+      }),
+      now: fixedNow,
+    });
+
+    expect(result).toMatchObject({
+      status: "ready",
+      reason: "none",
+      runtime: "podman",
+    });
+    expect(result.hosts.find((host) => host.kind === "podman")).toMatchObject({
+      status: "ready",
+      version: "5.8.2",
+      message: expect.stringContaining("/opt/podman/bin/podman"),
+    });
+  });
+
+  it("uses a trusted running process location as an additional CLI candidate", async () => {
+    const result = await probeContainerRuntime({
+      toolHive: fakeToolHive({ preflightOk: true }),
+      platform: "darwin",
+      arch: "arm64",
+      commandRunner: fakeRunner({
+        "docker --version": missingCommand("docker", ["--version"]),
+        "/Applications/Docker.app/Contents/Resources/bin/docker --version": missingCommand("/Applications/Docker.app/Contents/Resources/bin/docker", ["--version"]),
+        "/Applications/Docker.app/Contents/Resources/docker --version": okCommand("/Applications/Docker.app/Contents/Resources/docker", ["--version"], "Docker version 29.0.0\n"),
+        "/Applications/Docker.app/Contents/Resources/docker info --format {{json .ServerVersion}}": okCommand("/Applications/Docker.app/Contents/Resources/docker", ["info", "--format", "{{json .ServerVersion}}"], "\"29.0.0\"\n"),
+        "podman --version": missingCommand("podman", ["--version"]),
+        "colima version": missingCommand("colima", ["version"]),
+      }),
+      processDiscoveryRunner: fakeRunner({
+        "/bin/ps -axo pid=,args=": okCommand("/bin/ps", ["-axo", "pid=,args="], "424 /Applications/Docker.app/Contents/MacOS/Docker\n"),
+      }),
+      now: fixedNow,
+    });
+
+    expect(result).toMatchObject({
+      status: "ready",
+      reason: "none",
+      runtime: "docker",
+      processHints: [expect.objectContaining({
+        kind: "docker",
+        applicationPath: "/Applications/Docker.app",
+      })],
+    });
+    expect(result.hosts.find((host) => host.kind === "docker")).toMatchObject({
+      status: "ready",
+      version: "29.0.0",
+      message: expect.stringContaining("/Applications/Docker.app/Contents/Resources/docker"),
+    });
+  });
+
+  it("does not mark a runtime ready from a desktop process alone", async () => {
+    const result = await probeContainerRuntime({
+      toolHive: fakeToolHive({ preflightOk: false, preflightMessage: "no runtime available" }),
+      platform: "darwin",
+      arch: "arm64",
+      commandRunner: fakeRunner({
+        "podman --version": missingCommand("podman", ["--version"]),
+      }),
+      processDiscoveryRunner: fakeRunner({
+        "/bin/ps -axo pid=,args=": okCommand(
+          "/bin/ps",
+          ["-axo", "pid=,args="],
+          "101 /Applications/Podman Desktop.app/Contents/MacOS/Podman Desktop\n",
+        ),
+      }),
+      now: fixedNow,
+    });
+
+    expect(result).toMatchObject({
+      status: "missing",
+      reason: "runtime-missing",
+      nextAction: "install-runtime",
+      postInstallQueue: [{ capabilityId: "scrapling", status: "blocked" }],
+      processHints: [expect.objectContaining({
+        kind: "podman",
+        applicationPath: "/Applications/Podman Desktop.app",
+      })],
+    });
+    expect(result.message).toContain("No ready Docker, Podman, or ToolHive-compatible container runtime was detected");
+    expect(result.hosts.find((host) => host.kind === "podman")?.message).toContain("process was detected");
+    expect(result.hosts.find((host) => host.kind === "podman")?.message).toContain("CLI was not found");
+    expect(containerRuntimeProbeSummary(result)).toContain("Detected runtime processes:");
+  });
+
+  it("does not suppress install guidance for an untrusted process path", async () => {
+    const result = await probeContainerRuntime({
+      toolHive: fakeToolHive({ preflightOk: false, preflightMessage: "no container runtime found" }),
+      platform: "linux",
+      arch: "x64",
+      commandRunner: fakeRunner({
+        "docker --version": missingCommand("docker", ["--version"]),
+        "podman --version": missingCommand("podman", ["--version"]),
+      }),
+      processDiscoveryRunner: fakeRunner({
+        "/bin/ps -axo pid=,args=": okCommand("/bin/ps", ["-axo", "pid=,args="], "515 /tmp/podman sleep 1000\n"),
+      }),
+      now: fixedNow,
+    });
+
+    expect(result).toMatchObject({
+      status: "missing",
+      reason: "runtime-missing",
+      nextAction: "install-runtime",
+      processHints: [expect.objectContaining({
+        kind: "podman",
+        executablePath: "/tmp/podman",
+      })],
+    });
+    expect(result.hosts.find((host) => host.kind === "podman")).toMatchObject({
+      status: "missing",
+    });
+  });
+
+  it("separates a ready host runtime from a failing ToolHive runtime preflight", async () => {
+    const result = await probeContainerRuntime({
+      toolHive: fakeToolHive({ preflightOk: false, preflightMessage: "registered runtimes: docker, kubernetes" }),
+      platform: "darwin",
+      arch: "arm64",
+      commandRunner: fakeRunner({
+        "docker --version": missingCommand("docker", ["--version"]),
+        "podman --version": okCommand("podman", ["--version"], "podman version 5.8.2\n"),
+        "podman info --format json": okCommand("podman", ["info", "--format", "json"], "{}\n"),
+      }),
+      now: fixedNow,
+    });
+
+    expect(result).toMatchObject({
+      status: "blocked-by-policy",
+      reason: "toolhive-runtime-unavailable",
+      runtime: "podman",
+      nextAction: "open-settings",
+    });
+    expect(result.message).toContain("Podman is installed and reachable");
+    expect(result.message).toContain("ToolHive could not use it");
+    expect(result.message).toContain("before reinstalling");
+  });
+
+  it("prefers a repairable stopped runtime over an unrelated ready host when ToolHive preflight fails", async () => {
+    const result = await probeContainerRuntime({
+      toolHive: fakeToolHive({ preflightOk: false, preflightMessage: "podman machine is stopped" }),
+      platform: "darwin",
+      arch: "arm64",
+      commandRunner: fakeRunner({
+        "docker --version": okCommand("docker", ["--version"], "Docker version 28.1.1\n"),
+        "docker info --format {{json .ServerVersion}}": okCommand("docker", ["info", "--format", "{{json .ServerVersion}}"], "\"28.1.1\"\n"),
+        "podman --version": okCommand("podman", ["--version"], "podman version 5.8.2\n"),
+        "podman info --format json": failedCommand("podman", ["info", "--format", "json"], "machine is stopped"),
+        "podman machine list --format json": okCommand("podman", ["machine", "list", "--format", "json"], "[]\n"),
+      }),
+      now: fixedNow,
+    });
+
+    expect(result).toMatchObject({
+      status: "installed-not-running",
+      reason: "machine-stopped",
+      runtime: "podman",
+      nextAction: "start-runtime",
+    });
+    expect(result.message).toContain("Start or repair");
+  });
+
+  it("keeps the ready-host ToolHive diagnosis when a stopped runtime is not implicated", async () => {
+    const result = await probeContainerRuntime({
+      toolHive: fakeToolHive({ preflightOk: false, preflightMessage: "runtime unavailable" }),
+      platform: "darwin",
+      arch: "arm64",
+      commandRunner: fakeRunner({
+        "docker --version": okCommand("docker", ["--version"], "Docker version 28.1.1\n"),
+        "docker info --format {{json .ServerVersion}}": okCommand("docker", ["info", "--format", "{{json .ServerVersion}}"], "\"28.1.1\"\n"),
+        "podman --version": okCommand("podman", ["--version"], "podman version 5.8.2\n"),
+        "podman info --format json": failedCommand("podman", ["info", "--format", "json"], "machine is stopped"),
+        "podman machine list --format json": okCommand("podman", ["machine", "list", "--format", "json"], "[]\n"),
+      }),
+      now: fixedNow,
+    });
+
+    expect(result).toMatchObject({
+      status: "blocked-by-policy",
+      reason: "toolhive-runtime-unavailable",
+      runtime: "docker",
+      nextAction: "open-settings",
+    });
+    expect(result.message).toContain("Docker is installed and reachable");
   });
 
   it("finds Colima installed at a Homebrew absolute path when the app PATH is sparse", async () => {
@@ -409,4 +648,16 @@ function toolHiveCommand(command: ToolHiveCommandResult["command"], args: string
     exitCode,
     durationMs: 1,
   };
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeout: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
 }

@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { delimiter } from "node:path";
 import { describe, expect, it } from "vitest";
 import { ambientRuntimeEnv, ambientRuntimePath } from "./runtimePath";
@@ -6,6 +7,16 @@ describe("ambientRuntimePath", () => {
   it("preserves caller PATH entries before runtime additions", () => {
     const path = ambientRuntimePath({ PATH: ["/custom/bin", "/usr/bin"].join(delimiter) });
     expect(path.split(delimiter).slice(0, 2)).toEqual(["/custom/bin", "/usr/bin"]);
+  });
+
+  it("adds installed container runtime package directories to sanitized app PATHs", () => {
+    const runtimeDirs = ["/opt/podman/bin", "/Applications/Docker.app/Contents/Resources/bin", "/opt/homebrew/bin", "/usr/local/bin"]
+      .filter(existsSync);
+    const pathEntries = ambientRuntimePath({ PATH: "" }).split(delimiter);
+
+    for (const dir of runtimeDirs) {
+      expect(pathEntries).toContain(dir);
+    }
   });
 });
 

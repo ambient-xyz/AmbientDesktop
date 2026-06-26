@@ -7,6 +7,9 @@ import {
   messagingRemoteSurfaceActivationCardFromMetadata,
   telegramSessionSetupCardFromMetadata,
 } from "./toolMessageMessagingUiModel";
+import { toolProgressPreview } from "./toolMessageProgressUiModel";
+import type { ToolProgressPreviewData } from "./toolMessageProgressUiModel";
+export type { ToolProgressPreviewData, ToolProgressPreviewRow } from "./toolMessageProgressUiModel";
 import type {
   ToolMessagingConversationDirectorySetupPreviewData,
   ToolMessagingRemoteSurfaceActivationPreviewData,
@@ -26,8 +29,38 @@ export type {
   ToolTelegramSessionSetupPreviewData,
 } from "./toolMessageMessagingUiModel";
 import {
+  addArtifactHint,
+  cleanArtifactPath,
+  extractAmbientCliMediaArtifactPath,
+  extractShellMediaArtifactPath,
+  fileBaseName,
+  isAmbientCliTool,
+  isArtifactWritingTool,
+  isShellTool,
+  isSttTool,
+  isVoiceTool,
+  languageFromPath,
+  managedFileArtifactsFromMetadata,
+  mediaArtifactPathFromMetadata,
+  mediaArtifactResult,
+  normalizeArtifactPath,
+} from "./toolMessageArtifactUiModel";
+import type { ArtifactPathHints, ToolManagedFileArtifactPreviewData } from "./toolMessageArtifactUiModel";
+export {
+  artifactMediaKindFromPath,
+  artifactPreviewRoute,
+  isAbsoluteArtifactPath,
+  mediaPreviewUnavailableMessage,
+  resolveInlineArtifactPath,
+} from "./toolMessageArtifactUiModel";
+export type {
+  ArtifactMediaKind,
+  ArtifactPathHints,
+  ArtifactPreviewRoute,
+  ToolManagedFileArtifactPreviewData,
+} from "./toolMessageArtifactUiModel";
+import {
   booleanField,
-  formatCompactTaskState,
   numberField,
   parseDelimitedNumber,
   pathField,
@@ -45,14 +78,6 @@ import type {
   ToolLongformInputPreview,
   ToolLongformInputPreviewItem,
 } from "../../shared/threadTypes";
-export type ArtifactPathHints = Map<string, string>;
-
-export type ArtifactMediaKind = "image" | "audio" | "video";
-
-export type ArtifactPreviewRoute =
-  | { kind: "local-file" }
-  | { kind: "workspace-file" }
-  | { kind: "workspace-media"; mediaKind: Extract<ArtifactMediaKind, "image" | "video"> };
 
 export type ToolMessageSection = { title: string; content: string };
 
@@ -75,16 +100,6 @@ export type ToolApplyRepairPreviewData = {
   reason?: string;
   files: ToolApplyRepairFilePreviewData[];
   totalChars: number;
-};
-
-export type ToolManagedFileArtifactPreviewData = {
-  filename: string;
-  bytes?: number;
-  source?: string;
-  containerPath?: string;
-  hostPath?: string;
-  workspacePath?: string;
-  copySkippedReason?: string;
 };
 
 export type ToolEditBlockPreviewData = {
@@ -225,18 +240,6 @@ export type ToolLargeOutputPreviewViewData = {
   title: "Output";
   summary: string;
   rows: ToolLargeOutputPreviewRow[];
-};
-
-export type ToolProgressPreviewRow = {
-  key: string;
-  label: string;
-  value: string;
-};
-
-export type ToolProgressPreviewData = {
-  title: "Progress";
-  summary: string;
-  rows: ToolProgressPreviewRow[];
 };
 
 type ToolResultDetails = {
@@ -424,69 +427,6 @@ export function collectArtifactPathHints(messages: ChatMessage[], workspacePath:
   return exact;
 }
 
-export function resolveInlineArtifactPath(value: string, hints: ArtifactPathHints | undefined, workspacePath?: string): string | undefined {
-  const cleaned = cleanArtifactPath(value)?.replace(/^\.\//, "");
-  if (!cleaned || cleaned.endsWith("/") || !/\.[a-z0-9]{1,8}$/i.test(cleaned)) return undefined;
-  const hinted = hints?.get(cleaned) ?? hints?.get(`./${cleaned}`);
-  if (hinted) return hinted;
-  const workspacePathRelative = workspacePath ? workspaceRelativeArtifactPath(cleaned, workspacePath) : undefined;
-  if (workspacePathRelative) return workspacePathRelative;
-  return workspacePath && isSafeWorkspaceRelativeArtifactPath(cleaned) ? cleaned : undefined;
-}
-
-function workspaceRelativeArtifactPath(path: string, workspacePath: string): string | undefined {
-  const localPath = fileUrlToLocalPath(path) ?? path;
-  const workspace = workspacePath.replace(/\/+$/, "");
-  if (!workspace || !localPath.startsWith("/")) return undefined;
-  if (localPath === workspace) return ".";
-  const prefix = `${workspace}/`;
-  return localPath.startsWith(prefix) ? localPath.slice(prefix.length) : undefined;
-}
-
-function isSafeWorkspaceRelativeArtifactPath(path: string): boolean {
-  if (!path || path.startsWith("/") || path.startsWith("~")) return false;
-  if (/\s/.test(path)) return false;
-  if (path.startsWith("../") || path.includes("/../") || path.includes("\\..\\")) return false;
-  if (/^[a-z][a-z0-9+.-]*:/i.test(path) || /^[a-z]:[\\/]/i.test(path)) return false;
-  return !/[\0\r\n]/.test(path);
-}
-
-function fileUrlToLocalPath(value: string): string | undefined {
-  if (!/^file:\/\//i.test(value)) return undefined;
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "file:" ? decodeURIComponent(parsed.pathname) : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-export function artifactMediaKindFromPath(path: string): ArtifactMediaKind | undefined {
-  const extension = path.toLowerCase().match(/\.([a-z0-9]+)(?:[#?].*)?$/)?.[1];
-  if (!extension) return undefined;
-  if (["apng", "avif", "gif", "jpg", "jpeg", "png", "svg", "webp"].includes(extension)) return "image";
-  if (["aac", "flac", "m4a", "mp3", "oga", "ogg", "opus", "wav", "weba"].includes(extension)) return "audio";
-  if (["m4v", "mov", "mp4", "ogv", "webm"].includes(extension)) return "video";
-  return undefined;
-}
-
-export function isAbsoluteArtifactPath(path: string): boolean {
-  return path.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(path) || path.startsWith("\\\\");
-}
-
-export function artifactPreviewRoute(path: string): ArtifactPreviewRoute {
-  if (isAbsoluteArtifactPath(path)) return { kind: "local-file" };
-  const mediaKind = artifactMediaKindFromPath(path);
-  if (mediaKind === "image" || mediaKind === "video") return { kind: "workspace-media", mediaKind };
-  return { kind: "workspace-file" };
-}
-
-export function mediaPreviewUnavailableMessage(kind: ArtifactMediaKind): string {
-  if (kind === "image") return "File is not a valid image.";
-  if (kind === "audio") return "Audio playback is not supported by this Electron build or codec.";
-  return "Video playback is not supported by this Electron build or codec.";
-}
-
 export function toolLargeOutputPreviewViewModel(preview: ToolLargeOutputPreview): ToolLargeOutputPreviewViewData {
   return {
     title: "Output",
@@ -510,287 +450,6 @@ export function toolLongformInputPreviewDisplaySummary(preview: ToolLongformInpu
     return preview.items[0]?.path ?? "content";
   }
   return preview.summary;
-}
-
-function toolProgressPreview(input: {
-  toolName: string;
-  input: string;
-  result: string;
-  argumentProgress?: ToolArgumentProgressSnapshot;
-  toolResultDetails?: ToolResultDetails;
-}): ToolProgressPreviewData | undefined {
-  const details = input.toolResultDetails;
-  const argumentProgress = input.argumentProgress;
-  const localDeepResearchPreview = localDeepResearchProgressPreview(details, argumentProgress, input.toolName);
-  if (localDeepResearchPreview) return localDeepResearchPreview;
-  const hasLiveProgress =
-    (argumentProgress?.phase !== undefined && argumentProgress.phase !== "completed") ||
-    details?.stage !== undefined ||
-    details?.elapsedMs !== undefined ||
-    details?.heartbeatCount !== undefined ||
-    details?.progressPercent !== undefined;
-  if (!hasLiveProgress) return undefined;
-
-  const rows: ToolProgressPreviewRow[] = [];
-  const inputChars = argumentProgress?.observedArgumentChars ?? (input.input ? input.input.length : undefined);
-  const outputChars = details?.outputChars;
-  const thinkingChars = details?.thinkingChars;
-  const elapsedMs = details?.elapsedMs ?? argumentProgress?.executionElapsedMs ?? argumentProgress?.argumentElapsedMs;
-  const state = details?.status
-    ? formatCompactTaskState(details.status)
-    : argumentProgress?.phase
-      ? formatCompactTaskState(argumentProgress.phase)
-      : undefined;
-  const updates =
-    details?.heartbeatCount !== undefined
-      ? details.heartbeatCount.toLocaleString()
-      : argumentProgress?.argumentEventCount !== undefined
-        ? argumentProgress.argumentEventCount.toLocaleString()
-        : undefined;
-
-  addProgressRow(rows, "state", "State", state);
-  addProgressRow(rows, "stage", "Stage", details?.stage ? formatCompactTaskState(details.stage) : undefined);
-  addProgressRow(rows, "input", "Input", progressCharsLabel(inputChars));
-  addProgressRow(rows, "output", "Output", progressCharsLabel(outputChars));
-  addProgressRow(rows, "thinking", "Thinking", progressCharsLabel(thinkingChars));
-  addProgressRow(rows, "elapsed", "Elapsed", formatProgressDuration(elapsedMs));
-  addProgressRow(rows, "idle", "Idle", formatProgressDuration(details?.idleElapsedMs));
-  addProgressRow(rows, "idle-timeout", "Idle timeout", formatProgressDuration(details?.idleTimeoutMs));
-  addProgressRow(rows, "timeout-mode", "Timeout", details?.timeoutMode ? formatCompactTaskState(details.timeoutMode) : undefined);
-  addProgressRow(rows, "updates", "Updates", updates);
-  addProgressRow(rows, "progress", "Progress", details?.progressPercent !== undefined ? `${details.progressPercent}%` : undefined);
-  addProgressRow(rows, "waiting-on", "Waiting on", details?.waitingOn ? formatCompactTaskState(details.waitingOn) : undefined);
-  addProgressRow(rows, "approval", "Approval", details?.approvalTitle ?? details?.approvalRequestId);
-  addProgressRow(rows, "target", "Target", details?.targetUrl);
-  if (!rows.length) return undefined;
-
-  return {
-    title: "Progress",
-    summary:
-      [
-        state,
-        details?.stage ? formatCompactTaskState(details.stage) : undefined,
-        formatProgressDuration(details?.elapsedMs ?? argumentProgress?.executionElapsedMs),
-        progressCharsLabel(inputChars),
-        outputChars !== undefined ? `${outputChars.toLocaleString()} output chars` : undefined,
-        thinkingChars !== undefined && thinkingChars > 0 ? `${thinkingChars.toLocaleString()} thinking chars` : undefined,
-      ]
-        .filter(Boolean)
-        .join(" · ") || `${input.toolName} progress`,
-    rows,
-  };
-}
-
-function localDeepResearchProgressPreview(
-  details: ToolResultDetails | undefined,
-  argumentProgress: ToolArgumentProgressSnapshot | undefined,
-  toolName: string,
-): ToolProgressPreviewData | undefined {
-  const status = recordValue(details?.localDeepResearchStatus);
-  if (!status && details?.runtime !== "ambient-local-deep-research") return undefined;
-  const stage = textField(status, ["stage"]) ?? details?.stage;
-  const state = textField(status, ["state"]) ?? details?.status;
-  const message = textField(status, ["activityMessage", "message"]) ?? details?.activityMessage ?? details?.statusMessage;
-  const elapsedMs = maxFiniteNumber(
-    numberField(status, ["elapsedMs"]),
-    details?.elapsedMs,
-    argumentProgress?.executionElapsedMs,
-    argumentProgress?.argumentElapsedMs,
-  );
-  const heartbeatCount = numberField(status, ["heartbeatCount"]) ?? details?.heartbeatCount;
-  const argumentUpdateCount = argumentProgress?.argumentEventCount;
-  const turn = recordValue(status?.turn);
-  const retrieval = recordValue(status?.retrieval);
-  const memory = recordValue(status?.memory);
-  const llamaServer = recordValue(status?.llamaServer);
-  const artifacts = recordValue(status?.artifacts);
-  const error = textField(status, ["error"]);
-  const rows: ToolProgressPreviewRow[] = [];
-
-  const turnValue = localDeepResearchTurnValue(turn);
-  const retrievalValue = localDeepResearchRetrievalValue(retrieval);
-  const memoryPolicy = localDeepResearchMemoryPolicyValue(memory);
-  const serverValue = localDeepResearchServerValue(llamaServer);
-
-  addProgressRow(rows, "state", "State", state ? formatCompactTaskState(state) : undefined);
-  addProgressRow(rows, "stage", "Stage", stage ? formatCompactTaskState(stage) : undefined);
-  addProgressRow(rows, "message", "Status", message);
-  addProgressRow(rows, "turn", "Turn", turnValue);
-  addProgressRow(rows, "retrieval", "Retrieval", retrievalValue);
-  addProgressRow(rows, "provider", "Provider", textField(retrieval, ["providerLabel"]) ?? textField(retrieval, ["providerId"]));
-  addProgressRow(rows, "query", "Query", textField(retrieval, ["query"]));
-  addProgressRow(rows, "target", "Target", textField(retrieval, ["url"]) ?? details?.targetUrl);
-  addProgressRow(rows, "result", "Result", localDeepResearchRetrievalResultValue(retrieval));
-  addProgressRow(rows, "server", "llama.cpp", serverValue);
-  addProgressRow(rows, "rss", "Server RSS", formatBytes(numberField(llamaServer, ["rssBytes"])));
-  addProgressRow(rows, "memory-policy", "Memory policy", memoryPolicy);
-  addProgressRow(rows, "local-models", "Resident models", localDeepResearchResidentModelsValue(memory));
-  addProgressRow(rows, "projected-use", "Projected use", localDeepResearchProjectedUseValue(memory));
-  addProgressRow(rows, "host-free", "Host free", formatBytes(numberField(memory, ["hostFreeMemoryBytes"])));
-  addProgressRow(rows, "swap", "Swap used", formatBytes(numberField(memory, ["swapUsedBytes"])));
-  addProgressRow(rows, "compressed", "Compressed", formatBytes(numberField(memory, ["compressedMemoryBytes"])));
-  addProgressRow(rows, "elapsed", "Elapsed", formatProgressDuration(elapsedMs));
-  addProgressRow(rows, "updates", "Updates", heartbeatCount !== undefined ? heartbeatCount.toLocaleString() : undefined);
-  addProgressRow(
-    rows,
-    "argument-updates",
-    "Argument updates",
-    heartbeatCount === undefined && argumentUpdateCount !== undefined ? argumentUpdateCount.toLocaleString() : undefined,
-  );
-  addProgressRow(rows, "artifacts", "Artifacts", localDeepResearchArtifactValue(artifacts));
-  addProgressRow(rows, "error", "Error", error);
-  if (!rows.length) return undefined;
-
-  return {
-    title: "Progress",
-    summary:
-      [
-        message,
-        turnValue,
-        retrievalValue,
-        memoryPolicy && !/\bwithin\b|\bunlimited\b/i.test(memoryPolicy) ? memoryPolicy : undefined,
-        formatProgressDuration(elapsedMs),
-      ]
-        .filter(Boolean)
-        .join(" · ") || `${toolName} progress`,
-    rows,
-  };
-}
-
-function localDeepResearchTurnValue(turn: Record<string, unknown> | undefined): string | undefined {
-  const current = numberField(turn, ["turn"]);
-  const maxTurns = numberField(turn, ["maxTurns"]);
-  const toolCalls = numberField(turn, ["toolCalls"]);
-  const maxToolCalls = numberField(turn, ["maxToolCalls"]);
-  const turnPart = current !== undefined && maxTurns !== undefined ? `${current}/${maxTurns}` : undefined;
-  const toolPart = toolCalls !== undefined && maxToolCalls !== undefined ? `${toolCalls}/${maxToolCalls} tools` : undefined;
-  return [turnPart, toolPart].filter(Boolean).join(" · ") || undefined;
-}
-
-function localDeepResearchRetrievalValue(retrieval: Record<string, unknown> | undefined): string | undefined {
-  const role = textField(retrieval, ["role"]);
-  const status = textField(retrieval, ["status"]);
-  const repeated = numberField(retrieval, ["repeatedVisitCount"]);
-  const parts = [
-    role ? formatCompactTaskState(role) : undefined,
-    status ? formatCompactTaskState(status) : undefined,
-    repeated !== undefined && repeated > 1 ? `repeat ${repeated}` : undefined,
-  ].filter(Boolean);
-  return parts.length ? parts.join(" · ") : undefined;
-}
-
-function localDeepResearchRetrievalResultValue(retrieval: Record<string, unknown> | undefined): string | undefined {
-  const resultCount = numberField(retrieval, ["resultCount"]);
-  const outputChars = numberField(retrieval, ["outputChars"]);
-  const durationMs = numberField(retrieval, ["durationMs"]);
-  const failureReason = textField(retrieval, ["failureReason"]);
-  if (failureReason) return failureReason;
-  const parts = [
-    resultCount !== undefined ? `${resultCount.toLocaleString()} results` : undefined,
-    outputChars !== undefined ? `${outputChars.toLocaleString()} chars` : undefined,
-    formatProgressDuration(durationMs),
-  ].filter(Boolean);
-  return parts.length ? parts.join(" · ") : undefined;
-}
-
-function localDeepResearchServerValue(server: Record<string, unknown> | undefined): string | undefined {
-  const pid = numberField(server, ["pid"]);
-  const endpoint = textField(server, ["endpointUrl"]);
-  const healthy = booleanField(server, ["healthy"]);
-  const latency = formatProgressDuration(numberField(server, ["healthLatencyMs"]));
-  const health = healthy === undefined ? undefined : healthy ? "healthy" : "unhealthy";
-  const pidPart = pid !== undefined ? `pid ${pid}` : undefined;
-  return [health, latency, pidPart, endpoint].filter(Boolean).join(" · ") || undefined;
-}
-
-function localDeepResearchMemoryPolicyValue(memory: Record<string, unknown> | undefined): string | undefined {
-  const outcome = textField(memory, ["policyOutcome"]);
-  const reason = textField(memory, ["policyReason"]);
-  if (!outcome && !reason) return undefined;
-  return [outcome ? formatCompactTaskState(outcome) : undefined, reason].filter(Boolean).join(" · ");
-}
-
-function localDeepResearchResidentModelsValue(memory: Record<string, unknown> | undefined): string | undefined {
-  const count = numberField(memory, ["activeLocalModelCount"]);
-  const estimated = formatBytes(numberField(memory, ["activeEstimatedResidentMemoryBytes"]));
-  const actual = formatBytes(numberField(memory, ["activeActualResidentMemoryBytes"]));
-  if (count === undefined && !estimated && !actual) return undefined;
-  return [
-    count !== undefined ? count.toLocaleString() : undefined,
-    estimated ? `${estimated} estimated` : undefined,
-    actual ? `${actual} actual` : undefined,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
-
-function localDeepResearchProjectedUseValue(memory: Record<string, unknown> | undefined): string | undefined {
-  const projectedPercent = formatPercent(numberField(memory, ["projectedSystemMemoryUtilization"]));
-  const maxPercent = formatPercent(numberField(memory, ["maxProjectedMemoryUtilization"]));
-  const projectedFree = formatBytes(numberField(memory, ["projectedFreeMemoryBytes"]));
-  const projectedResident = formatBytes(numberField(memory, ["projectedResidentMemoryBytes", "projectedEstimatedResidentMemoryBytes"]));
-  const parts = [
-    projectedPercent ? `${projectedPercent} projected` : undefined,
-    maxPercent ? `${maxPercent} ceiling` : undefined,
-    projectedFree ? `${projectedFree} free` : undefined,
-    projectedResident ? `${projectedResident} resident` : undefined,
-  ].filter(Boolean);
-  return parts.length ? parts.join(" · ") : undefined;
-}
-
-function localDeepResearchArtifactValue(artifacts: Record<string, unknown> | undefined): string | undefined {
-  const markdownPath = textField(artifacts, ["markdownPath"]);
-  const jsonPath = textField(artifacts, ["jsonPath"]);
-  return markdownPath ?? jsonPath;
-}
-
-function addProgressRow(rows: ToolProgressPreviewRow[], key: string, label: string, value: string | undefined): void {
-  if (!value) return;
-  rows.push({ key, label, value });
-}
-
-function maxFiniteNumber(...values: Array<number | undefined>): number | undefined {
-  const finite = values.filter((value): value is number => typeof value === "number" && Number.isFinite(value));
-  return finite.length ? Math.max(...finite) : undefined;
-}
-
-function progressCharsLabel(value: number | undefined): string | undefined {
-  if (value === undefined) return undefined;
-  return `${Math.max(0, Math.round(value)).toLocaleString()} chars`;
-}
-
-function formatProgressDuration(value: number | undefined): string | undefined {
-  if (value === undefined) return undefined;
-  const ms = Math.max(0, Math.round(value));
-  if (ms < 1000) return `${ms} ms`;
-  const totalSeconds = Math.round(ms / 1000);
-  if (totalSeconds < 60) return `${totalSeconds}s`;
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  if (totalMinutes < 60) return seconds ? `${totalMinutes}m ${seconds}s` : `${totalMinutes}m`;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
-}
-
-function formatBytes(value: number | undefined): string | undefined {
-  if (value === undefined || !Number.isFinite(value)) return undefined;
-  const bytes = Math.max(0, value);
-  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
-  let size = bytes;
-  let unitIndex = 0;
-  while (size >= 1024 && unitIndex < units.length - 1) {
-    size /= 1024;
-    unitIndex += 1;
-  }
-  const precision = unitIndex === 0 ? 0 : size >= 10 ? 1 : 2;
-  return `${size.toFixed(precision)} ${units[unitIndex]}`;
-}
-
-function formatPercent(value: number | undefined): string | undefined {
-  if (value === undefined || !Number.isFinite(value)) return undefined;
-  const percent = value <= 1 ? value * 100 : value;
-  return `${Math.round(percent)}%`;
 }
 
 function toolInputPreview(input: string, inputTitle: string, longformInputPreview?: ToolLongformInputPreview, toolName?: string): string {
@@ -1728,276 +1387,4 @@ function toolResultDetailsFromMetadata(metadata: Record<string, unknown> | undef
     ...(messagingRemoteSurfaceActivation !== undefined ? { messagingRemoteSurfaceActivation } : {}),
     ...(localDeepResearchStatus !== undefined ? { localDeepResearchStatus } : {}),
   };
-}
-
-function mediaArtifactPathFromMetadata(metadata: Record<string, unknown> | undefined): string | undefined {
-  const details = recordValue(metadata?.toolResultDetails);
-  return (
-    mediaArtifactResult(recordValue(metadata?.mediaArtifact))?.artifactPath ??
-    mediaArtifactResult(recordValue(details?.mediaArtifact))?.artifactPath ??
-    textField(details, ["audioPath"])
-  );
-}
-
-function managedFileArtifactsFromMetadata(value: unknown): ToolManagedFileArtifactPreviewData[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const artifacts = value.flatMap((item): ToolManagedFileArtifactPreviewData[] => {
-    const record = recordValue(item);
-    if (!record) return [];
-    const workspacePath = pathField(record, ["workspacePath"]);
-    const hostPath = pathField(record, ["hostPath"]);
-    const containerPath = pathField(record, ["containerPath"]);
-    const filename = textField(record, ["filename"]) ?? fileBaseName(workspacePath ?? hostPath ?? containerPath ?? "");
-    const bytes = numberField(record, ["bytes"]);
-    const source = textField(record, ["source"]);
-    const copySkippedReason = textField(record, ["copySkippedReason"]);
-    if (!filename || (!workspacePath && !hostPath && !containerPath)) return [];
-    return [
-      {
-        filename,
-        ...(bytes !== undefined ? { bytes } : {}),
-        ...(source ? { source } : {}),
-        ...(containerPath ? { containerPath } : {}),
-        ...(hostPath ? { hostPath } : {}),
-        ...(workspacePath ? { workspacePath } : {}),
-        ...(copySkippedReason ? { copySkippedReason } : {}),
-      },
-    ];
-  });
-  return artifacts.length ? artifacts : undefined;
-}
-
-function mediaArtifactResult(record: Record<string, unknown> | undefined): MediaArtifactResult | undefined {
-  if (!record) return undefined;
-  const previewEligible = record.inlinePreviewEligible === true || record.renderedInline === true;
-  if (!previewEligible) return undefined;
-  const artifactPath = textField(record, ["artifactPath"]);
-  const mediaKind = textField(record, ["mediaKind"]);
-  const bytes = numberField(record, ["bytes"]);
-  const displayInstruction = textField(record, ["displayInstruction"]);
-  if (!artifactPath || !isMediaArtifactKind(mediaKind) || bytes === undefined || !displayInstruction) return undefined;
-  const mimeType = textField(record, ["mimeType"]);
-  const width = numberField(record, ["width"]);
-  const height = numberField(record, ["height"]);
-  const sourceUrl = textField(record, ["sourceUrl"]);
-  const licenseNote = textField(record, ["licenseNote"]);
-  return {
-    artifactPath,
-    mediaKind,
-    bytes,
-    ...(record.inlinePreviewEligible === true ? { inlinePreviewEligible: true } : {}),
-    ...(record.renderedInline === true ? { renderedInline: true } : {}),
-    displayInstruction,
-    ...(mimeType ? { mimeType } : {}),
-    ...(width !== undefined ? { width } : {}),
-    ...(height !== undefined ? { height } : {}),
-    ...(sourceUrl ? { sourceUrl } : {}),
-    ...(licenseNote ? { licenseNote } : {}),
-  };
-}
-
-function isMediaArtifactKind(value: string | undefined): value is MediaArtifactResult["mediaKind"] {
-  return value === "image" || value === "audio" || value === "video";
-}
-
-function isArtifactWritingTool(toolName: string): boolean {
-  const normalized = toolName.toLowerCase();
-  return normalized === "write" || normalized === "file_write" || normalized === "edit";
-}
-
-function isShellTool(toolName: string): boolean {
-  const normalized = toolName.toLowerCase();
-  return normalized === "bash" || normalized === "shell";
-}
-
-function isAmbientCliTool(toolName: string): boolean {
-  return toolName.toLowerCase() === "ambient_cli";
-}
-
-function isVoiceTool(toolName: string): boolean {
-  return toolName.toLowerCase().startsWith("ambient_voice_");
-}
-
-function isSttTool(toolName: string): boolean {
-  return toolName.toLowerCase().startsWith("ambient_stt_");
-}
-
-const MEDIA_ARTIFACT_EXTENSIONS = "apng|avif|gif|jpe?g|png|svg|webp|aac|flac|m4a|mp3|oga|ogg|opus|wav|weba|m4v|mov|mp4|ogv|webm";
-const MEDIA_ARTIFACT_PATH_PATTERN = `[^\\s"'\\\`<>|]+\\.(?:${MEDIA_ARTIFACT_EXTENSIONS})(?:[?#][^\\s"'\\\`<>|]+)?`;
-const SHELL_MEDIA_ARTIFACT_LINE_PATTERN = new RegExp(
-  `\\b(?:artifact|generated|created|saved|wrote|written|output)\\b[^\\n]*?(?:to|at|:)\\s+(${MEDIA_ARTIFACT_PATH_PATTERN})\\b`,
-  "i",
-);
-const AMBIENT_CLI_EXPLICIT_MEDIA_ARTIFACT_LINE_PATTERN = new RegExp(
-  `\\b(?:artifact|generated|created|saved|wrote|written|output(?:\\s+file)?|(?:image|audio|video|wav|mp3|webm|mp4)\\s+file)\\b[^\\n]*?(?:\\s(?:to|at|as|in)|:|\\t|->)\\s*["']?(${MEDIA_ARTIFACT_PATH_PATTERN})["']?\\b`,
-  "i",
-);
-const AMBIENT_CLI_MEDIA_ARTIFACT_PATH_PATTERN = new RegExp(`(${MEDIA_ARTIFACT_PATH_PATTERN})`, "gi");
-
-function extractShellMediaArtifactPath(result: string): string | undefined {
-  for (const line of result.split(/\r?\n/).reverse()) {
-    const match = SHELL_MEDIA_ARTIFACT_LINE_PATTERN.exec(line);
-    if (match?.[1]) return cleanArtifactPath(match[1]);
-  }
-  return undefined;
-}
-
-function extractAmbientCliMediaArtifactPath(result: string): string | undefined {
-  const jsonPath = extractAmbientCliJsonMediaArtifactPath(result);
-  if (jsonPath) return resolveAmbientCliResultPath(jsonPath, result);
-
-  for (const line of result.split(/\r?\n/).reverse()) {
-    const match = AMBIENT_CLI_EXPLICIT_MEDIA_ARTIFACT_LINE_PATTERN.exec(line);
-    if (match?.[1]) return resolveAmbientCliResultPath(match[1], result);
-  }
-
-  AMBIENT_CLI_MEDIA_ARTIFACT_PATH_PATTERN.lastIndex = 0;
-  const matches = [...result.matchAll(AMBIENT_CLI_MEDIA_ARTIFACT_PATH_PATTERN)]
-    .map((match) => cleanArtifactPath(match[1]))
-    .filter((path): path is string => Boolean(path));
-  const unique = [...new Set(matches)];
-  return unique.length === 1 ? resolveAmbientCliResultPath(unique[0], result) : undefined;
-}
-
-function extractAmbientCliJsonMediaArtifactPath(result: string): string | undefined {
-  for (const parsed of jsonObjectsFromText(result).reverse()) {
-    const path = mediaPathField(parsed);
-    if (path) return path;
-  }
-  return undefined;
-}
-
-function mediaPathField(record: Record<string, unknown>): string | undefined {
-  const pathKeys = [
-    "artifactPath",
-    "artifact_path",
-    "outputPath",
-    "output_path",
-    "audioPath",
-    "audio_path",
-    "imagePath",
-    "image_path",
-    "videoPath",
-    "video_path",
-    "output",
-    "outputFile",
-    "output_file",
-    "path",
-  ];
-  for (const key of pathKeys) {
-    const value = record[key];
-    if (typeof value === "string" && artifactMediaKindFromPath(value)) return value;
-  }
-  return undefined;
-}
-
-function jsonObjectsFromText(text: string): Array<Record<string, unknown>> {
-  const objects: Array<Record<string, unknown>> = [];
-  for (let start = 0; start < text.length; start += 1) {
-    if (text[start] !== "{") continue;
-    let depth = 0;
-    let inString = false;
-    let escaped = false;
-    for (let index = start; index < text.length; index += 1) {
-      const char = text[index];
-      if (inString) {
-        if (escaped) {
-          escaped = false;
-        } else if (char === "\\") {
-          escaped = true;
-        } else if (char === '"') {
-          inString = false;
-        }
-        continue;
-      }
-      if (char === '"') {
-        inString = true;
-        continue;
-      }
-      if (char === "{") depth += 1;
-      if (char === "}") {
-        depth -= 1;
-        if (depth === 0) {
-          try {
-            const parsed = JSON.parse(text.slice(start, index + 1)) as unknown;
-            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-              objects.push(parsed as Record<string, unknown>);
-            }
-          } catch {
-            // Tool output can contain prose and logs around JSON payloads.
-          }
-          start = index;
-          break;
-        }
-      }
-    }
-  }
-  return objects;
-}
-
-function resolveAmbientCliResultPath(path: string, result: string): string | undefined {
-  const cleaned = cleanArtifactPath(path);
-  if (!cleaned) return undefined;
-  if (/^(?:[a-z]+:)?[\\/]/i.test(cleaned) || cleaned.startsWith(".")) return cleaned;
-  const cwd = result.match(/^Cwd:\s+([^\n]+)$/im)?.[1];
-  return cwd ? `${cwd.replace(/\/+$/, "")}/${cleaned}` : cleaned;
-}
-
-function cleanArtifactPath(path: string | undefined): string | undefined {
-  return path
-    ?.trim()
-    .replace(/^["'`]+/, "")
-    .replace(/["'`.,;:]+$/, "");
-}
-
-function normalizeArtifactPath(path: string | undefined, workspacePath: string): string | undefined {
-  const cleaned = cleanArtifactPath(path);
-  if (!cleaned) return undefined;
-  const workspace = workspacePath.replace(/\/+$/, "");
-  if (cleaned === workspace) return ".";
-  const prefix = `${workspace}/`;
-  if (cleaned.startsWith(prefix)) return cleaned.slice(prefix.length);
-  const slashlessWorkspace = workspace.replace(/^\/+/, "");
-  const slashlessPrefix = `${slashlessWorkspace}/`;
-  if (cleaned === slashlessWorkspace) return ".";
-  if (cleaned.startsWith(slashlessPrefix)) return cleaned.slice(slashlessPrefix.length);
-  const embeddedWorkspaceIndex = cleaned.indexOf(prefix);
-  if (embeddedWorkspaceIndex >= 0) return cleaned.slice(embeddedWorkspaceIndex + prefix.length);
-  const embeddedSlashlessWorkspaceIndex = cleaned.indexOf(slashlessPrefix);
-  if (embeddedSlashlessWorkspaceIndex >= 0) return cleaned.slice(embeddedSlashlessWorkspaceIndex + slashlessPrefix.length);
-  return cleaned;
-}
-
-function addArtifactHint(hints: ArtifactPathHints, key: string, path: string): void {
-  const cleaned = cleanArtifactPath(key)?.replace(/^\.\//, "");
-  if (!cleaned || /\s/.test(cleaned)) return;
-  hints.set(cleaned, path);
-  hints.set(`./${cleaned}`, path);
-}
-
-function fileBaseName(path: string): string {
-  return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
-}
-
-function languageFromPath(path: string): string | undefined {
-  const extension = path.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1];
-  if (!extension) return undefined;
-  const languages: Record<string, string> = {
-    css: "css",
-    html: "html",
-    htm: "html",
-    js: "javascript",
-    jsx: "jsx",
-    json: "json",
-    md: "markdown",
-    mjs: "javascript",
-    py: "python",
-    sh: "shell",
-    ts: "typescript",
-    tsx: "tsx",
-    txt: "text",
-    yml: "yaml",
-    yaml: "yaml",
-  };
-  return languages[extension];
 }

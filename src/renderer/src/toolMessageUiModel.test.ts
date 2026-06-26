@@ -9,8 +9,6 @@ import {
   resolveInlineArtifactPath,
   toolLargeOutputPreviewViewModel,
   toolLongformInputPreviewDisplaySummary,
-  toolMessagingConversationDirectorySetupCardViewModel,
-  toolMessagingRemoteSurfaceActivationCardViewModel,
 } from "./toolMessageUiModel";
 
 describe("tool message UI model", () => {
@@ -177,12 +175,9 @@ describe("tool message UI model", () => {
 
   it("uses metadata longform previews when visible input is structurally truncated", () => {
     const parsed = parseToolMessage(
-      [
-        "ambient_capability_builder_apply_repair preparing",
-        "",
-        "Input",
-        '{ "packageName": "ambient-elevenlabs-tts", "files": [',
-      ].join("\n"),
+      ["ambient_capability_builder_apply_repair preparing", "", "Input", '{ "packageName": "ambient-elevenlabs-tts", "files": ['].join(
+        "\n",
+      ),
       "ambient_capability_builder_apply_repair",
       "/workspace",
       {
@@ -222,12 +217,7 @@ describe("tool message UI model", () => {
 
   it("keeps single-file write char counts in the file row only", () => {
     const parsed = parseToolMessage(
-      [
-        "write preparing",
-        "",
-        "Input",
-        '{ "path": "src/generated.ts", "content": "',
-      ].join("\n"),
+      ["write preparing", "", "Input", '{ "path": "src/generated.ts", "content": "'].join("\n"),
       "write",
       "/workspace",
       {
@@ -427,7 +417,11 @@ describe("tool message UI model", () => {
       ]),
     });
     expect(parsed.progressPreview?.summary).not.toContain(`${result.length.toLocaleString()} output chars`);
-    expect(parsed.progressPreview?.rows).not.toContainEqual({ key: "output", label: "Output", value: `${result.length.toLocaleString()} chars` });
+    expect(parsed.progressPreview?.rows).not.toContainEqual({
+      key: "output",
+      label: "Output",
+      value: `${result.length.toLocaleString()} chars`,
+    });
     expect(parsed.longformInputPreview).toBeUndefined();
   });
 
@@ -658,7 +652,9 @@ describe("tool message UI model", () => {
             approvalBoundary: "none-readonly",
             nextTools: [],
             blockers: ["Plugin marketplace and local plugin installs are not currently supported as active install routes."],
-            warnings: ["Do not call ambient_plugin_install_preview, ambient_plugin_install_commit, or ambient_plugin_activate for this request."],
+            warnings: [
+              "Do not call ambient_plugin_install_preview, ambient_plugin_install_commit, or ambient_plugin_activate for this request.",
+            ],
             validationTarget: {
               kind: "route-only",
               description: "Refuse the unsupported plugin install route; do not call plugin install tools.",
@@ -687,7 +683,11 @@ describe("tool message UI model", () => {
         "edit completed",
         "",
         "Input",
-        JSON.stringify({ path: "/workspace/src/app.ts", edits: [{ oldText: "const label = \"old\";", newText: "const label = \"new\";" }] }, null, 2),
+        JSON.stringify(
+          { path: "/workspace/src/app.ts", edits: [{ oldText: 'const label = "old";', newText: 'const label = "new";' }] },
+          null,
+          2,
+        ),
         "",
         "Result",
         "Successfully replaced 1 block(s) in src/app.ts.",
@@ -861,45 +861,49 @@ describe("tool message UI model", () => {
         runtime: "ambient-mcp",
         toolName: "ambient_mcp_tool_call",
         status: "complete",
-        managedFileArtifacts: [{
-          source: "output-path",
-          filename: "csvglow.html",
-          bytes: 1058312,
-          containerPath: "/ambient/mcp-files/csvglow.html",
-          hostPath: "/Users/travis/Library/Application Support/Ambient Desktop/mcp/toolhive/file-exchange/csvglow.html",
-          workspacePath: `${workspacePath}/${workspaceArtifactPath}`,
-        }],
+        managedFileArtifacts: [
+          {
+            source: "output-path",
+            filename: "csvglow.html",
+            bytes: 1058312,
+            containerPath: "/ambient/mcp-files/csvglow.html",
+            hostPath: "/Users/travis/Library/Application Support/Ambient Desktop/mcp/toolhive/file-exchange/csvglow.html",
+            workspacePath: `${workspacePath}/${workspaceArtifactPath}`,
+          },
+        ],
       },
     };
-    const content = [
-      "ambient_mcp_tool_call completed",
-      "",
-      "Result",
-      "MCP tool csvglow-standard-mcp/generate_dashboard completed.",
-    ].join("\n");
+    const content = ["ambient_mcp_tool_call completed", "", "Result", "MCP tool csvglow-standard-mcp/generate_dashboard completed."].join(
+      "\n",
+    );
 
     const parsed = parseToolMessage(content, "ambient_mcp_tool_call", workspacePath, metadata);
 
     expect(parsed.artifactPath).toBe(workspaceArtifactPath);
-    expect(parsed.managedFileArtifacts).toEqual([{
-      source: "output-path",
-      filename: "csvglow.html",
-      bytes: 1058312,
-      containerPath: "/ambient/mcp-files/csvglow.html",
-      hostPath: "/Users/travis/Library/Application Support/Ambient Desktop/mcp/toolhive/file-exchange/csvglow.html",
-      workspacePath: workspaceArtifactPath,
-    }]);
-
-    const hints = collectArtifactPathHints([
+    expect(parsed.managedFileArtifacts).toEqual([
       {
-        id: "managed-mcp-artifact-message",
-        threadId: "thread",
-        role: "tool",
-        content,
-        createdAt: "2026-06-10T00:00:00.000Z",
-        metadata,
+        source: "output-path",
+        filename: "csvglow.html",
+        bytes: 1058312,
+        containerPath: "/ambient/mcp-files/csvglow.html",
+        hostPath: "/Users/travis/Library/Application Support/Ambient Desktop/mcp/toolhive/file-exchange/csvglow.html",
+        workspacePath: workspaceArtifactPath,
       },
-    ], workspacePath);
+    ]);
+
+    const hints = collectArtifactPathHints(
+      [
+        {
+          id: "managed-mcp-artifact-message",
+          threadId: "thread",
+          role: "tool",
+          content,
+          createdAt: "2026-06-10T00:00:00.000Z",
+          metadata,
+        },
+      ],
+      workspacePath,
+    );
     expect(resolveInlineArtifactPath(workspaceArtifactPath, hints, workspacePath)).toBe(workspaceArtifactPath);
     expect(resolveInlineArtifactPath("ambient-csvglow-standard-mcp-csvglow.html", hints, workspacePath)).toBe(workspaceArtifactPath);
   });
@@ -907,17 +911,21 @@ describe("tool message UI model", () => {
   it("resolves absolute workspace paths in inline code as artifact links", () => {
     const workspacePath = "/Users/travis/Documents/ambientCoderArchive";
 
-    expect(resolveInlineArtifactPath("/Users/travis/Documents/ambientCoderArchive/pdf-summaries.html", undefined, workspacePath)).toBe("pdf-summaries.html");
-    expect(resolveInlineArtifactPath("file:///Users/travis/Documents/ambientCoderArchive/reports/summary.html", undefined, workspacePath)).toBe("reports/summary.html");
+    expect(resolveInlineArtifactPath("/Users/travis/Documents/ambientCoderArchive/pdf-summaries.html", undefined, workspacePath)).toBe(
+      "pdf-summaries.html",
+    );
+    expect(
+      resolveInlineArtifactPath("file:///Users/travis/Documents/ambientCoderArchive/reports/summary.html", undefined, workspacePath),
+    ).toBe("reports/summary.html");
     expect(resolveInlineArtifactPath("/Users/travis/Downloads/outside-summary.html", undefined, workspacePath)).toBeUndefined();
   });
 
   it("resolves explicit workspace-relative inline code paths as artifact links", () => {
     const workspacePath = "/Users/travis/Documents/ambientCoderArchive";
 
-    expect(resolveInlineArtifactPath(".ambient/local-deep-research/runs/2026-06-08T04-39-41-114Z-e85bd214d299.md", undefined, workspacePath)).toBe(
-      ".ambient/local-deep-research/runs/2026-06-08T04-39-41-114Z-e85bd214d299.md",
-    );
+    expect(
+      resolveInlineArtifactPath(".ambient/local-deep-research/runs/2026-06-08T04-39-41-114Z-e85bd214d299.md", undefined, workspacePath),
+    ).toBe(".ambient/local-deep-research/runs/2026-06-08T04-39-41-114Z-e85bd214d299.md");
     expect(resolveInlineArtifactPath("reports/summary.html", undefined, workspacePath)).toBe("reports/summary.html");
     expect(resolveInlineArtifactPath("../outside.md", undefined, workspacePath)).toBeUndefined();
     expect(resolveInlineArtifactPath("https://example.com/report.md", undefined, workspacePath)).toBeUndefined();
@@ -992,12 +1000,7 @@ describe("tool message UI model", () => {
   it("normalizes workspace media artifact paths that lost the leading absolute slash", () => {
     const workspacePath = "/Users/example/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread";
     const parsed = parseToolMessage(
-      [
-        "media_download completed",
-        "",
-        "Result",
-        "Generated media artifact: google-2026-06-16T05-18-43-439Z.png",
-      ].join("\n"),
+      ["media_download completed", "", "Result", "Generated media artifact: google-2026-06-16T05-18-43-439Z.png"].join("\n"),
       "media_download",
       workspacePath,
       {
@@ -1063,7 +1066,11 @@ describe("tool message UI model", () => {
         "ambient_cli completed",
         "",
         "Input",
-        JSON.stringify({ packageName: "ambient-neutts", command: "tts", args: ["--text", "The rain in Spain is falling down the plain"] }, null, 2),
+        JSON.stringify(
+          { packageName: "ambient-neutts", command: "tts", args: ["--text", "The rain in Spain is falling down the plain"] },
+          null,
+          2,
+        ),
         "",
         "Result",
         "Live Test Results",
@@ -1095,7 +1102,7 @@ describe("tool message UI model", () => {
         "Duration: 23862ms",
         "Stdout:",
         "Loading NeuTTS...",
-        'Synthesizing: I cant believe this actually worked',
+        "Synthesizing: I cant believe this actually worked",
         '{"status":"ok","output":"neutts-cant-believe.wav","sample_rate":24000,"duration_sec":1.34}',
       ].join("\n"),
       "ambient_cli",
@@ -1119,13 +1126,17 @@ describe("tool message UI model", () => {
         `Cwd: ${workspacePath}`,
         "Duration: 27744ms",
         "Stdout:",
-        JSON.stringify({
-          packageName: "ambient-imagegen",
-          status: "generated",
-          outputPath: `${workspacePath}/.ambient/hosted-images/google-4k.jpg`,
-          metadataPath: `${workspacePath}/.ambient/hosted-images/google-4k.jpg.json`,
-          image: { mimeType: "image/jpeg", bytes: 10371871, width: 5632, height: 3072 },
-        }, null, 2),
+        JSON.stringify(
+          {
+            packageName: "ambient-imagegen",
+            status: "generated",
+            outputPath: `${workspacePath}/.ambient/hosted-images/google-4k.jpg`,
+            metadataPath: `${workspacePath}/.ambient/hosted-images/google-4k.jpg.json`,
+            image: { mimeType: "image/jpeg", bytes: 10371871, width: 5632, height: 3072 },
+          },
+          null,
+          2,
+        ),
       ].join("\n"),
       "ambient_cli",
       workspacePath,
@@ -1137,18 +1148,12 @@ describe("tool message UI model", () => {
   it("repairs stored artifact metadata that lost the leading slash from an absolute workspace path", () => {
     const workspacePath = "/Users/example/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread-1";
     const parsed = parseToolMessage(
-      [
-        "ambient_cli completed",
-        "",
-        "Result",
-        "Ambient CLI completed",
-        "Stdout:",
-        JSON.stringify({ status: "generated" }),
-      ].join("\n"),
+      ["ambient_cli completed", "", "Result", "Ambient CLI completed", "Stdout:", JSON.stringify({ status: "generated" })].join("\n"),
       "ambient_cli",
       workspacePath,
       {
-        artifactPath: "Users/Neo/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread-1/.ambient/hosted-images/google-4k.jpg",
+        artifactPath:
+          "Users/Neo/Documents/ambientCoder-main-icon-tour/.ambient-codex/worktrees/thread-1/.ambient/hosted-images/google-4k.jpg",
       },
     );
 
@@ -1156,7 +1161,7 @@ describe("tool message UI model", () => {
   });
 
   it("recognizes ambient cli audioPath JSON stdout without duplicating absolute workspace paths", () => {
-    const workspacePath = "/Users/example/.ambient-hardening/bases/core-no-secrets-example-2026-05-13/workspace";
+    const workspacePath = "/Users/example/.ambient-hardening/bases/example-no-secrets-2026-05-13/workspace";
     const packageRoot = `${workspacePath}/.ambient/cli-packages/imported/ambient-cartesia-0.1.0`;
     const parsed = parseToolMessage(
       [
@@ -1199,9 +1204,15 @@ describe("tool message UI model", () => {
 
   it("does not treat generic ambient cli output as a generated media artifact", () => {
     const parsed = parseToolMessage(
-      ["ambient_cli completed", "", "Input", JSON.stringify({ packageName: "ambient-json-cli", command: "json-pick" }), "", "Result", "message"].join(
-        "\n",
-      ),
+      [
+        "ambient_cli completed",
+        "",
+        "Input",
+        JSON.stringify({ packageName: "ambient-json-cli", command: "json-pick" }),
+        "",
+        "Result",
+        "message",
+      ].join("\n"),
       "ambient_cli",
       "/workspace",
     );
@@ -1358,392 +1369,6 @@ describe("tool message UI model", () => {
     });
   });
 
-  it("renders voice selection tool messages with concise provider and voice details", () => {
-    const parsed = parseToolMessage(
-      [
-        "Ambient voice settings updated",
-        "Provider: ElevenLabs (ambient-cli:elevenlabs:tool:elevenlabs_tts) -> Piper TTS (ambient-cli:piper:tool:piper_tts)",
-        "Voice: Rachel -> Lessac",
-        "Enabled: true -> true",
-      ].join("\n"),
-      "ambient_voice_select",
-      "/workspace",
-      {
-        toolResultDetails: {
-          previousProviderCapabilityId: "ambient-cli:elevenlabs:tool:elevenlabs_tts",
-          selectedProviderCapabilityId: "ambient-cli:piper:tool:piper_tts",
-          selectedVoiceId: "en_US-lessac-medium",
-        },
-      },
-    );
-
-    expect(parsed.summary).toBe("Ambient voice settings updated");
-    expect(parsed.result).toContain("Provider: ElevenLabs");
-    expect(parsed.voicePreview).toMatchObject({
-      action: "select",
-      previousProvider: "ElevenLabs (ambient-cli:elevenlabs:tool:elevenlabs_tts)",
-      provider: "Piper TTS (ambient-cli:piper:tool:piper_tts)",
-      previousProviderCapabilityId: "ambient-cli:elevenlabs:tool:elevenlabs_tts",
-      providerCapabilityId: "ambient-cli:piper:tool:piper_tts",
-      previousVoice: "Rachel",
-      voice: "Lessac",
-      voiceId: "en_US-lessac-medium",
-    });
-  });
-
-  it("recognizes voice provider test audio artifacts from result metadata", () => {
-    const parsed = parseToolMessage(
-      [
-        "Ambient voice provider test succeeded",
-        "Provider: Piper TTS",
-        "Audio: .ambient/voice/thread/test.wav",
-        "MIME type: audio/wav",
-        "Duration: 430 ms",
-      ].join("\n"),
-      "ambient_voice_test",
-      "/workspace",
-      {
-        toolResultDetails: {
-          testStatus: "succeeded",
-          providerCapabilityId: "ambient-cli:piper:tool:piper_tts",
-          voiceId: "en_US-lessac-medium",
-          audioPath: ".ambient/voice/thread/test.wav",
-          mimeType: "audio/wav",
-          durationMs: 430,
-        },
-      },
-    );
-
-    expect(parsed.summary).toBe("Ambient voice provider test succeeded");
-    expect(parsed.artifactPath).toBe(".ambient/voice/thread/test.wav");
-    expect(artifactMediaKindFromPath(parsed.artifactPath!)).toBe("audio");
-    expect(parsed.voicePreview).toMatchObject({
-      action: "test",
-      provider: "Piper TTS",
-      providerCapabilityId: "ambient-cli:piper:tool:piper_tts",
-      voiceId: "en_US-lessac-medium",
-      audioPath: ".ambient/voice/thread/test.wav",
-      mimeType: "audio/wav",
-      durationMs: 430,
-      testStatus: "succeeded",
-    });
-  });
-
-  it("parses clone status reconcile warnings into structured voice preview fields", () => {
-    const parsed = parseToolMessage(
-      [
-        "Ambient voice clone status",
-        "Provider: Local Voice Provider (ambient-cli:local:tool:local_tts)",
-        "Voice: Demo clone (clone-1)",
-        "Provider status: ready",
-        "Readiness: ready",
-        "Ready for chat selection: false",
-        "Retry status later: false",
-        "Dynamic cache: missing",
-        "Provider dashboard: https://example.test/voices/clone-1",
-        "Provider verification: https://example.test/verify/clone-1",
-        "Local artifacts: .ambient/voice-models/clone-1/model.onnx, .ambient/voice-models/clone-1/config.json",
-        "Missing local artifacts: .ambient/voice-models/clone-1/config.json",
-        "Cloned: true",
-      ].join("\n"),
-      "ambient_voice_clone_status",
-      "/workspace",
-      {
-        toolResultDetails: {
-          status: "complete",
-          providerCapabilityId: "ambient-cli:local:tool:local_tts",
-          voiceId: "clone-1",
-          readiness: "ready",
-          readyForSelection: false,
-          shouldRetryStatus: false,
-          cacheStatus: "missing",
-          dashboardUrl: "https://example.test/voices/clone-1",
-          verificationUrl: "https://example.test/verify/clone-1",
-          localArtifactPaths: [".ambient/voice-models/clone-1/model.onnx", ".ambient/voice-models/clone-1/config.json"],
-          missingLocalArtifactPaths: [".ambient/voice-models/clone-1/config.json"],
-        },
-      },
-    );
-
-    expect(parsed.summary).toBe("Ambient voice clone status");
-    expect(parsed.voicePreview).toMatchObject({
-      action: "clone-status",
-      provider: "Local Voice Provider (ambient-cli:local:tool:local_tts)",
-      voice: "Demo clone (clone-1)",
-      providerCapabilityId: "ambient-cli:local:tool:local_tts",
-      voiceId: "clone-1",
-      readiness: "ready",
-      readyForSelection: false,
-      shouldRetryStatus: false,
-      cacheStatus: "missing",
-      dashboardUrl: "https://example.test/voices/clone-1",
-      verificationUrl: "https://example.test/verify/clone-1",
-      localArtifactPaths: [".ambient/voice-models/clone-1/model.onnx", ".ambient/voice-models/clone-1/config.json"],
-      missingLocalArtifactPaths: [".ambient/voice-models/clone-1/config.json"],
-    });
-  });
-
-  it("renders voice policy update tool messages with concise policy details", () => {
-    const parsed = parseToolMessage(
-      [
-        "Ambient voice policy updated",
-        "Enabled: true -> false",
-        "Autoplay: true -> false",
-        "Mode: assistant-final -> off",
-        "Long reply: summarize -> skip",
-        "Max chars: 1500 -> 600",
-      ].join("\n"),
-      "ambient_voice_policy_update",
-      "/workspace",
-    );
-
-    expect(parsed.summary).toBe("Ambient voice policy updated");
-    expect(parsed.voicePreview).toEqual({
-      action: "policy",
-      enabled: "true -> false",
-      autoplay: "true -> false",
-      mode: "assistant-final -> off",
-      longReply: "summarize -> skip",
-      maxChars: "1500 -> 600",
-    });
-  });
-
-  it("renders no-op voice selection tool messages as already configured", () => {
-    const parsed = parseToolMessage(
-      [
-        "Ambient voice settings already configured",
-        "Provider: Piper TTS (ambient-cli:piper:tool:piper_tts)",
-        "Voice: Amy (en_US-amy-medium)",
-        "Format: wav",
-        "No settings were changed and no approval was required.",
-      ].join("\n"),
-      "ambient_voice_select",
-      "/workspace",
-      {
-        toolResultDetails: {
-          runtime: "ambient-voice",
-          toolName: "ambient_voice_select",
-          status: "no-op",
-          selectedProviderCapabilityId: "ambient-cli:piper:tool:piper_tts",
-          selectedVoiceId: "en_US-amy-medium",
-        },
-      },
-    );
-
-    expect(parsed.summary).toBe("Ambient voice settings already configured");
-    expect(parsed.voicePreview).toMatchObject({
-      action: "select",
-      status: "no-op",
-      noOp: true,
-      provider: "Piper TTS (ambient-cli:piper:tool:piper_tts)",
-      providerCapabilityId: "ambient-cli:piper:tool:piper_tts",
-      voice: "Amy (en_US-amy-medium)",
-      voiceId: "en_US-amy-medium",
-    });
-  });
-
-  it("renders no-op voice policy tool messages as already configured", () => {
-    const parsed = parseToolMessage(
-      [
-        "Ambient voice policy already configured",
-        "Enabled: false",
-        "Autoplay: false",
-        "Mode: assistant-final",
-        "Long reply: summarize",
-        "Max chars: 1500",
-        "No settings were changed and no approval was required.",
-      ].join("\n"),
-      "ambient_voice_policy_update",
-      "/workspace",
-      {
-        toolResultDetails: {
-          runtime: "ambient-voice",
-          toolName: "ambient_voice_policy_update",
-          status: "no-op",
-        },
-      },
-    );
-
-    expect(parsed.summary).toBe("Ambient voice policy already configured");
-    expect(parsed.voicePreview).toEqual({
-      action: "policy",
-      status: "no-op",
-      noOp: true,
-      enabled: "false",
-      autoplay: "false",
-      mode: "assistant-final",
-      longReply: "summarize",
-      maxChars: "1500",
-    });
-  });
-
-  it("renders STT status tool messages with provider, language, and policy details", () => {
-    const parsed = parseToolMessage(
-      [
-        "Ambient STT status",
-        "Enabled: true",
-        "Mode: push-to-talk",
-        "Selected provider: Qwen3-ASR Local (ambient-cli:ambient-qwen3-asr:tool:qwen3_asr_transcribe)",
-        "Spoken language: English",
-        "Auto-send after transcription: true",
-        "Silence before transcribe: 0.8s",
-        "No-speech gate: true at -55 dBFS RMS",
-        "Queue while agent runs: true",
-        "Providers: 1/1 available",
-      ].join("\n"),
-      "ambient_stt_status",
-      "/workspace",
-      {
-        toolResultDetails: {
-          runtime: "ambient-stt",
-          toolName: "ambient_stt_status",
-          status: "complete",
-          providerCount: 1,
-          availableProviderCount: 1,
-          selectedProviderCapabilityId: "ambient-cli:ambient-qwen3-asr:tool:qwen3_asr_transcribe",
-        },
-      },
-    );
-
-    expect(parsed.summary).toBe("Ambient STT status");
-    expect(parsed.sttPreview).toMatchObject({
-      action: "status",
-      status: "complete",
-      provider: "Qwen3-ASR Local (ambient-cli:ambient-qwen3-asr:tool:qwen3_asr_transcribe)",
-      providerCapabilityId: "ambient-cli:ambient-qwen3-asr:tool:qwen3_asr_transcribe",
-      language: "English",
-      enabled: "true",
-      autoSendAfterTranscription: "true",
-      silenceFinalizeSeconds: "0.8s",
-      noSpeechGate: "true at -55 dBFS RMS",
-      queueWhileAgentRuns: "true",
-      providerCount: 1,
-      availableProviderCount: 1,
-    });
-  });
-
-  it("renders STT selection and policy tool messages as concise speech input cards", () => {
-    const selected = parseToolMessage(
-      [
-        "Ambient STT settings updated",
-        "Provider: Other STT (ambient-cli:other:tool:other_stt) -> Qwen3-ASR Local (ambient-cli:ambient-qwen3-asr:tool:qwen3_asr_transcribe)",
-        "Spoken language: French -> Spanish",
-        "Enabled: false -> true",
-      ].join("\n"),
-      "ambient_stt_select",
-      "/workspace",
-      {
-        toolResultDetails: {
-          runtime: "ambient-stt",
-          toolName: "ambient_stt_select",
-          status: "complete",
-          previousProviderCapabilityId: "ambient-cli:other:tool:other_stt",
-          selectedProviderCapabilityId: "ambient-cli:ambient-qwen3-asr:tool:qwen3_asr_transcribe",
-        },
-      },
-    );
-    const policy = parseToolMessage(
-      [
-        "Ambient STT policy already configured",
-        "Enabled: true",
-        "Spoken language: Spanish",
-        "Auto-send after transcription: true",
-        "Silence before transcribe: 0.9s",
-        "No-speech gate: true at -55 dBFS RMS",
-        "No settings were changed and no approval was required.",
-      ].join("\n"),
-      "ambient_stt_policy_update",
-      "/workspace",
-      {
-        toolResultDetails: {
-          runtime: "ambient-stt",
-          toolName: "ambient_stt_policy_update",
-          status: "no-op",
-        },
-      },
-    );
-
-    expect(selected.sttPreview).toMatchObject({
-      action: "select",
-      previousProvider: "Other STT (ambient-cli:other:tool:other_stt)",
-      provider: "Qwen3-ASR Local (ambient-cli:ambient-qwen3-asr:tool:qwen3_asr_transcribe)",
-      previousProviderCapabilityId: "ambient-cli:other:tool:other_stt",
-      providerCapabilityId: "ambient-cli:ambient-qwen3-asr:tool:qwen3_asr_transcribe",
-      previousLanguage: "French",
-      language: "Spanish",
-      enabled: "false -> true",
-    });
-    expect(policy.sttPreview).toMatchObject({
-      action: "policy",
-      status: "no-op",
-      noOp: true,
-      enabled: "true",
-      language: "Spanish",
-      autoSendAfterTranscription: "true",
-      silenceFinalizeSeconds: "0.9s",
-      noSpeechGate: "true at -55 dBFS RMS",
-    });
-  });
-
-  it("renders STT provider test transcript and managed artifacts without raw audio payloads", () => {
-    const parsed = parseToolMessage(
-      [
-        "Ambient STT test succeeded",
-        "Provider: Qwen3-ASR Local",
-        "Status: ready",
-        "Language: English",
-        "Transcript: Ambient speech recognition spike.",
-        "Provider elapsed: 1655 ms",
-        "RMS: -31.3 dBFS",
-        "No-speech threshold: -55 dBFS",
-        "Normalized audio artifact: .ambient/stt/stt-tool-test/utt.wav",
-        "Transcript artifact: .ambient/stt/stt-tool-test/utt.txt",
-        "JSON artifact: .ambient/stt/stt-tool-test/utt.json",
-        "Raw audio bytes were not returned to the agent.",
-      ].join("\n"),
-      "ambient_stt_test",
-      "/workspace",
-      {
-        toolResultDetails: {
-          runtime: "ambient-stt",
-          toolName: "ambient_stt_test",
-          status: "complete",
-          testStatus: "ready",
-          providerCapabilityId: "ambient-cli:ambient-qwen3-asr:tool:qwen3_asr_transcribe",
-          language: "English",
-          transcript: "Ambient speech recognition spike.",
-          audioPath: ".ambient/stt/stt-tool-test/utt.raw.wav",
-          normalizedAudioPath: ".ambient/stt/stt-tool-test/utt.wav",
-          transcriptPath: ".ambient/stt/stt-tool-test/utt.txt",
-          jsonPath: ".ambient/stt/stt-tool-test/utt.json",
-          durationMs: 1655,
-          noSpeechGate: { rmsDbfs: -31.25, thresholdDbfs: -55 },
-        },
-      },
-    );
-
-    expect(parsed.summary).toBe("Ambient STT test succeeded");
-    expect(parsed.artifactPath).toBe(".ambient/stt/stt-tool-test/utt.raw.wav");
-    expect(artifactMediaKindFromPath(parsed.artifactPath!)).toBe("audio");
-    expect(parsed.sttPreview).toMatchObject({
-      action: "test",
-      status: "complete",
-      provider: "Qwen3-ASR Local",
-      providerCapabilityId: "ambient-cli:ambient-qwen3-asr:tool:qwen3_asr_transcribe",
-      language: "English",
-      testStatus: "ready",
-      transcript: "Ambient speech recognition spike.",
-      durationMs: 1655,
-      rmsDbfs: -31.25,
-      noSpeechThresholdDbfs: -55,
-      audioPath: ".ambient/stt/stt-tool-test/utt.raw.wav",
-      normalizedAudioPath: ".ambient/stt/stt-tool-test/utt.wav",
-      transcriptPath: ".ambient/stt/stt-tool-test/utt.txt",
-      jsonPath: ".ambient/stt/stt-tool-test/utt.json",
-    });
-    expect(parsed.sttPreview?.transcript).not.toContain("raw audio");
-  });
-
   it("classifies previewable media artifact paths", () => {
     expect(artifactMediaKindFromPath("screenshots/result.PNG")).toBe("image");
     expect(artifactMediaKindFromPath("audio/out.mp3")).toBe("audio");
@@ -1755,526 +1380,6 @@ describe("tool message UI model", () => {
     expect(mediaPreviewUnavailableMessage("image")).toBe("File is not a valid image.");
     expect(mediaPreviewUnavailableMessage("audio")).toContain("Audio playback");
     expect(mediaPreviewUnavailableMessage("video")).toContain("Video playback");
-  });
-
-  it("parses Telegram session setup cards from tool metadata", () => {
-    const parsed = parseToolMessage(
-      [
-        "Telegram session bootstrap apply",
-        "Apply status: applied",
-        "Needs code: yes",
-      ].join("\n"),
-      "ambient_messaging_telegram_session_apply",
-      "/workspace",
-      {
-        toolResultDetails: {
-          runtime: "ambient-messaging-gateway",
-          toolName: "ambient_messaging_telegram_session_apply",
-          telegramSessionSetup: {
-            kind: "telegram-session-setup",
-            providerId: "telegram-tdlib",
-            profileId: "owner",
-            action: "start_auth",
-            status: "needs_code",
-            title: "Telegram login code needed",
-            summary: "Profile owner is waiting for a Telegram login code.",
-            detail: "Use the secure Desktop input dialog.",
-            missingInputs: [],
-            primaryAction: {
-              id: "submit-code",
-              label: "Enter code",
-              title: "Continue Telegram setup",
-              prompt: "Call ambient_messaging_telegram_session_apply with submit_code.",
-              tone: "primary",
-            },
-            secondaryActions: [
-              {
-                id: "refresh-status",
-                label: "Refresh status",
-                title: "Refresh Telegram setup status",
-                prompt: "Call ambient_messaging_telegram_session_apply with status.",
-                tone: "secondary",
-              },
-            ],
-            safety: {
-              readsProviderMessages: false,
-              sendsProviderMessages: false,
-              createsBinding: false,
-              enablesInboundIngestion: false,
-            },
-          },
-        },
-      },
-    );
-
-    expect(parsed.telegramSessionSetup).toMatchObject({
-      providerId: "telegram-tdlib",
-      profileId: "owner",
-      status: "needs_code",
-      primaryAction: {
-        label: "Enter code",
-        prompt: "Call ambient_messaging_telegram_session_apply with submit_code.",
-      },
-      secondaryActions: [{ label: "Refresh status" }],
-      safety: {
-        readsProviderMessages: false,
-        sendsProviderMessages: false,
-        createsBinding: false,
-        enablesInboundIngestion: false,
-      },
-    });
-  });
-
-  it("parses messaging conversation-directory setup cards from tool metadata", () => {
-    const parsed = parseToolMessage(
-      [
-        "Telegram conversation directory result: applied",
-        "Fetched conversations: 1",
-        "Returned conversations: 1",
-        "Provider raw details can remain text-only.",
-      ].join("\n"),
-      "ambient_messaging_telegram_conversation_directory_apply",
-      "/workspace",
-      {
-        toolResultDetails: {
-          runtime: "ambient-messaging-gateway",
-          toolName: "ambient_messaging_telegram_conversation_directory_apply",
-          messagingConversationDirectorySetup: {
-            kind: "messaging-conversation-directory-setup",
-            providerId: "telegram-tdlib",
-            providerLabel: "Telegram",
-            status: "applied",
-            directoryStatus: "ready",
-            adapterStatus: "available",
-            adapterKind: "live-metadata-only-adapter",
-            previewToolName: "ambient_messaging_telegram_conversation_directory_preview",
-            applyToolName: "ambient_messaging_telegram_conversation_directory_apply",
-            requiresApprovalForApply: true,
-            approvalRecorded: true,
-            canApplyWithReadiness: true,
-            canApplyNow: true,
-            metadataOnlyContractKind: "metadata-only-routing",
-            fetchedConversationCount: 1,
-            returnedConversationCount: 1,
-            blockers: [],
-            warnings: [],
-            nextSteps: ["Use the selected conversation id with a binding preview."],
-            safety: {
-              startsBridge: false,
-              runsProviderCli: false,
-              inspectsProviderDesktop: false,
-              readsProviderMessages: false,
-              readsProviderHistory: false,
-              sendsProviderMessages: false,
-              mutatesBindings: false,
-            },
-            conversations: [
-              {
-                conversationId: "telegram-chat-1",
-                title: "Ops",
-                type: "group",
-                unreadCount: 2,
-                folderIds: [0],
-                updatedAt: "2026-05-11T12:00:00.000Z",
-                lastMessage: "must not be consumed",
-              },
-            ],
-          },
-        },
-      },
-    );
-
-    expect(parsed.messagingConversationDirectorySetup).toMatchObject({
-      providerId: "telegram-tdlib",
-      providerLabel: "Telegram",
-      status: "applied",
-      adapterStatus: "available",
-      adapterKind: "live-metadata-only-adapter",
-      metadataOnlyContractKind: "metadata-only-routing",
-      returnedConversationCount: 1,
-      safety: {
-        runsProviderCli: false,
-        inspectsProviderDesktop: false,
-        readsProviderMessages: false,
-        readsProviderHistory: false,
-      },
-      conversations: [
-        {
-          conversationId: "telegram-chat-1",
-          title: "Ops",
-          unreadCount: 2,
-        },
-      ],
-    });
-  });
-
-  it("parses Remote Ambient Surface activation cards from tool metadata", () => {
-    const parsed = parseToolMessage(
-      [
-        "Remote Ambient Surface activation plan",
-        "Status: route_ready",
-        "Recommended next tool: ambient_messaging_telegram_owner_loop_activation_plan",
-      ].join("\n"),
-      "ambient_messaging_remote_surface_activation_plan",
-      "/workspace",
-      {
-        toolResultDetails: {
-          runtime: "ambient-messaging-gateway",
-          toolName: "ambient_messaging_remote_surface_activation_plan",
-          messagingRemoteSurfaceActivation: {
-            kind: "messaging-remote-surface-activation",
-            intent: "remote_ambient_surface",
-            providerId: "telegram-tdlib",
-            providerLabel: "Telegram",
-            status: "route_ready",
-            title: "Remote Ambient Surface activation",
-            summary: "Route ready for Telegram.",
-            detail: "Product shortcut selected Telegram and delegated to the provider activation plan.",
-            ambientSurface: "projects",
-            currentPhase: {
-              id: "product-provider-route",
-              title: "Choose reviewed provider activation route",
-              status: "complete",
-              approvalRequired: false,
-              nextTool: "ambient_messaging_telegram_owner_loop_activation_plan",
-              blockerCount: 0,
-            },
-            phaseChips: [
-              {
-                id: "product-provider-route",
-                title: "Choose reviewed provider activation route",
-                status: "complete",
-                approvalRequired: false,
-                nextTool: "ambient_messaging_telegram_owner_loop_activation_plan",
-                blockerCount: 0,
-              },
-              {
-                id: "metadata-directory",
-                title: "Read metadata-only conversation directory",
-                status: "ready",
-                approvalRequired: true,
-                nextTool: "ambient_messaging_telegram_conversation_directory_preview",
-                blockerCount: 0,
-              },
-            ],
-            recommendedNextTool: "ambient_messaging_telegram_owner_loop_activation_plan",
-            delegatedRecommendedNextTool: "ambient_messaging_telegram_conversation_directory_preview",
-            activationPlanFirstTool: "ambient_messaging_telegram_owner_loop_activation_plan",
-            repairPrompt: "Run the Telegram owner-loop activation plan next.",
-            repairPrompts: ["Run the Telegram owner-loop activation plan next."],
-            blockedUntilActivationPlan: ["ambient_messaging_gateway_lifecycle_preview"],
-            previewSendSafety: {
-              commandPreviewTool: "ambient_messaging_remote_surface_command_preview",
-              replyPreviewTool: "ambient_messaging_remote_surface_reply_preview",
-              providerSendApplyTool: "ambient_messaging_remote_surface_reply_apply",
-              previewRequiredBeforeProviderSend: true,
-              providerSendRequiresSeparateApproval: true,
-              providerSendReady: false,
-            },
-            safety: {
-              startsBridge: false,
-              listsProviderChats: false,
-              readsProviderMessages: false,
-              readsProviderHistory: false,
-              mutatesBindings: false,
-              startsPolling: false,
-              sendsProviderMessages: false,
-            },
-          },
-        },
-      },
-    );
-
-    expect(parsed.messagingRemoteSurfaceActivation).toMatchObject({
-      providerId: "telegram-tdlib",
-      providerLabel: "Telegram",
-      status: "route_ready",
-      recommendedNextTool: "ambient_messaging_telegram_owner_loop_activation_plan",
-      delegatedRecommendedNextTool: "ambient_messaging_telegram_conversation_directory_preview",
-      activationPlanFirstTool: "ambient_messaging_telegram_owner_loop_activation_plan",
-      currentPhase: {
-        id: "product-provider-route",
-        status: "complete",
-        nextTool: "ambient_messaging_telegram_owner_loop_activation_plan",
-      },
-      phaseChips: [
-        { id: "product-provider-route", status: "complete" },
-        { id: "metadata-directory", status: "ready" },
-      ],
-      previewSendSafety: {
-        previewRequiredBeforeProviderSend: true,
-        providerSendRequiresSeparateApproval: true,
-        providerSendReady: false,
-      },
-      safety: {
-        startsBridge: false,
-        readsProviderMessages: false,
-        sendsProviderMessages: false,
-      },
-    });
-    const view = toolMessagingRemoteSurfaceActivationCardViewModel(parsed.messagingRemoteSurfaceActivation!);
-    expect(view.actions).toHaveLength(2);
-    expect(view.actions[0]).toMatchObject({
-      id: "continue",
-      label: "Continue",
-      tone: "primary",
-    });
-    expect(view.actions[0].prompt).toContain("calling ambient_messaging_telegram_owner_loop_activation_plan");
-    expect(view.actions[0].prompt).toContain("preview tools before apply tools");
-    expect(view.actions[1]).toMatchObject({
-      id: "repair",
-      label: "Repair",
-      tone: "secondary",
-    });
-    expect(view.actions[1].prompt).toContain("Run the Telegram owner-loop activation plan next.");
-  });
-
-  it("builds compact Remote Ambient Surface activation card view data", () => {
-    const parsed = parseToolMessage(
-      "Remote Ambient Surface activation plan",
-      "ambient_messaging_remote_surface_activation_plan",
-      "/workspace",
-      {
-        toolResultDetails: {
-          messagingRemoteSurfaceActivation: {
-            kind: "messaging-remote-surface-activation",
-            intent: "remote_ambient_surface",
-            requestedProvider: "Signal",
-            status: "unsupported_provider",
-            title: "Remote Ambient Surface activation",
-            summary: "No reviewed Remote Ambient Surface route exists for Signal yet.",
-            detail: "Choose Telegram or implement a reviewed provider activation route.",
-            ambientSurface: "projects",
-            currentPhase: {
-              id: "product-provider-route",
-              title: "Choose reviewed provider activation route",
-              status: "blocked",
-              approvalRequired: false,
-              blockerCount: 1,
-            },
-            phaseChips: [
-              {
-                id: "product-provider-route",
-                title: "Choose reviewed provider activation route",
-                status: "blocked",
-                approvalRequired: false,
-                blockerCount: 1,
-              },
-            ],
-            repairPrompts: [
-              "Ask the user to choose Telegram for Remote Ambient Surface activation, or implement a reviewed Signal activation route before using Signal low-level tools.",
-              "Do not fall back to generic Messaging Connector setup for Remote Ambient Surface.",
-              "Keep provider sends behind preview/apply approval.",
-              "This fourth prompt should stay out of the compact card.",
-            ],
-            blockedUntilActivationPlan: [
-              "ambient_messaging_signal_conversation_directory_preview",
-              "ambient_messaging_gateway_lifecycle_apply",
-            ],
-            previewSendSafety: {
-              commandPreviewTool: "ambient_messaging_remote_surface_command_preview",
-              replyPreviewTool: "ambient_messaging_remote_surface_reply_preview",
-              providerSendApplyTool: "ambient_messaging_remote_surface_reply_apply",
-              previewRequiredBeforeProviderSend: true,
-              providerSendRequiresSeparateApproval: true,
-              providerSendReady: false,
-            },
-            safety: {
-              startsBridge: false,
-              listsProviderChats: false,
-              readsProviderMessages: false,
-              readsProviderHistory: false,
-              mutatesBindings: false,
-              startsPolling: false,
-              sendsProviderMessages: false,
-            },
-          },
-        },
-      },
-    );
-
-    const view = toolMessagingRemoteSurfaceActivationCardViewModel(parsed.messagingRemoteSurfaceActivation!);
-    expect(view).toMatchObject({
-      tone: "danger",
-      icon: "attention",
-      title: "Remote Ambient Surface activation",
-      summary: "No reviewed Remote Ambient Surface route exists for Signal yet.",
-      detail: "Choose Telegram or implement a reviewed provider activation route.",
-    });
-    expect(view.rows).toEqual(expect.arrayContaining([
-      { label: "Surface", value: "projects" },
-      { label: "State", value: "Unsupported provider" },
-      { label: "Blocked tools", value: "2 until activation plan" },
-      { label: "Provider send", value: "separate approval required" },
-    ]));
-    expect(view.phaseChips).toEqual([
-      {
-        label: "Route: Blocked",
-        title: "Choose reviewed provider activation route",
-        tone: "danger",
-      },
-    ]);
-    expect(view.notes).toHaveLength(3);
-    expect(view.notes.join("\n")).not.toContain("fourth prompt");
-    expect(view.actions).toHaveLength(2);
-    expect(view.actions[0]).toMatchObject({
-      id: "repair",
-      label: "Use repair",
-      tone: "secondary",
-    });
-    expect(view.actions[0].prompt).toContain("Ask the user to choose Telegram");
-    expect(view.actions[0].prompt).toContain("do not use provider desktop UI, shell, browser automation, or provider CLIs as fallback");
-    expect(view.actions[1]).toMatchObject({
-      id: "provider-onboarding",
-      label: "Plan provider support",
-      tone: "secondary",
-    });
-    expect(view.actions[1].prompt).toContain("Plan future reviewed Remote Ambient Surface provider support for Signal by calling ambient_messaging_remote_surface_provider_support_plan first");
-    expect(view.actions[1].prompt).toContain("Pass provider exactly as Signal and ambientSurface exactly as projects");
-    expect(view.actions[1].prompt).toContain("provider onboarding/planning, not active Remote Ambient Surface activation");
-    expect(view.actions[1].prompt).toContain("ask for approval before implementing");
-    expect(view.actions[1].prompt).toContain("Do not call provider-specific low-level tools");
-    expect(view.actions[1].prompt).toContain("provider message reads");
-    expect(view.actions[1].prompt).toContain("provider sends");
-    expect(view.safetyChips).toEqual([
-      "No bridge start",
-      "No message reads",
-      "No history",
-      "No sends",
-      "No polling start",
-      "Preview before send",
-    ]);
-  });
-
-  it("builds compact directory card view data for dense conversation results", () => {
-    const parsed = parseToolMessage(
-      "Telegram conversation directory result: applied",
-      "ambient_messaging_telegram_conversation_directory_apply",
-      "/workspace",
-      {
-        toolResultDetails: {
-          messagingConversationDirectorySetup: {
-            kind: "messaging-conversation-directory-setup",
-            providerId: "telegram-tdlib",
-            providerLabel: "Telegram",
-            status: "applied",
-            directoryStatus: "ready",
-            adapterStatus: "available",
-            adapterKind: "live-metadata-only-adapter",
-            previewToolName: "ambient_messaging_telegram_conversation_directory_preview",
-            applyToolName: "ambient_messaging_telegram_conversation_directory_apply",
-            requiresApprovalForApply: true,
-            approvalRecorded: true,
-            canApplyWithReadiness: true,
-            canApplyNow: true,
-            metadataOnlyContractKind: "metadata-only-routing",
-            fetchedConversationCount: 12,
-            returnedConversationCount: 12,
-            blockers: [],
-            warnings: [],
-            nextSteps: ["Use the selected conversation id with a binding preview."],
-            safety: {
-              startsBridge: false,
-              runsProviderCli: false,
-              inspectsProviderDesktop: false,
-              readsProviderMessages: false,
-              readsProviderHistory: false,
-              sendsProviderMessages: false,
-              mutatesBindings: false,
-            },
-            conversations: Array.from({ length: 12 }, (_, index) => ({
-              conversationId: `telegram-chat-${index + 1}`,
-              title: `Conversation ${index + 1}`,
-              type: "group",
-              unreadCount: index === 0 ? 4 : 0,
-              folderIds: [0],
-            })),
-          },
-        },
-      },
-    );
-
-    const view = toolMessagingConversationDirectorySetupCardViewModel(parsed.messagingConversationDirectorySetup!);
-    expect(view).toMatchObject({
-      tone: "success",
-      icon: "success",
-      title: "Telegram conversation directory",
-      summary: "12 metadata row(s) available.",
-      noteKind: "next-step",
-    });
-    expect(view.rows).toEqual(expect.arrayContaining([
-      { label: "Counts", value: "12/12 returned" },
-      { label: "Approval", value: "recorded" },
-    ]));
-    expect(view.conversationChips).toHaveLength(9);
-    expect(view.conversationChips[0]).toEqual({ label: "Conversation 1 (4)", title: "telegram-chat-1" });
-    expect(view.conversationChips.at(-1)).toEqual({
-      label: "4 more",
-      title: "4 additional conversation metadata row(s) omitted from this compact card",
-    });
-    expect(view.safetyChips).toEqual([
-      "No message reads",
-      "No history",
-      "No sends",
-      "No provider CLI",
-      "No desktop scrape",
-      "No bindings",
-    ]);
-  });
-
-  it("prioritizes blocked directory card notes and caps long guidance for narrow renderers", () => {
-    const card = {
-      kind: "messaging-conversation-directory-setup" as const,
-      providerId: "signal-cli",
-      providerLabel: "Signal",
-      status: "blocked" as const,
-      directoryStatus: "blocked",
-      adapterStatus: "blocked" as const,
-      adapterKind: "blocked-contract-skeleton" as const,
-      previewToolName: "ambient_messaging_signal_conversation_directory_preview",
-      applyToolName: "ambient_messaging_signal_conversation_directory_apply",
-      requiresApprovalForApply: false,
-      approvalRecorded: false,
-      canApplyWithReadiness: false,
-      canApplyNow: false,
-      metadataOnlyContractKind: "metadata-only-routing" as const,
-      fetchedConversationCount: 0,
-      returnedConversationCount: 0,
-      failureMode: "signal-directory-adapter-not-implemented",
-      failureHint: "Implement and validate the reviewed Signal local-bridge adapter before reading a Signal conversation directory.",
-      blockers: [
-        "Signal provider directory adapter is a blocked skeleton; no reviewed Signal local bridge is installed or enabled.",
-        "Signal directory apply must remain unavailable until safe readiness, session metadata, metadata-only directory, binding lifecycle, inbound normalization, and reply support are implemented.",
-        "Signal Desktop availability is not a supported provider readiness signal.",
-        "This fourth blocker should stay out of the compact card and remain in the full text output.",
-      ],
-      warnings: ["Do not inspect Signal Desktop storage."],
-      nextSteps: ["Implement a reviewed bridge."],
-      safety: {
-        startsBridge: false,
-        runsProviderCli: false,
-        inspectsProviderDesktop: false,
-        readsProviderMessages: false,
-        readsProviderHistory: false,
-        sendsProviderMessages: false,
-        mutatesBindings: false,
-      } as const,
-      conversations: [],
-    };
-
-    const view = toolMessagingConversationDirectorySetupCardViewModel(card);
-    expect(view.tone).toBe("danger");
-    expect(view.icon).toBe("attention");
-    expect(view.noteKind).toBe("blocker");
-    expect(view.detail).toBe("Implement and validate the reviewed Signal local-bridge adapter before reading a Signal conversation directory.");
-    expect(view.notes).toEqual(card.blockers.slice(0, 3));
-    expect(view.notes.join("\n")).not.toContain("fourth blocker");
-    expect(view.conversationChips).toEqual([]);
-    expect(view.rows).toEqual(expect.arrayContaining([
-      { label: "Adapter", value: "blocked / blocked-contract-skeleton" },
-      { label: "Approval", value: "not required" },
-      { label: "Failure", value: "signal-directory-adapter-not-implemented" },
-    ]));
   });
 });
 

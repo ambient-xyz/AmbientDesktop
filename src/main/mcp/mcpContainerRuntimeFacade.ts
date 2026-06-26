@@ -9,6 +9,7 @@ export {
   resolveOciImageForRuntimePlatform,
 } from "../container-runtime/containerRuntimeMcpContract";
 export type {
+  ContainerRuntimeCommandHint,
   ContainerRuntimeImagePullPreferredRuntime,
   ContainerRuntimeImagePullResult,
   ContainerRuntimeProbeResult,

@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ProjectBoardSource } from "../../shared/projectBoardTypes";
 import { validateProposalJsonlRecordArtifact } from "./projectBoardArtifacts";
 import { ProjectStore } from "./projectBoardProjectStoreFacade";
 import type { ProjectBoardSynthesisDraft } from "./projectBoardSynthesis";
@@ -11,6 +12,7 @@ import {
   pauseProjectBoardSynthesisForProjectHost,
   recoverOrphanedProjectBoardSynthesisPauseRequests,
 } from "./projectBoardSynthesisDesktopService";
+import { classifyProjectBoardSourcesWithPi } from "./projectBoardSynthesisDesktopSourceRefresh";
 
 const tempRoots: string[] = [];
 
@@ -83,30 +85,34 @@ describe("projectBoardSynthesisDesktopService", () => {
         },
       ])[0];
       const run = store.createProjectBoardSynthesisRun({ boardId: board.id, model: "ambient-test" });
-      store.recordProjectBoardSynthesisRunProgressiveRecords(run.id, [
-        validateProposalJsonlRecordArtifact({
-          type: "candidate_card",
-          sourceId: "synthesis:test-card",
-          title: "Build deterministic card",
-          description: "Create a narrow deterministic card from the saved progressive record.",
-          candidateStatus: "needs_clarification",
-          priority: 1,
-          phase: "Foundation",
-          labels: ["test"],
-          blockedBy: [],
-          sourceRefs: [{ sourceId: source.id, path: source.path, range: "lines:1-2" }],
-          clarificationQuestions: ["Which deterministic behavior should this card prove?"],
-          acceptanceCriteria: ["The card is created from progressive records."],
-          testPlan: {
-            unit: ["Assert progressive records create a draft card."],
-            integration: [],
-            visual: [],
-            manual: [],
-          },
-        }),
-      ], {
-        summary: "Persisted one deterministic progressive card.",
-      });
+      store.recordProjectBoardSynthesisRunProgressiveRecords(
+        run.id,
+        [
+          validateProposalJsonlRecordArtifact({
+            type: "candidate_card",
+            sourceId: "synthesis:test-card",
+            title: "Build deterministic card",
+            description: "Create a narrow deterministic card from the saved progressive record.",
+            candidateStatus: "needs_clarification",
+            priority: 1,
+            phase: "Foundation",
+            labels: ["test"],
+            blockedBy: [],
+            sourceRefs: [{ sourceId: source.id, path: source.path, range: "lines:1-2" }],
+            clarificationQuestions: ["Which deterministic behavior should this card prove?"],
+            acceptanceCriteria: ["The card is created from progressive records."],
+            testPlan: {
+              unit: ["Assert progressive records create a draft card."],
+              integration: [],
+              visual: [],
+              manual: [],
+            },
+          }),
+        ],
+        {
+          summary: "Persisted one deterministic progressive card.",
+        },
+      );
 
       applyProjectBoardIncrementalSynthesisFromRun({
         boardId: board.id,
@@ -125,20 +131,63 @@ describe("projectBoardSynthesisDesktopService", () => {
       store.close();
     }
   });
+
+  it("keeps current user-classified sources without Ambient/Pi classification", async () => {
+    const { store, host, emitProjectBoardState } = await createHarness();
+    try {
+      const board = store.createProjectBoard({ title: "Classified source board" });
+      const run = store.createProjectBoardSynthesisRun({ boardId: board.id, model: "ambient-test" });
+      const source: ProjectBoardSource = {
+        id: "source-1",
+        boardId: board.id,
+        kind: "functional_spec",
+        sourceKey: "spec:classified",
+        contentHash: "hash-1",
+        changeState: "unchanged",
+        title: "Classified spec",
+        summary: "Already reviewed by the user.",
+        excerpt: "No provider classification is needed.",
+        classifiedBy: "user",
+        authorityRole: "primary",
+        includeInSynthesis: true,
+        relevance: 100,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      const classified = await classifyProjectBoardSourcesWithPi(board.id, [source], {
+        model: "ambient-test",
+        runId: run.id,
+        targetStore: store,
+        host,
+      });
+
+      expect(classified).toEqual([source]);
+      expect(store.getProjectBoardSynthesisRun(run.id)?.events.at(-1)?.title).toBe("Source classification already current");
+      expect(emitProjectBoardState).toHaveBeenCalledWith(store, host);
+    } finally {
+      store.close();
+    }
+  });
 });
 
-async function createHarness(): Promise<{ store: ProjectStore; host: { store: ProjectStore } }> {
+async function createHarness(): Promise<{
+  store: ProjectStore;
+  host: { store: ProjectStore };
+  emitProjectBoardState: ReturnType<typeof vi.fn>;
+}> {
   const workspacePath = await mkdtemp(join(tmpdir(), "ambient-board-synthesis-service-"));
   tempRoots.push(workspacePath);
   const store = new ProjectStore();
   store.openWorkspace(workspacePath);
+  const emitProjectBoardState = vi.fn();
   configureProjectBoardSynthesisDesktopService({
     store: () => store,
-    emitProjectBoardState: vi.fn(),
+    emitProjectBoardState,
     emitProjectStateIfActive: vi.fn(),
     readStateForProjectHostAction: vi.fn(() => ({}) as never),
   });
-  return { store, host: { store } };
+  return { store, host: { store }, emitProjectBoardState };
 }
 
 function emptyDraft(): ProjectBoardSynthesisDraft {

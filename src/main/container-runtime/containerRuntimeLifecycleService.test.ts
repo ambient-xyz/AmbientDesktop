@@ -307,7 +307,15 @@ describe("container runtime lifecycle service", () => {
     expect(preview.commands).toEqual([
       {
         exe: "podman",
-        candidateExecutables: ["/usr/bin/podman", "/usr/local/bin/podman"],
+        candidateExecutables: [
+          "/usr/bin/podman",
+          "/usr/local/bin/podman",
+          "/home/linuxbrew/.linuxbrew/bin/podman",
+          "/usr/local/sbin/podman",
+          "/usr/sbin/podman",
+          "/sbin/podman",
+          "/snap/bin/podman",
+        ],
         args: ["machine", "start"],
         rationale: "Start the default Podman machine.",
         destructive: false,
@@ -337,7 +345,7 @@ describe("container runtime lifecycle service", () => {
 
     expect(podman.commands.find((command) => command.args.join(" ") === "machine stop")).toMatchObject({
       exe: "podman",
-      candidateExecutables: ["/opt/homebrew/bin/podman", "/usr/local/bin/podman"],
+      candidateExecutables: ["/opt/podman/bin/podman", "/opt/homebrew/bin/podman", "/usr/local/bin/podman"],
     });
     expect(colima.commands[0]).toMatchObject({
       exe: "colima",

@@ -1143,6 +1143,7 @@ export type AmbientMcpContainerRuntimeProbeReason =
   | "desktop-app-not-responding"
   | "machine-stopped"
   | "wsl-unavailable"
+  | "toolhive-runtime-unavailable"
   | "policy-blocked"
   | "unknown-error";
 
@@ -1378,6 +1379,16 @@ export interface AmbientMcpContainerRuntimeHostStatus {
   message: string;
 }
 
+export interface AmbientMcpContainerRuntimeProcessHint {
+  kind: "docker" | "podman" | "colima" | "wsl2";
+  pid?: number;
+  processName: string;
+  executablePath?: string;
+  applicationPath?: string;
+  confidence: "high" | "medium" | "low";
+  reason: string;
+}
+
 export type AmbientMcpDefaultCapabilityStatus =
   | "not_configured"
   | "blocked_runtime"
@@ -1436,6 +1447,7 @@ export interface AmbientMcpContainerRuntimeStatus {
     versionLine?: string;
   };
   hosts: AmbientMcpContainerRuntimeHostStatus[];
+  processHints?: AmbientMcpContainerRuntimeProcessHint[];
   setup: AmbientMcpContainerRuntimeSetupState;
   postInstallQueue: Array<{
     kind: "default-capability";

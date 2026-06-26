@@ -25,7 +25,7 @@ export async function readDesktopReleaseGateFacts(repoRoot) {
   const policy = JSON.parse(await readFile(join(repoRoot, "build", "release-hardening-policy.json"), "utf8"));
   const mainEntitlementsXml = await readFile(join(repoRoot, "build", "entitlements.mac.plist"), "utf8");
   const inheritEntitlementsXml = await readFile(join(repoRoot, "build", "entitlements.mac.inherit.plist"), "utf8");
-  const updateServiceSource = await readFile(join(repoRoot, "src", "main", "updateService.ts"), "utf8");
+  const updateServiceSource = await readFile(join(repoRoot, "src", "main", "desktop-shell", "updateService.ts"), "utf8");
   const publishScriptSource = await readFile(join(repoRoot, "scripts", "publish-desktop-update.mjs"), "utf8");
   const policyDocument = await readFile(join(repoRoot, "docs", "release-hardening-policy.md"), "utf8");
   const uiModelCollectorSource = await readFile(join(repoRoot, "scripts", "ui-model", "collect-ui-model.mjs"), "utf8");

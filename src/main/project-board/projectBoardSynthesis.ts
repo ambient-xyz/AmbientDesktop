@@ -3,18 +3,15 @@ import type {
   ProjectBoardCardClarificationDecision,
   ProjectBoardCardClarificationSuggestion,
   ProjectBoardCardTestPlan,
-  ProjectBoardAddCardsObjectiveProvenance,
   ProjectBoardCharterProjectSummary,
   ProjectBoardGitSyncStatus,
   ProjectBoardPmReviewGitState,
   ProjectBoardPmReviewReadiness,
   ProjectBoardPmReviewReport,
   ProjectBoardPmReviewSourceConfidence,
-  ProjectBoardSourceAuthorityRole,
-  ProjectBoardSourceChangeState,
   ProjectBoardSourceKind,
   ProjectBoardSynthesisProposal,
-  ProjectBoardUiMockRole
+  ProjectBoardUiMockRole,
 } from "../../shared/projectBoardTypes";
 import {
   buildProjectBoardPlanningContract,
@@ -22,10 +19,7 @@ import {
   projectBoardScopeContractFromTexts,
   type ProjectBoardPlanningProfileName,
 } from "./projectBoardPlanningContract";
-import {
-  projectBoardPlanDisplayTitle,
-  projectBoardPlanGoalFromText,
-} from "../../shared/projectBoardPlanIdentity";
+import { projectBoardPlanDisplayTitle, projectBoardPlanGoalFromText } from "../../shared/projectBoardPlanIdentity";
 import {
   projectBoardClarificationCanonicalKey,
   projectBoardClarificationDecisionId,
@@ -47,119 +41,45 @@ import {
   projectBoardPlannerSynthesisCardPromptExample,
   projectBoardPlannerSynthesisClarificationPromptRules,
 } from "./projectBoardPlannerPromptContracts";
+import type {
+  ProjectBoardCardTitleQualityCandidate,
+  ProjectBoardCardTitleQualityViolation,
+  ProjectBoardClarificationQuestionCandidate,
+  ProjectBoardDuplicateClarificationQuestionViolation,
+  ProjectBoardPmReviewGitContext,
+  ProjectBoardSettledClarificationDecision,
+  ProjectBoardSettledClarificationReopenViolation,
+  ProjectBoardSynthesisCardInput,
+  ProjectBoardSynthesisDraft,
+  ProjectBoardSynthesisRefinementAnswerSource,
+  ProjectBoardSynthesisRefinementContext,
+  ProjectBoardSynthesisSource,
+} from "./projectBoardSynthesisContracts";
+import {
+  normalizeProjectBoardUiMockRole,
+  projectBoardCardIsUxMockGate,
+  projectBoardSynthesisDraftWithCanonicalUxMockDependencies,
+  projectBoardSynthesisDraftWithUxMockGate,
+  projectBoardUiSurfacePattern,
+  UX_MOCK_GATE_LABEL,
+  UX_MOCK_GATE_SOURCE_ID,
+} from "./projectBoardSynthesisUxMockGate";
 
-export interface ProjectBoardSynthesisSource {
-  id?: string;
-  kind: ProjectBoardSourceKind;
-  sourceKey?: string;
-  contentHash?: string;
-  title: string;
-  summary: string;
-  excerpt?: string;
-  path?: string;
-  threadId?: string;
-  artifactId?: string;
-  messageId?: string;
-  changeState?: ProjectBoardSourceChangeState;
-  classificationConfidence?: number;
-  authorityRole?: ProjectBoardSourceAuthorityRole;
-  includeInSynthesis?: boolean;
-  relevance: number;
-}
-
-export interface ProjectBoardPmReviewGitContext {
-  mode: ProjectBoardPmReviewGitState;
-  isGitRepository: boolean;
-  hasRemote: boolean;
-  branch?: string;
-  upstream?: string;
-  ahead?: number;
-  behind?: number;
-  dirtyBoardFileCount?: number;
-  dirtyBoardFiles?: string[];
-  projectionValid?: boolean;
-  projectionDifferenceCount?: number;
-  lastBoardCommit?: { shortHash: string; subject: string; committedAt: string };
-  message?: string;
-}
-
-export interface ProjectBoardSynthesisCardInput {
-  sourceId: string;
-  title: string;
-  description: string;
-  candidateStatus: ProjectBoardCardCandidateStatus;
-  priority?: number;
-  phase?: string;
-  labels: string[];
-  blockedBy: string[];
-  acceptanceCriteria: string[];
-  testPlan: ProjectBoardCardTestPlan;
-  sourceRefs: string[];
-  clarificationQuestions?: string[];
-  clarificationSuggestions?: ProjectBoardCardClarificationSuggestion[];
-  clarificationDecisions?: ProjectBoardCardClarificationDecision[];
-  objectiveProvenance?: ProjectBoardAddCardsObjectiveProvenance;
-  uiMockRole?: ProjectBoardUiMockRole;
-  requiresUiMockApproval?: boolean;
-}
-
-export interface ProjectBoardSynthesisDraft {
-  summary: string;
-  goal: string;
-  currentState: string;
-  targetUser: string;
-  qualityBar: string;
-  assumptions: string[];
-  questions: string[];
-  sourceNotes: string[];
-  cards: ProjectBoardSynthesisCardInput[];
-}
-
-export type ProjectBoardSynthesisRefinementAnswerSource =
-  | "charter"
-  | "pm_review"
-  | "card_clarification"
-  | "source_scope"
-  | "manual";
-
-export interface ProjectBoardSynthesisRefinementAnswer {
-  question: string;
-  answer: string;
-  source?: ProjectBoardSynthesisRefinementAnswerSource;
-  cardId?: string;
-  cardTitle?: string;
-}
-
-export interface ProjectBoardSettledClarificationDecision {
-  id: string;
-  canonicalKey: string;
-  question: string;
-  answer: string;
-  source: ProjectBoardSynthesisRefinementAnswerSource;
-  cardId?: string;
-  cardTitle?: string;
-}
-
-export interface ProjectBoardClarificationQuestionCandidate {
-  question: string;
-  questionId?: string;
-  location?: string;
-  cardId?: string;
-  cardTitle?: string;
-  sourceId?: string;
-}
-
-export interface ProjectBoardCardTitleQualityCandidate {
-  title: string;
-  location?: string;
-  cardId?: string;
-  sourceId?: string;
-}
-
-export interface ProjectBoardCardTitleQualityViolation extends ProjectBoardCardTitleQualityCandidate {
-  reason: string;
-  guidance: string;
-}
+export type {
+  ProjectBoardCardTitleQualityCandidate,
+  ProjectBoardCardTitleQualityViolation,
+  ProjectBoardClarificationQuestionCandidate,
+  ProjectBoardDuplicateClarificationQuestionViolation,
+  ProjectBoardPmReviewGitContext,
+  ProjectBoardSettledClarificationDecision,
+  ProjectBoardSettledClarificationReopenViolation,
+  ProjectBoardSynthesisCardInput,
+  ProjectBoardSynthesisDraft,
+  ProjectBoardSynthesisRefinementAnswer,
+  ProjectBoardSynthesisRefinementAnswerSource,
+  ProjectBoardSynthesisRefinementContext,
+  ProjectBoardSynthesisSource,
+} from "./projectBoardSynthesisContracts";
 
 export class ProjectBoardCardTitleQualityValidationError extends Error {
   readonly violations: ProjectBoardCardTitleQualityViolation[];
@@ -226,54 +146,11 @@ function projectBoardCardTitleImplementationDetailReason(title: string): string 
   ) {
     return "a CSS property declaration";
   }
-  if (/\b(?:rgba?|hsla?|color-mix|linear-gradient|var|scale|translate|rotate)\(/i.test(normalized)) return "a CSS value or transform snippet";
+  if (/\b(?:rgba?|hsla?|color-mix|linear-gradient|var|scale|translate|rotate)\(/i.test(normalized))
+    return "a CSS value or transform snippet";
   if (/:\s*[^,;]*\b\d+(?:px|rem|em|vh|vw|ms)\b/i.test(normalized)) return "a CSS measurement or timing token";
   if (/^\s*(?:hover|active|focus|disabled|separator|result|expression|grid):/i.test(normalized)) return "a visual-state or layout fragment";
   return undefined;
-}
-
-export interface ProjectBoardSettledClarificationReopenViolation {
-  question: string;
-  questionId?: string;
-  location?: string;
-  cardId?: string;
-  cardTitle?: string;
-  sourceId?: string;
-  matchedDecisionId: string;
-  matchedCanonicalKey: string;
-  matchedQuestion: string;
-  matchedAnswer: string;
-  matchedSource: ProjectBoardSynthesisRefinementAnswerSource;
-  matchedCardId?: string;
-  matchedCardTitle?: string;
-}
-
-export interface ProjectBoardDuplicateClarificationQuestionViolation {
-  canonicalKey: string;
-  duplicateReason: "question_id" | "canonical_key" | "near_duplicate";
-  firstQuestion: string;
-  duplicateQuestion: string;
-  firstQuestionId?: string;
-  duplicateQuestionId?: string;
-  firstLocation?: string;
-  duplicateLocation?: string;
-  firstCardId?: string;
-  duplicateCardId?: string;
-  firstCardTitle?: string;
-  duplicateCardTitle?: string;
-  firstSourceId?: string;
-  duplicateSourceId?: string;
-}
-
-export interface ProjectBoardSynthesisRefinementContext {
-  previousDraft: ProjectBoardSynthesisDraft;
-  answers: ProjectBoardSynthesisRefinementAnswer[];
-  /** Set by the caller, which knows which flow it built: "additive" for Add Cards
-   * (net-new cards only, duplicate-filtered against the previous draft), "refine" for
-   * a normal board revision. When absent, a narrow legacy text fallback applies. */
-  mode?: "refine" | "additive";
-  settledClarificationDecisions?: ProjectBoardSettledClarificationDecision[];
-  pmReviewReport?: ProjectBoardPmReviewReport;
 }
 
 interface ProjectProfile {
@@ -310,10 +187,15 @@ const PROJECT_BOARD_PM_REVIEW_GIT_STATE = new Set<ProjectBoardPmReviewGitState>(
 
 export function synthesizeProjectBoardDraft(sources: ProjectBoardSynthesisSource[]): ProjectBoardSynthesisDraft {
   const usefulSources = sources
-    .filter((source) => projectBoardSourceIncludedInSynthesis(source) && Boolean(source.title.trim() || source.summary.trim() || source.excerpt?.trim()))
+    .filter(
+      (source) =>
+        projectBoardSourceIncludedInSynthesis(source) && Boolean(source.title.trim() || source.summary.trim() || source.excerpt?.trim()),
+    )
     .sort((left, right) => right.relevance - left.relevance || left.title.localeCompare(right.title));
   const sourceNotes = usefulSources.slice(0, MAX_SOURCE_NOTES).map(formatSourceNote);
-  const corpus = usefulSources.map((source) => `${source.kind}\n${source.title}\n${source.summary}\n${source.excerpt ?? ""}\n${source.path ?? ""}`).join("\n\n");
+  const corpus = usefulSources
+    .map((source) => `${source.kind}\n${source.title}\n${source.summary}\n${source.excerpt ?? ""}\n${source.path ?? ""}`)
+    .join("\n\n");
   const profile = detectProjectProfile(corpus, usefulSources);
 
   if (projectBoardSynthesisShouldUseCompactLocalDraft(usefulSources)) {
@@ -344,10 +226,7 @@ function projectBoardSynthesisShouldUseCompactLocalDraft(sources: ProjectBoardSy
   );
 }
 
-function synthesizeCompactLocalProjectBoard(
-  sources: ProjectBoardSynthesisSource[],
-  sourceNotes: string[],
-): ProjectBoardSynthesisDraft {
+function synthesizeCompactLocalProjectBoard(sources: ProjectBoardSynthesisSource[], sourceNotes: string[]): ProjectBoardSynthesisDraft {
   const firstSource = sources[0];
   const title = projectBoardPlanDisplayTitle({
     artifactTitle: firstSource?.title,
@@ -421,8 +300,11 @@ function synthesizeNonCreativeProjectBoardFallback(
       ? `Included source scan contains ${sources.length} source${sources.length === 1 ? "" : "s"}, but deterministic fallback did not create product cards.`
       : "No included source material is available.",
     targetUser: "Project contributors reviewing source-grounded board planning.",
-    qualityBar: "Only create executable cards from semantic scope extraction or an explicitly saved durable plan; do not decompose product work from keyword fallback.",
-    assumptions: ["Deterministic fallback intentionally does not infer product systems, features, dependencies, or card decomposition from source wording."],
+    qualityBar:
+      "Only create executable cards from semantic scope extraction or an explicitly saved durable plan; do not decompose product work from keyword fallback.",
+    assumptions: [
+      "Deterministic fallback intentionally does not infer product systems, features, dependencies, or card decomposition from source wording.",
+    ],
     questions: [],
     sourceNotes,
     cards: [],
@@ -439,12 +321,15 @@ export function buildProjectBoardSynthesisPrompt(input: {
   charterProjectSummary?: ProjectBoardCharterProjectSummary;
 }): string {
   const sources = input.sources
-    .filter((source) => projectBoardSourceIncludedInSynthesis(source) && Boolean(source.title.trim() || source.summary.trim() || source.excerpt?.trim()))
+    .filter(
+      (source) =>
+        projectBoardSourceIncludedInSynthesis(source) && Boolean(source.title.trim() || source.summary.trim() || source.excerpt?.trim()),
+    )
     .sort((left, right) => right.relevance - left.relevance || left.title.localeCompare(right.title));
-  const corpus = sources.map((source) => `${source.kind}\n${source.title}\n${source.summary}\n${source.excerpt ?? ""}\n${source.path ?? ""}`).join("\n\n");
-  const inferredProfileName =
-    input.planningProfileName ??
-    (detectProjectProfile(corpus, sources).hasGame ? "gameplay-design" : undefined);
+  const corpus = sources
+    .map((source) => `${source.kind}\n${source.title}\n${source.summary}\n${source.excerpt ?? ""}\n${source.path ?? ""}`)
+    .join("\n\n");
+  const inferredProfileName = input.planningProfileName ?? (detectProjectProfile(corpus, sources).hasGame ? "gameplay-design" : undefined);
   const contract = buildProjectBoardPlanningContract({
     operation: input.refinement && isAdditiveProjectBoardRefinement(input.refinement) ? "source_elaboration" : "board_synthesis",
     projectName: input.projectName,
@@ -712,14 +597,19 @@ export function buildProjectBoardPmReviewReportPrompt(input: {
   gitContext?: ProjectBoardPmReviewGitContext;
 }): string {
   const sources = input.sources
-    .filter((source) => projectBoardSourceIncludedInSynthesis(source) && Boolean(source.title.trim() || source.summary.trim() || source.excerpt?.trim()))
+    .filter(
+      (source) =>
+        projectBoardSourceIncludedInSynthesis(source) && Boolean(source.title.trim() || source.summary.trim() || source.excerpt?.trim()),
+    )
     .sort((left, right) => right.relevance - left.relevance || left.title.localeCompare(right.title));
   const sourceConfidenceInput = projectBoardPmReviewSourceConfidenceInput(input.sources);
   const contract = buildProjectBoardPlanningContract({
     operation: "charter_review",
     projectName: input.projectName,
     profileName: detectProjectProfile(
-      sources.map((source) => `${source.kind}\n${source.title}\n${source.summary}\n${source.excerpt ?? ""}\n${source.path ?? ""}`).join("\n\n"),
+      sources
+        .map((source) => `${source.kind}\n${source.title}\n${source.summary}\n${source.excerpt ?? ""}\n${source.path ?? ""}`)
+        .join("\n\n"),
       sources,
     ).hasGame
       ? "gameplay-design"
@@ -734,15 +624,17 @@ export function buildProjectBoardPmReviewReportPrompt(input: {
     },
     scopeContract: projectBoardScopeContractFromTexts(projectBoardScopeContractTexts({ sources, refinement: input.refinement })),
   });
-  const sourceLines = sources.slice(0, 40).map((source, index) =>
-    [
-      "",
-      `--- SOURCE ${index + 1}: ${source.path || source.title} (${source.kind}, relevance ${source.relevance}) ---`,
-      `Title: ${source.title}`,
-      `Summary: ${source.summary}`,
-      source.excerpt?.trim() ? `Excerpt:\n${source.excerpt.trim()}` : "",
-    ].join("\n"),
-  );
+  const sourceLines = sources
+    .slice(0, 40)
+    .map((source, index) =>
+      [
+        "",
+        `--- SOURCE ${index + 1}: ${source.path || source.title} (${source.kind}, relevance ${source.relevance}) ---`,
+        `Title: ${source.title}`,
+        `Summary: ${source.summary}`,
+        source.excerpt?.trim() ? `Excerpt:\n${source.excerpt.trim()}` : "",
+      ].join("\n"),
+    );
   const settledAnswers = input.refinement?.answers.map((item, index) => `${index + 1}. Q: ${item.question}\n   A: ${item.answer}`) ?? [];
   const settledDecisionLedgerBlock = projectBoardSettledClarificationDecisionLedgerPromptBlock(input.refinement);
   return [
@@ -830,7 +722,10 @@ function pushSettledClarificationDecision(
 function normalizeSettledClarificationQuestion(question: string): string {
   return question
     .trim()
-    .replace(/^(?:charter kickoff|pm review|add cards objective|add cards source scope|add cards source context|existing board cards to avoid duplicating):\s*/i, "")
+    .replace(
+      /^(?:charter kickoff|pm review|add cards objective|add cards source scope|add cards source context|existing board cards to avoid duplicating):\s*/i,
+      "",
+    )
     .replace(/^card clarification(?:\s+\([^)]+\))?:\s*/i, "")
     .replace(/^q:\s*/i, "")
     .replace(/\s+/g, " ");
@@ -877,7 +772,9 @@ export function projectBoardPmReviewGitContextFromStatus(status: ProjectBoardGit
     dirtyBoardFiles: status.dirtyBoardFiles.slice(0, 20),
     ...(status.branch ? { branch: status.branch } : {}),
     ...(status.upstream ? { upstream: status.upstream } : {}),
-    ...(status.projection ? { projectionValid: status.projection.valid, projectionDifferenceCount: status.projection.differences.length } : {}),
+    ...(status.projection
+      ? { projectionValid: status.projection.valid, projectionDifferenceCount: status.projection.differences.length }
+      : {}),
     ...(status.lastBoardCommit
       ? {
           lastBoardCommit: {
@@ -982,10 +879,7 @@ function fallbackProjectBoardClarificationQuestionsForCandidate(input: {
   if (hasDecisionQuestions) return explicitQuestions;
   if (input.candidateStatus !== "needs_clarification" || explicitQuestions.length > 0) return explicitQuestions;
   const title = input.title.trim() || "this card";
-  const proofCount = Object.values(input.testPlan ?? {}).reduce(
-    (sum, value) => sum + (Array.isArray(value) ? value.length : 0),
-    0,
-  );
+  const proofCount = Object.values(input.testPlan ?? {}).reduce((sum, value) => sum + (Array.isArray(value) ? value.length : 0), 0);
   if ((input.acceptanceCriteria ?? []).length === 0 || proofCount === 0) {
     return [`What acceptance criteria and proof should make "${title}" complete enough to move to Ready To Create?`];
   }
@@ -1042,10 +936,7 @@ export function projectBoardClarificationSuggestionsForCandidate(input: {
   const decisions = projectBoardClarificationDecisionsForCandidate(input);
   const questions = decisions.filter((decision) => decision.state === "open").map((decision) => decision.question);
   return clarificationSuggestionsForQuestions(
-    dedupeClarificationSuggestions([
-      ...(input.clarificationSuggestions ?? []),
-      ...clarificationSuggestionsFromDecisions(decisions),
-    ]),
+    dedupeClarificationSuggestions([...(input.clarificationSuggestions ?? []), ...clarificationSuggestionsFromDecisions(decisions)]),
     questions,
   );
 }
@@ -1056,7 +947,10 @@ export function isAdditiveProjectBoardRefinement(refinement: ProjectBoardSynthes
   // Match only the exact system-authored Add Cards prompt markers — loose phrases like
   // "avoid duplicating" appear in organic user answers and would silently switch the
   // run to additive, where duplicate filtering can drop every refined card.
-  const text = refinement.answers.map((answer) => `${answer.question}\n${answer.answer}`).join("\n").toLowerCase();
+  const text = refinement.answers
+    .map((answer) => `${answer.question}\n${answer.answer}`)
+    .join("\n")
+    .toLowerCase();
   return text.includes("this is an additive add cards operation") || text.includes("existing board cards to avoid duplicating");
 }
 
@@ -1164,16 +1058,23 @@ function normalizeProjectBoardSynthesisCard(value: unknown, index: number): Proj
   assertProjectBoardCardTitleQuality([{ title, sourceId, location: `cards[${index}].title` }], {
     surface: "board_synthesis",
   });
-  const rawCandidateStatus = typeof input.candidateStatus === "string" && PROJECT_BOARD_CARD_CANDIDATE_STATUSES.has(input.candidateStatus as ProjectBoardCardCandidateStatus)
-    ? (input.candidateStatus as ProjectBoardCardCandidateStatus)
-    : "needs_clarification";
+  const rawCandidateStatus =
+    typeof input.candidateStatus === "string" &&
+    PROJECT_BOARD_CARD_CANDIDATE_STATUSES.has(input.candidateStatus as ProjectBoardCardCandidateStatus)
+      ? (input.candidateStatus as ProjectBoardCardCandidateStatus)
+      : "needs_clarification";
   const candidateStatus = isUxMockGate ? "ready_to_create" : rawCandidateStatus;
-  const explicitClarificationQuestions = isUxMockGate ? [] : stringArray(input.clarificationQuestions, `cards[${index}].clarificationQuestions`, 8, 500);
-  const explicitClarificationDecisions = isUxMockGate ? [] : clarificationDecisionsArray(input.clarificationDecisions, `cards[${index}].clarificationDecisions`, 20);
+  const explicitClarificationQuestions = isUxMockGate
+    ? []
+    : stringArray(input.clarificationQuestions, `cards[${index}].clarificationQuestions`, 8, 500);
+  const explicitClarificationDecisions = isUxMockGate
+    ? []
+    : clarificationDecisionsArray(input.clarificationDecisions, `cards[${index}].clarificationDecisions`, 20);
   const uiMockRole: ProjectBoardUiMockRole | undefined = isUxMockGate ? "mock_gate" : rawUiMockRole;
-  const testPlanInput = input.testPlan && typeof input.testPlan === "object" && !Array.isArray(input.testPlan)
-    ? (input.testPlan as Record<string, unknown>)
-    : {};
+  const testPlanInput =
+    input.testPlan && typeof input.testPlan === "object" && !Array.isArray(input.testPlan)
+      ? (input.testPlan as Record<string, unknown>)
+      : {};
   const normalized = {
     sourceId,
     title,
@@ -1195,7 +1096,11 @@ function normalizeProjectBoardSynthesisCard(value: unknown, index: number): Proj
     clarificationSuggestions: clarificationSuggestionsArray(input.clarificationSuggestions, `cards[${index}].clarificationSuggestions`, 8),
     clarificationDecisions: explicitClarificationDecisions,
     uiMockRole,
-    requiresUiMockApproval: isUxMockGate ? false : typeof input.requiresUiMockApproval === "boolean" ? input.requiresUiMockApproval : undefined,
+    requiresUiMockApproval: isUxMockGate
+      ? false
+      : typeof input.requiresUiMockApproval === "boolean"
+        ? input.requiresUiMockApproval
+        : undefined,
   };
   const clarificationDecisions = projectBoardClarificationDecisionsForCandidate(normalized);
   const clarificationQuestions = projectBoardClarificationQuestionsForCandidate({
@@ -1235,7 +1140,9 @@ function synthesizeWebGlGameBoard(
     profile.mentionsArcadeAndInertia
       ? "Should the ship use immediate arcade controls or inertia-based thrust as the authoritative feel?"
       : "",
-    profile.mentionsKeyboardAndTouch ? "Is keyboard-only acceptable for the first board pass, or should touch/gamepad input be in scope now?" : "",
+    profile.mentionsKeyboardAndTouch
+      ? "Is keyboard-only acceptable for the first board pass, or should touch/gamepad input be in scope now?"
+      : "",
     profile.mentionsWavesAndEndless ? "Should the first playable slice use discrete waves or endless spawning?" : "",
     profile.hasTests ? "" : "Which proof command should be authoritative for the first playable game slice?",
   ].filter(Boolean);
@@ -1249,7 +1156,10 @@ function synthesizeWebGlGameBoard(
   return {
     summary: `Synthesized a draft board for a browser spaceship-game project using ${renderStack}.`,
     goal: `Build a playable browser-based ${renderStack} spaceship game through independently executable project-board cards.`,
-    currentState: currentStateSummary(sources, "The project already has enough artifacts to infer a game shell, controls, encounter loop, HUD, and proof path."),
+    currentState: currentStateSummary(
+      sources,
+      "The project already has enough artifacts to infer a game shell, controls, encounter loop, HUD, and proof path.",
+    ),
     targetUser: "A developer or designer iterating on a browser game prototype.",
     qualityBar:
       "Each card should define playable behavior, acceptance criteria, and proof commands or visual/manual checks before ticketization.",
@@ -1314,7 +1224,9 @@ function synthesizeWebGlGameBoard(
         ],
         testPlan: {
           unit: ["Test input-to-motion updates, bounds clamping, and reset behavior."],
-          integration: ["Exercise input events through the game-loop boundary and verify ship state changes without depending on screenshot proof."],
+          integration: [
+            "Exercise input events through the game-loop boundary and verify ship state changes without depending on screenshot proof.",
+          ],
           visual: [],
           manual: ["Confirm controls feel responsive enough for the first playable slice."],
         },
@@ -1365,7 +1277,9 @@ function synthesizeWebGlGameBoard(
         blockedBy: [encounterId],
         sourceRefs: sourceRefs,
         clarificationQuestions: [
-          profile.mentionsWavesAndEndless ? "Should the first playable loop use discrete waves or endless spawning?" : "What HUD metric best proves the first playable loop: score, survival time, health, or another metric?",
+          profile.mentionsWavesAndEndless
+            ? "Should the first playable loop use discrete waves or endless spawning?"
+            : "What HUD metric best proves the first playable loop: score, survival time, health, or another metric?",
         ],
         acceptanceCriteria: [
           "The game has clear start, active, and terminal states.",
@@ -1412,147 +1326,6 @@ function synthesizeWebGlGameBoard(
   };
 }
 
-
-const UX_MOCK_GATE_SOURCE_ID = `${SYNTHESIS_SOURCE_PREFIX}ux-mock-approval`;
-const UX_MOCK_GATE_LABEL = "ux-mock-approval";
-
-function projectBoardSynthesisDraftWithUxMockGate(
-  draft: ProjectBoardSynthesisDraft,
-  profile?: Pick<ProjectProfile, "hasUserInterface" | "hasGame" | "hasWebGl">,
-): ProjectBoardSynthesisDraft {
-  if (draft.cards.length === 0) return draft;
-  const existingMockCard = draft.cards.find(projectBoardCardIsUxMockGate);
-  if (existingMockCard) {
-    return projectBoardSynthesisDraftWithCanonicalUxMockDependencies(draft, existingMockCard.sourceId);
-  }
-  if (!projectBoardDraftNeedsUxMockGate(draft, profile)) return draft;
-
-  const mockCard = projectBoardUxMockGateCard(draft);
-  const gatedCards = projectBoardSynthesisCardsWithUxMockDependencies(draft.cards, mockCard.sourceId);
-  return {
-    ...draft,
-    assumptions: [
-      ...draft.assumptions,
-      "User-facing UI implementation should wait for a reviewable UX mock/spec artifact before downstream cards are ticketized.",
-    ].slice(0, 20),
-    sourceNotes: [
-      ...draft.sourceNotes,
-      "UX mock approval gate: UI-affecting implementation cards depend on synthesis:ux-mock-approval until the mock is reviewed.",
-    ].slice(0, 20),
-    cards: [mockCard, ...gatedCards],
-  };
-}
-
-function projectBoardSynthesisDraftWithCanonicalUxMockDependencies(
-  draft: ProjectBoardSynthesisDraft,
-  mockGateSourceId: string,
-): ProjectBoardSynthesisDraft {
-  return {
-    ...draft,
-    cards: projectBoardSynthesisCardsWithUxMockDependencies(draft.cards, mockGateSourceId),
-  };
-}
-
-function projectBoardSynthesisCardsWithUxMockDependencies(
-  cards: ProjectBoardSynthesisCardInput[],
-  mockGateSourceId: string,
-): ProjectBoardSynthesisCardInput[] {
-  return cards.map((card) => {
-    if (card.sourceId === mockGateSourceId || projectBoardCardIsUxMockGate(card)) return card;
-    if (!projectBoardSynthesisCardRequiresUxMockDependency(card)) return card;
-    return {
-      ...card,
-      blockedBy: [...new Set([mockGateSourceId, ...card.blockedBy])],
-      labels: [...new Set([...card.labels, "ux-mock-gated"])],
-      uiMockRole: "gated_implementation",
-      requiresUiMockApproval: true,
-    };
-  });
-}
-
-function projectBoardSynthesisCardRequiresUxMockDependency(card: ProjectBoardSynthesisCardInput): boolean {
-  return Boolean(card.uiMockRole === "gated_implementation" || card.requiresUiMockApproval || projectBoardSynthesisCardTouchesUi(card));
-}
-
-function projectBoardUxMockGateCard(draft: ProjectBoardSynthesisDraft): ProjectBoardSynthesisCardInput {
-  const sourceRefs = [...new Set(draft.cards.flatMap((card) => card.sourceRefs).filter(Boolean))].slice(0, 8);
-  return {
-    sourceId: UX_MOCK_GATE_SOURCE_ID,
-    title: "Create UX mock for approval",
-    description: [
-      "Create a self-contained HTML mock/spec artifact for the user-facing surface before downstream UI implementation is ticketized.",
-      "The mock should show the intended layout, primary states, interaction affordances, responsive/narrow viewport treatment, and any visual acceptance notes needed for implementation.",
-      "Downstream UI cards should remain blocked until the user approves the mock or provides revision feedback.",
-    ].join(" "),
-    candidateStatus: "ready_to_create",
-    priority: 1,
-    phase: "UX Review",
-    labels: [UX_MOCK_GATE_LABEL, "ux", "html"],
-    blockedBy: [],
-    uiMockRole: "mock_gate",
-    requiresUiMockApproval: false,
-    acceptanceCriteria: [
-      "A self-contained HTML mock/spec artifact exists and can be previewed locally without remote assets.",
-      "The mock covers desktop and narrow viewport layouts for the primary user-facing flow.",
-      "The artifact includes enough visual and interaction detail for downstream implementation cards to follow.",
-      "User approval, rejection, or revision feedback is recorded before UI implementation proceeds.",
-    ],
-    testPlan: {
-      unit: [],
-      integration: ["Open the generated HTML mock locally and verify it renders without external dependencies."],
-      visual: ["Capture desktop and narrow viewport screenshots of the mock for review."],
-      manual: ["User reviews the mock and records approve, reject, or revision feedback."],
-    },
-    sourceRefs,
-    clarificationQuestions: [],
-    clarificationSuggestions: [],
-    clarificationDecisions: [],
-  };
-}
-
-function projectBoardCardIsUxMockGate(card: Pick<ProjectBoardSynthesisCardInput, "sourceId" | "title" | "labels" | "description"> & { uiMockRole?: ProjectBoardUiMockRole }): boolean {
-  if (card.uiMockRole === "mock_gate") return true;
-  const haystack = `${card.sourceId}\n${card.title}\n${card.description}`.toLowerCase();
-  return (
-    card.sourceId === UX_MOCK_GATE_SOURCE_ID ||
-    card.labels.some((label) => label.toLowerCase() === UX_MOCK_GATE_LABEL) ||
-    /\b(ux|ui|user interface)\b.{0,40}\b(mock|prototype|wireframe|approval|review)\b/.test(haystack) ||
-    /\b(mock|prototype|wireframe)\b.{0,40}\b(ux|ui|user interface|approval|review)\b/.test(haystack)
-  );
-}
-
-function normalizeProjectBoardUiMockRole(value: unknown): ProjectBoardUiMockRole | undefined {
-  return value === "mock_gate" || value === "gated_implementation" ? value : undefined;
-}
-
-function projectBoardDraftNeedsUxMockGate(
-  draft: ProjectBoardSynthesisDraft,
-  profile?: Pick<ProjectProfile, "hasUserInterface" | "hasGame" | "hasWebGl">,
-): boolean {
-  if (profile?.hasUserInterface || (profile?.hasGame && profile?.hasWebGl)) return true;
-  return draft.cards.some(projectBoardSynthesisCardTouchesUi) || projectBoardUiSurfacePattern().test(
-    `${draft.goal}\n${draft.summary}\n${draft.currentState}\n${draft.targetUser}\n${draft.sourceNotes.join("\n")}`,
-  );
-}
-
-function projectBoardSynthesisCardTouchesUi(card: ProjectBoardSynthesisCardInput): boolean {
-  const text = [
-    card.title,
-    card.description,
-    card.phase ?? "",
-    ...card.labels,
-    ...card.acceptanceCriteria,
-    ...card.testPlan.integration,
-    ...card.testPlan.visual,
-    ...card.testPlan.manual,
-  ].join("\n");
-  return projectBoardUiSurfacePattern().test(text);
-}
-
-function projectBoardUiSurfacePattern(): RegExp {
-  return /\b(user interface|ui\b|ux\b|frontend|front-end|screen|dashboard|form|modal|layout|responsive|viewport|browser UI|canvas|webgl|pixi\.?js|three\.?js|hud|renderer|render loop|visual editor|landing page|settings page|workflow screen|kanban board|game shell|game loop)\b/i;
-}
-
 function detectProjectProfile(corpus: string, sources: ProjectBoardSynthesisSource[]): ProjectProfile {
   const normalized = corpus.toLowerCase();
   return {
@@ -1562,7 +1335,10 @@ function detectProjectProfile(corpus: string, sources: ProjectBoardSynthesisSour
     hasThree: /\b(three\.?js|threejs)\b/.test(normalized),
     hasPixi: /\b(pixi\.?js|pixijs)\b/.test(normalized),
     hasMatter: /\b(matter\.?js|matterjs)\b/.test(normalized),
-    hasTests: sources.some((source) => source.kind === "test_artifact" || /\b(test|vitest|playwright|jest|smoke)\b/i.test(`${source.summary}\n${source.excerpt ?? ""}`)),
+    hasTests: sources.some(
+      (source) =>
+        source.kind === "test_artifact" || /\b(test|vitest|playwright|jest|smoke)\b/i.test(`${source.summary}\n${source.excerpt ?? ""}`),
+    ),
     mentionsArcadeAndInertia: /\barcade\b/.test(normalized) && /\b(inertia|thrust|momentum)\b/.test(normalized),
     mentionsKeyboardAndTouch: /\bkeyboard\b/.test(normalized) && /\b(touch|mobile|gamepad)\b/.test(normalized),
     mentionsWavesAndEndless: /\b(wave|waves)\b/.test(normalized) && /\bendless\b/.test(normalized),
@@ -1583,7 +1359,11 @@ function currentStateSummary(sources: ProjectBoardSynthesisSource[], fallback: s
 
 function sourceRefsForKinds(sources: ProjectBoardSynthesisSource[], kinds: ProjectBoardSourceKind[]): string[] {
   const wanted = new Set(kinds);
-  return sources.filter((source) => wanted.has(source.kind)).map(sourceRef).filter(Boolean).slice(0, MAX_SOURCE_NOTES);
+  return sources
+    .filter((source) => wanted.has(source.kind))
+    .map(sourceRef)
+    .filter(Boolean)
+    .slice(0, MAX_SOURCE_NOTES);
 }
 
 function sourceRef(source: ProjectBoardSynthesisSource): string {
@@ -1599,13 +1379,7 @@ function formatSourceNote(source: ProjectBoardSynthesisSource): string {
 
 function withSourceBasis(intro: string[], sourceNotes: string[]): string {
   const basis = sourceNotes.slice(0, 4);
-  return [
-    ...intro,
-    basis.length ? "Source basis:" : "",
-    ...basis.map((note) => `- ${note}`),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  return [...intro, basis.length ? "Source basis:" : "", ...basis.map((note) => `- ${note}`)].filter(Boolean).join("\n\n");
 }
 
 function requiredString(value: unknown, label: string): string {
@@ -1636,9 +1410,12 @@ function clarificationSuggestionsArray(value: unknown, label: string, limit: num
       const suggestedAnswer = typeof record.suggestedAnswer === "string" ? record.suggestedAnswer.trim().slice(0, 1500) : "";
       const rationale = typeof record.rationale === "string" ? record.rationale.trim().slice(0, 1000) : "";
       if (!question || !suggestedAnswer) return undefined;
-      const confidence = record.confidence === "high" || record.confidence === "medium" || record.confidence === "low" ? record.confidence : "low";
+      const confidence =
+        record.confidence === "high" || record.confidence === "medium" || record.confidence === "low" ? record.confidence : "low";
       const questionKind =
-        record.questionKind === "expert_default" || record.questionKind === "user_preference" || record.questionKind === "external_constraint"
+        record.questionKind === "expert_default" ||
+        record.questionKind === "user_preference" ||
+        record.questionKind === "external_constraint"
           ? record.questionKind
           : "user_preference";
       return {
@@ -1663,7 +1440,9 @@ function clarificationDecisionsArray(value: unknown, label: string, limit: numbe
       const question = typeof record.question === "string" ? record.question.trim().slice(0, 500) : "";
       if (!question) return undefined;
       const questionKind =
-        record.questionKind === "expert_default" || record.questionKind === "user_preference" || record.questionKind === "external_constraint"
+        record.questionKind === "expert_default" ||
+        record.questionKind === "user_preference" ||
+        record.questionKind === "external_constraint"
           ? record.questionKind
           : undefined;
       const state =
@@ -1671,7 +1450,10 @@ function clarificationDecisionsArray(value: unknown, label: string, limit: numbe
           ? record.state
           : "open";
       const source =
-        record.source === "description" || record.source === "acceptance_criteria" || record.source === "answer_history" || record.source === "card"
+        record.source === "description" ||
+        record.source === "acceptance_criteria" ||
+        record.source === "answer_history" ||
+        record.source === "card"
           ? record.source
           : "card";
       const answer = typeof record.answer === "string" ? record.answer.trim().slice(0, 1500) : "";
@@ -1679,7 +1461,10 @@ function clarificationDecisionsArray(value: unknown, label: string, limit: numbe
       const suggestedAnswer = typeof record.suggestedAnswer === "string" ? record.suggestedAnswer.trim().slice(0, 1500) : "";
       const rationale = typeof record.rationale === "string" ? record.rationale.trim().slice(0, 1000) : "";
       const decision: ProjectBoardCardClarificationDecision = {
-        id: typeof record.id === "string" && record.id.trim() ? record.id.trim().slice(0, 140) : projectBoardClarificationDecisionId(question),
+        id:
+          typeof record.id === "string" && record.id.trim()
+            ? record.id.trim().slice(0, 140)
+            : projectBoardClarificationDecisionId(question),
         question,
         canonicalKey:
           typeof record.canonicalKey === "string" && record.canonicalKey.trim()
@@ -1687,12 +1472,16 @@ function clarificationDecisionsArray(value: unknown, label: string, limit: numbe
             : projectBoardClarificationCanonicalKey(question),
         source,
         state,
-        ...(typeof record.duplicateOf === "string" && record.duplicateOf.trim() ? { duplicateOf: record.duplicateOf.trim().slice(0, 140) } : {}),
+        ...(typeof record.duplicateOf === "string" && record.duplicateOf.trim()
+          ? { duplicateOf: record.duplicateOf.trim().slice(0, 140) }
+          : {}),
         ...(answer ? { answer } : {}),
         ...(answeredAt ? { answeredAt } : {}),
         ...(suggestedAnswer ? { suggestedAnswer } : {}),
         ...(rationale ? { rationale } : {}),
-        ...(record.confidence === "high" || record.confidence === "medium" || record.confidence === "low" ? { confidence: record.confidence } : {}),
+        ...(record.confidence === "high" || record.confidence === "medium" || record.confidence === "low"
+          ? { confidence: record.confidence }
+          : {}),
         safeToAccept: Boolean(record.safeToAccept) && questionKind === "expert_default",
         ...(questionKind ? { questionKind } : {}),
         ...(typeof record.createdAt === "string" && record.createdAt.trim() ? { createdAt: record.createdAt.trim().slice(0, 80) } : {}),
@@ -1723,9 +1512,7 @@ function clarificationSuggestionsFromDecisions(
   });
 }
 
-function dedupeClarificationSuggestions(
-  suggestions: ProjectBoardCardClarificationSuggestion[],
-): ProjectBoardCardClarificationSuggestion[] {
+function dedupeClarificationSuggestions(suggestions: ProjectBoardCardClarificationSuggestion[]): ProjectBoardCardClarificationSuggestion[] {
   const normalized: ProjectBoardCardClarificationSuggestion[] = [];
   for (const suggestion of suggestions) {
     const question = suggestion.question.trim();

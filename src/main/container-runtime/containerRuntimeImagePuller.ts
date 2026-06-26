@@ -1,5 +1,10 @@
 import { execFile } from "node:child_process";
 import { performance } from "node:perf_hooks";
+import {
+  containerRuntimeDockerCommandCandidates,
+  containerRuntimePodmanCommandCandidates,
+  type ContainerRuntimeCommandHint,
+} from "./containerRuntimeCommandDiscovery";
 import type { OciImagePlatform } from "./ociImageResolver";
 
 export type ContainerRuntimeImagePullRuntime = "docker" | "podman";
@@ -37,6 +42,7 @@ export interface PullContainerRuntimeImageInput {
   platform?: NodeJS.Platform | string;
   env?: NodeJS.ProcessEnv;
   timeoutMs?: number;
+  processHints?: ContainerRuntimeCommandHint[];
   commandRunner?: ContainerRuntimeImagePullCommandRunner;
 }
 
@@ -50,7 +56,7 @@ export async function pullOciImageWithContainerRuntime(input: PullContainerRunti
   const attempts: ContainerRuntimeImagePullCommandResult[] = [];
 
   for (const runtime of runtimeOrder(input.preferredRuntime)) {
-    for (const command of commandCandidates(runtime, platform)) {
+    for (const command of commandCandidates(runtime, platform, input.processHints ?? [])) {
       const args = pullArgs(runtime, input.targetPlatform, input.image);
       const result = await runner({ runtime, command, args, env, timeoutMs });
       attempts.push(result);
@@ -75,27 +81,13 @@ function runtimeOrder(preferred?: ContainerRuntimeImagePullPreferredRuntime): Co
   return ["docker", "podman"];
 }
 
-function commandCandidates(runtime: ContainerRuntimeImagePullRuntime, platform: NodeJS.Platform | string): string[] {
-  if (runtime === "docker") return dockerCommandCandidates(platform);
-  return podmanCommandCandidates(platform);
-}
-
-function dockerCommandCandidates(platform: NodeJS.Platform | string): string[] {
-  if (platform === "darwin") return ["docker", "/opt/homebrew/bin/docker", "/usr/local/bin/docker"];
-  if (platform === "win32") {
-    return [
-      "docker.exe",
-      "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
-      "C:\\Program Files\\Docker\\Docker\\resources\\com.docker.cli.exe",
-    ];
-  }
-  return ["docker", "/usr/bin/docker", "/usr/local/bin/docker"];
-}
-
-function podmanCommandCandidates(platform: NodeJS.Platform | string): string[] {
-  if (platform === "darwin") return ["podman", "/opt/podman/bin/podman", "/opt/homebrew/bin/podman", "/usr/local/bin/podman"];
-  if (platform === "win32") return ["podman.exe", "C:\\Program Files\\RedHat\\Podman\\podman.exe"];
-  return ["podman", "/usr/bin/podman", "/usr/local/bin/podman"];
+function commandCandidates(
+  runtime: ContainerRuntimeImagePullRuntime,
+  platform: NodeJS.Platform | string,
+  processHints: ContainerRuntimeCommandHint[],
+): string[] {
+  if (runtime === "docker") return containerRuntimeDockerCommandCandidates(platform, processHints);
+  return containerRuntimePodmanCommandCandidates(platform, processHints);
 }
 
 function pullArgs(runtime: ContainerRuntimeImagePullRuntime, targetPlatform: OciImagePlatform, image: string): string[] {

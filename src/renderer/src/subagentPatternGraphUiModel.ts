@@ -7,7 +7,7 @@ import type {
 } from "../../shared/subagentPatternGraph";
 import { subagentPatternGraphEdgesWithRuntimeState } from "../../shared/subagentPatternGraph";
 import type { SymphonyWorkflowPatternId } from "../../shared/symphonyWorkflowRecipes";
-import type { SubagentParentClusterTone } from "./subagentParentClusterUiModel";
+import type { SubagentParentClusterTone } from "./subagentParentClusterWorkflowTaskUiModel";
 
 export interface SubagentPatternGraphRendererModel {
   schemaVersion: "ambient-subagent-pattern-graph-renderer-v1";
@@ -88,9 +88,7 @@ const VIEWBOX_HEIGHT = 260;
 const NODE_WIDTH = 118;
 const NODE_HEIGHT = 66;
 
-export function subagentPatternGraphRendererModel(
-  snapshot: SubagentPatternGraphSnapshot,
-): SubagentPatternGraphRendererModel {
+export function subagentPatternGraphRendererModel(snapshot: SubagentPatternGraphSnapshot): SubagentPatternGraphRendererModel {
   const positionedNodes = positionNodes(snapshot);
   const nodes = positionedNodes.map((node) => patternGraphNodeModel(node));
   const nodesById = new Map(nodes.map((node) => [node.id, node]));
@@ -116,10 +114,9 @@ function patternGraphNodeModel(node: PositionedPatternGraphNode): SubagentPatter
   const tone = statusTone(node.status, node.approvalState);
   const approvalLabel = node.approvalState !== "none" ? approvalStateLabel(node.approvalState) : undefined;
   const overflowLabel = node.overflowCount ? `${node.overflowCount} grouped` : undefined;
-  const subtitle = [
-    node.patternRole ? titleCase(node.patternRole) : undefined,
-    node.baseRole ? titleCase(node.baseRole) : undefined,
-  ].filter(Boolean).join(" / ");
+  const subtitle = [node.patternRole ? titleCase(node.patternRole) : undefined, node.baseRole ? titleCase(node.baseRole) : undefined]
+    .filter(Boolean)
+    .join(" / ");
   const title = [
     node.label,
     subtitle,
@@ -128,7 +125,9 @@ function patternGraphNodeModel(node: PositionedPatternGraphNode): SubagentPatter
     approvalLabel,
     overflowLabel,
     node.summary,
-  ].filter(Boolean).join(" / ");
+  ]
+    .filter(Boolean)
+    .join(" / ");
   const overflowChildren = (node.overflowChildren ?? []).map((child) => patternGraphOverflowChildModel(child));
   const badges = patternGraphNodeBadges(node, approvalLabel, overflowLabel);
   return {
@@ -168,7 +167,9 @@ function patternGraphOverflowChildModel(child: SubagentPatternGraphOverflowChild
     child.summary,
     `Run ${child.childRunId}`,
     `Thread ${child.childThreadId}`,
-  ].filter(Boolean).join(" / ");
+  ]
+    .filter(Boolean)
+    .join(" / ");
   return {
     childRunId: child.childRunId,
     childThreadId: child.childThreadId,
@@ -237,45 +238,35 @@ function mapReducePositions(nodes: SubagentPatternGraphNode[]): PositionedPatter
   const mappers = nodes.filter((node) => node.patternRole === "mapper" || node.kind === "overflow");
   const reducers = nodes.filter((node) => node.patternRole === "reducer");
   const validators = nodes.filter((node) => node.patternRole === "validator");
-  return [
-    ...stack(mappers, 36, 40),
-    ...stack(reducers, 308, 102),
-    ...stack(validators, 562, 102),
-  ];
+  return [...stack(mappers, 36, 40), ...stack(reducers, 308, 102), ...stack(validators, 562, 102)];
 }
 
 function debatePositions(nodes: SubagentPatternGraphNode[]): PositionedPatternGraphNode[] {
   const debaters = nodes.filter((node) => node.patternRole === "debater");
   const arbiters = nodes.filter((node) => node.patternRole === "arbiter");
-  return [
-    ...stack(debaters, 86, 58),
-    ...stack(arbiters, 500, 102),
-  ];
+  return [...stack(debaters, 86, 58), ...stack(arbiters, 500, 102)];
 }
 
 function ensemblePositions(nodes: SubagentPatternGraphNode[]): PositionedPatternGraphNode[] {
   const proposals = nodes.filter((node) => node.patternRole === "proposer" || node.kind === "overflow");
   const scorers = nodes.filter((node) => node.patternRole === "scorer");
   const synthesizers = nodes.filter((node) => node.patternRole === "synthesizer");
-  return [
-    ...stack(proposals, 38, 42),
-    ...stack(scorers, 306, 82),
-    ...stack(synthesizers, 560, 126),
-  ];
+  return [...stack(proposals, 38, 42), ...stack(scorers, 306, 82), ...stack(synthesizers, 560, 126)];
 }
 
 function selfHealingPositions(nodes: SubagentPatternGraphNode[]): PositionedPatternGraphNode[] {
   return nodes.map((node, index) => {
     const key = node.id.split(":")[0];
-    const position = key === "attempt"
-      ? { x: 78, y: 72 }
-      : key === "verify"
-        ? { x: 308, y: 34 }
-        : key === "repair"
-          ? { x: 498, y: 134 }
-          : key === "checkpoint"
-            ? { x: 300, y: 164 }
-            : { x: 80 + index * 140, y: 102 };
+    const position =
+      key === "attempt"
+        ? { x: 78, y: 72 }
+        : key === "verify"
+          ? { x: 308, y: 34 }
+          : key === "repair"
+            ? { x: 498, y: 134 }
+            : key === "checkpoint"
+              ? { x: 300, y: 164 }
+              : { x: 80 + index * 140, y: 102 };
     return { ...node, ...position };
   });
 }
@@ -321,13 +312,12 @@ function patternGraphSummary(snapshot: SubagentPatternGraphSnapshot): string {
     blocked ? `${blocked} blocked` : undefined,
     completed ? `${completed} complete` : undefined,
     overflow ? `${overflow} grouped` : undefined,
-  ].filter(Boolean).join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
-function statusTone(
-  status: SubagentPatternGraphStatus,
-  approvalState: string = "none",
-): SubagentParentClusterTone {
+function statusTone(status: SubagentPatternGraphStatus, approvalState: string = "none"): SubagentParentClusterTone {
   if (approvalState === "pending") return "warning";
   if (status === "running" || status === "queued" || status === "blocked") return "active";
   if (status === "approval_needed" || status === "partial" || status === "timed_out") return "warning";

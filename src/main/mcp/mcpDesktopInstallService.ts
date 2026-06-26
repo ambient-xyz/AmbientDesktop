@@ -209,6 +209,19 @@ function ambientMcpContainerRuntimeStatus(
       ...(host.version ? { version: host.version } : {}),
       message: host.message,
     })),
+    ...(result.processHints?.length
+      ? {
+          processHints: result.processHints.map((hint) => ({
+            kind: hint.kind,
+            ...(hint.pid ? { pid: hint.pid } : {}),
+            processName: hint.processName,
+            ...(hint.executablePath ? { executablePath: hint.executablePath } : {}),
+            ...(hint.applicationPath ? { applicationPath: hint.applicationPath } : {}),
+            confidence: hint.confidence,
+            reason: hint.reason,
+          })),
+        }
+      : {}),
     setup,
     postInstallQueue: result.postInstallQueue,
     defaultCapabilities,
@@ -496,6 +509,7 @@ async function installMcpDefaultCapabilityForDesktop(
       arch: runtimeProbe.arch,
       preferredContainerRuntime: runtimeProbe.runtime,
       containerRuntimeEnv: await toolHive.containerRuntimeEnv(),
+      containerRuntimeProcessHints: runtimeProbe.processHints,
       onProgress: (progress: McpDefaultCapabilityInstallProgress) => {
         emitMcpDefaultCapabilityInstallProgress(host, {
           capabilityId: input.capabilityId,

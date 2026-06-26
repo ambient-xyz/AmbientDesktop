@@ -16,6 +16,7 @@ import {
 } from "./mcpContainerRuntimeFacade";
 import {
   pullOciImageWithContainerRuntime,
+  type ContainerRuntimeCommandHint,
   type ContainerRuntimeImagePullPreferredRuntime,
   type ContainerRuntimeImagePullResult,
   type PullContainerRuntimeImageInput,
@@ -31,6 +32,7 @@ export interface InstallMcpDefaultCapabilityOptions {
   arch?: NodeJS.Architecture | string;
   preferredContainerRuntime?: ContainerRuntimeImagePullPreferredRuntime;
   containerRuntimeEnv?: NodeJS.ProcessEnv;
+  containerRuntimeProcessHints?: ContainerRuntimeCommandHint[];
   fetchImpl?: typeof fetch;
   imageResolver?: (input: { image: string; platform?: NodeJS.Platform | string; arch?: NodeJS.Architecture | string; fetchImpl?: typeof fetch }) => Promise<OciImageResolution>;
   imagePuller?: (input: PullContainerRuntimeImageInput) => Promise<ContainerRuntimeImagePullResult>;
@@ -109,6 +111,7 @@ export async function installMcpDefaultCapability(
     preferredRuntime: options.preferredContainerRuntime,
     platform: options.platform,
     env: options.containerRuntimeEnv,
+    processHints: options.containerRuntimeProcessHints,
   }).catch((error) => {
     throw new Error(`Default MCP capability image pull failed for ${imageResolution.resolvedImage}: ${errorMessage(error)}`);
   });

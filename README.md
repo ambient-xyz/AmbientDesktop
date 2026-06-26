@@ -45,12 +45,6 @@ pnpm install
 pnpm run dev
 ```
 
-Provider note, 2026-06-16: The currently selected provider may be degraded. Contributors who need provider-dependent local validation should use the Ambient provider with Kimi selected:
-
-```bash
-AMBIENT_PROVIDER=ambient AMBIENT_LIVE_MODEL=<model-id> pnpm run dev
-```
-
 Build packaged artifacts on the target platform:
 
 ```bash

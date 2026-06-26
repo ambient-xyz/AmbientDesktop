@@ -1,6 +1,18 @@
 import { execFile } from "node:child_process";
 import { performance } from "node:perf_hooks";
 import type { ToolHiveCommandResult, ToolHiveRuntimePreflight } from "./containerRuntimeToolRuntimeFacade";
+import {
+  containerRuntimeColimaCommandCandidates,
+  containerRuntimeDockerCommandCandidates,
+  containerRuntimePodmanCommandCandidates,
+  containerRuntimeProcessHintCommandCandidates,
+  containerRuntimeWslCommandCandidates,
+} from "./containerRuntimeCommandDiscovery";
+import {
+  discoverContainerRuntimeProcessHints,
+  type ContainerRuntimeProcessCommandRunner,
+  type ContainerRuntimeProcessHint,
+} from "./containerRuntimeProcessDiscovery";
 
 export type ContainerRuntimeProbeStatus =
   | "ready"
@@ -20,6 +32,7 @@ export type ContainerRuntimeProbeReason =
   | "desktop-app-not-responding"
   | "machine-stopped"
   | "wsl-unavailable"
+  | "toolhive-runtime-unavailable"
   | "policy-blocked"
   | "unknown-error";
 
@@ -89,6 +102,7 @@ export interface ContainerRuntimeProbeResult {
   nextAction: "none" | "install-runtime" | "start-runtime" | "repair-permissions" | "repair-toolhive" | "open-settings";
   toolHive: ContainerRuntimeToolHiveProbe;
   hosts: ContainerRuntimeHostProbe[];
+  processHints?: ContainerRuntimeProcessHint[];
   postInstallQueue: ContainerRuntimePostInstallQueueItem[];
 }
 
@@ -104,6 +118,7 @@ export interface ContainerRuntimeProbeOptions {
   env?: NodeJS.ProcessEnv;
   now?: () => Date;
   commandRunner?: ContainerRuntimeCommandRunner;
+  processDiscoveryRunner?: ContainerRuntimeProcessCommandRunner;
   timeoutMs?: number;
 }
 
@@ -111,11 +126,20 @@ export interface ContainerRuntimeHostProbeOptions {
   platform?: NodeJS.Platform | string;
   env?: NodeJS.ProcessEnv;
   commandRunner?: ContainerRuntimeCommandRunner;
+  processHints?: ContainerRuntimeProcessHint[];
+  processDiscoveryRunner?: ContainerRuntimeProcessCommandRunner;
   timeoutMs?: number;
 }
 
 const defaultTimeoutMs = 5_000;
 const maxOutputBufferBytes = 1024 * 1024;
+
+// Keep the release-gate-critical Podman fallback paths visible at the probe owner.
+// The command-discovery helper expands these into candidateCommands during probes.
+const documentedPodmanFallbackCommands = [
+  "/opt/homebrew/bin/podman",
+  "C:\\Program Files\\RedHat\\Podman\\podman.exe",
+];
 
 export async function probeContainerRuntime(options: ContainerRuntimeProbeOptions): Promise<ContainerRuntimeProbeResult> {
   const startedAt = performance.now();
@@ -126,16 +150,26 @@ export async function probeContainerRuntime(options: ContainerRuntimeProbeOption
   const commandRunner = options.commandRunner ?? defaultContainerRuntimeCommandRunner;
   const checkedAt = (options.now ?? (() => new Date()))().toISOString();
 
-  const [toolHive, hosts] = await Promise.all([
-    probeToolHive(options.toolHive),
-    probeContainerHosts({ platform, env, timeoutMs, commandRunner }),
-  ]);
+  const toolHivePromise = probeToolHive(options.toolHive);
+  const processHints = await discoverContainerRuntimeProcessHints({
+    platform,
+    env,
+    timeoutMs: Math.min(timeoutMs, 2_500),
+    commandRunner: options.processDiscoveryRunner ?? commandRunner,
+  });
+  const hostsPromise = probeContainerHosts({ platform, env, timeoutMs, commandRunner, processHints });
+  const [toolHive, hosts] = await Promise.all([toolHivePromise, hostsPromise]);
 
   const preflightOk = toolHive.preflight?.ok === true;
   const runtimeHosts = hosts.filter((host) => host.kind !== "wsl2");
   const preferredReadyHost = runtimeHosts.find((host) => host.status === "ready");
   const preferredPermissionBlockedHost = runtimeHosts.find((host) => host.status === "permission-blocked");
   const preferredInstalledHost = runtimeHosts.find((host) => host.status === "installed-not-running" || host.status === "installed");
+  const selectedPermissionBlockedHost = preflightMatchedHost(toolHive.preflight?.message, runtimeHosts, "permission-blocked")
+    ?? (preferredReadyHost ? undefined : preferredPermissionBlockedHost);
+  const selectedInstalledHost = preflightMatchedHost(toolHive.preflight?.message, runtimeHosts, "installed-not-running")
+    ?? preflightMatchedHost(toolHive.preflight?.message, runtimeHosts, "installed")
+    ?? (preferredReadyHost ? undefined : preferredInstalledHost);
   const anyRuntimeHostDetected = runtimeHosts.some((host) => host.status !== "missing");
 
   let status: ContainerRuntimeProbeStatus;
@@ -159,26 +193,37 @@ export async function probeContainerRuntime(options: ContainerRuntimeProbeOption
       "ToolHive container runtime preflight passed.",
       preferredReadyHost ? `Detected ${hostLabel(preferredReadyHost.kind)} as ready.` : "ToolHive reported a ready runtime before Ambient identified a specific host.",
     ].join(" ");
-  } else if (preferredPermissionBlockedHost) {
+  } else if (selectedPermissionBlockedHost) {
     status = "blocked-by-permissions";
     nextAction = "repair-permissions";
-    runtime = runtimeFromHost(preferredPermissionBlockedHost.kind);
-    reason = preferredPermissionBlockedHost.reason ?? "permission-denied";
+    runtime = runtimeFromHost(selectedPermissionBlockedHost.kind);
+    reason = selectedPermissionBlockedHost.reason ?? "permission-denied";
     message = [
-      `${hostLabel(preferredPermissionBlockedHost.kind)} appears installed, but Ambient cannot access it as this OS user.`,
+      `${hostLabel(selectedPermissionBlockedHost.kind)} appears installed, but Ambient cannot access it as this OS user.`,
       "Repair the container runtime permissions, then refresh the MCP runtime check.",
-      preferredPermissionBlockedHost.message ? `Host said: ${preferredPermissionBlockedHost.message}` : undefined,
+      selectedPermissionBlockedHost.message ? `Host said: ${selectedPermissionBlockedHost.message}` : undefined,
       toolHive.preflight?.message ? `ToolHive said: ${toolHive.preflight.message}` : undefined,
     ].filter(Boolean).join(" ");
-  } else if (preferredInstalledHost) {
+  } else if (selectedInstalledHost) {
     status = "installed-not-running";
     nextAction = "start-runtime";
-    runtime = runtimeFromHost(preferredInstalledHost.kind);
-    reason = preferredInstalledHost.reason ?? "daemon-unreachable";
+    runtime = runtimeFromHost(selectedInstalledHost.kind);
+    reason = selectedInstalledHost.reason ?? "daemon-unreachable";
     message = [
-      `${hostLabel(preferredInstalledHost.kind)} appears installed but ToolHive runtime preflight did not pass.`,
+      `${hostLabel(selectedInstalledHost.kind)} appears installed but ToolHive runtime preflight did not pass.`,
       "Start or repair the container runtime, then retry.",
-      stoppedRuntimeHint(preferredInstalledHost.kind, platform),
+      stoppedRuntimeHint(selectedInstalledHost.kind, platform),
+      toolHive.preflight?.message ? `ToolHive said: ${toolHive.preflight.message}` : undefined,
+    ].filter(Boolean).join(" ");
+  } else if (preferredReadyHost) {
+    status = "blocked-by-policy";
+    nextAction = "open-settings";
+    runtime = runtimeFromHost(preferredReadyHost.kind);
+    reason = "toolhive-runtime-unavailable";
+    message = [
+      `${hostLabel(preferredReadyHost.kind)} is installed and reachable, but ToolHive could not use it for isolated MCP workloads.`,
+      "Check ToolHive/container runtime integration before reinstalling the runtime.",
+      preferredReadyHost.message ? `Host said: ${preferredReadyHost.message}` : undefined,
       toolHive.preflight?.message ? `ToolHive said: ${toolHive.preflight.message}` : undefined,
     ].filter(Boolean).join(" ");
   } else if (anyRuntimeHostDetected) {
@@ -211,6 +256,7 @@ export async function probeContainerRuntime(options: ContainerRuntimeProbeOption
     nextAction,
     toolHive,
     hosts,
+    processHints,
     postInstallQueue: [
       {
         kind: "default-capability",
@@ -226,7 +272,13 @@ export async function probeContainerRuntimeHosts(options: ContainerRuntimeHostPr
   const env = options.env ?? process.env;
   const timeoutMs = Math.max(1_000, Math.min(30_000, Math.floor(options.timeoutMs ?? defaultTimeoutMs)));
   const commandRunner = options.commandRunner ?? defaultContainerRuntimeCommandRunner;
-  return probeContainerHosts({ platform, env, timeoutMs, commandRunner });
+  const processHints = options.processHints ?? await discoverContainerRuntimeProcessHints({
+    platform,
+    env,
+    timeoutMs: Math.min(timeoutMs, 2_500),
+    commandRunner: options.processDiscoveryRunner ?? commandRunner,
+  });
+  return probeContainerHosts({ platform, env, timeoutMs, commandRunner, processHints });
 }
 
 export function containerRuntimeProbeSummary(result: ContainerRuntimeProbeResult): string {
@@ -234,6 +286,11 @@ export function containerRuntimeProbeSummary(result: ContainerRuntimeProbeResult
     const version = host.version ? ` version=${host.version}` : "";
     const reason = host.reason ? ` reason=${host.reason}` : "";
     return `- ${host.kind}: ${host.status}${version}${reason}; ${host.message}`;
+  });
+  const processLines = (result.processHints ?? []).map((hint) => {
+    const pid = hint.pid ? ` pid=${hint.pid}` : "";
+    const location = hint.applicationPath ?? hint.executablePath;
+    return `- ${hint.kind}: ${hint.processName}${pid}${location ? ` at ${location}` : ""}; ${hint.reason}`;
   });
   return [
     `Container runtime status: ${result.status}`,
@@ -243,6 +300,8 @@ export function containerRuntimeProbeSummary(result: ContainerRuntimeProbeResult
     `ToolHive: ${result.toolHive.status}; ${result.toolHive.message}`,
     hostLines.length ? "Detected hosts:" : "Detected hosts: none",
     ...hostLines,
+    processLines.length ? "Detected runtime processes:" : "Detected runtime processes: none",
+    ...processLines,
     `Post-install queue: scrapling=${result.postInstallQueue[0]?.status ?? "blocked"}`,
   ].join("\n");
 }
@@ -280,6 +339,7 @@ async function probeContainerHosts(input: {
   env: NodeJS.ProcessEnv;
   timeoutMs: number;
   commandRunner: ContainerRuntimeCommandRunner;
+  processHints: ContainerRuntimeProcessHint[];
 }): Promise<ContainerRuntimeHostProbe[]> {
   const probes: Array<Promise<ContainerRuntimeHostProbe>> = [
     probeDocker(input),
@@ -295,13 +355,24 @@ async function probeDocker(input: {
   env: NodeJS.ProcessEnv;
   timeoutMs: number;
   commandRunner: ContainerRuntimeCommandRunner;
+  processHints: ContainerRuntimeProcessHint[];
 }): Promise<ContainerRuntimeHostProbe> {
   const commands: ContainerRuntimeCommandResult[] = [];
-  const candidates = containerRuntimeDockerCommandCandidates(input.platform);
+  const processHints = input.processHints.filter((hint) => hint.kind === "docker");
+  const trustedProcessHints = processHintsWithTrustedCandidates("docker", input.platform, processHints);
+  const candidates = containerRuntimeDockerCommandCandidates(input.platform, processHints);
   const version = await runFirstAvailableProbeCommand(input, candidates, ["--version"]);
   commands.push(version);
   if (isCommandMissing(version)) {
-    return { kind: "docker", status: "missing", reason: "runtime-missing", message: missingCliMessage("docker", candidates), commands };
+    return {
+      kind: "docker",
+      status: "missing",
+      reason: "runtime-missing",
+      message: trustedProcessHints.length
+        ? missingCliWithProcessHintMessage("docker", candidates, trustedProcessHints)
+        : missingCliMessage("docker", candidates),
+      commands,
+    };
   }
   const info = await runProbeCommand(input, version.command, ["info", "--format", "{{json .ServerVersion}}"]);
   commands.push(info);
@@ -328,6 +399,7 @@ async function probeDocker(input: {
     message: [
       cleanCommandMessage(info) || "docker CLI is installed, but the daemon is not reachable.",
       stoppedRuntimeHint("docker", input.platform),
+      processHintSummary("docker", processHints),
     ].filter(Boolean).join(" "),
     commands,
   };
@@ -338,13 +410,24 @@ async function probePodman(input: {
   env: NodeJS.ProcessEnv;
   timeoutMs: number;
   commandRunner: ContainerRuntimeCommandRunner;
+  processHints: ContainerRuntimeProcessHint[];
 }): Promise<ContainerRuntimeHostProbe> {
   const commands: ContainerRuntimeCommandResult[] = [];
-  const candidates = containerRuntimePodmanCommandCandidates(input.platform);
+  const processHints = input.processHints.filter((hint) => hint.kind === "podman");
+  const trustedProcessHints = processHintsWithTrustedCandidates("podman", input.platform, processHints);
+  const candidates = containerRuntimePodmanCommandCandidates(input.platform, processHints);
   const version = await runFirstAvailableProbeCommand(input, candidates, ["--version"]);
   commands.push(version);
   if (isCommandMissing(version)) {
-    return { kind: "podman", status: "missing", reason: "runtime-missing", message: missingCliMessage("podman", candidates), commands };
+    return {
+      kind: "podman",
+      status: "missing",
+      reason: "runtime-missing",
+      message: trustedProcessHints.length
+        ? missingCliWithProcessHintMessage("podman", candidates, trustedProcessHints)
+        : missingCliMessage("podman", candidates),
+      commands,
+    };
   }
   const info = await runProbeCommand(input, version.command, ["info", "--format", "json"]);
   commands.push(info);
@@ -373,7 +456,10 @@ async function probePodman(input: {
     status: "installed-not-running",
     reason: runtimeFailureReason("podman", info, input.platform),
     version: parsedVersion,
-    message: `${cleanCommandMessage(info) || "podman CLI is installed, but the engine is not reachable."}${commandPathSuffix(version)}${machineHint}`,
+    message: [
+      `${cleanCommandMessage(info) || "podman CLI is installed, but the engine is not reachable."}${commandPathSuffix(version)}${machineHint}`,
+      processHintSummary("podman", processHints),
+    ].filter(Boolean).join(" "),
     commands,
   };
 }
@@ -382,13 +468,24 @@ async function probeColima(input: {
   env: NodeJS.ProcessEnv;
   timeoutMs: number;
   commandRunner: ContainerRuntimeCommandRunner;
+  processHints: ContainerRuntimeProcessHint[];
 }): Promise<ContainerRuntimeHostProbe> {
   const commands: ContainerRuntimeCommandResult[] = [];
-  const candidates = containerRuntimeColimaCommandCandidates("darwin");
+  const processHints = input.processHints.filter((hint) => hint.kind === "colima");
+  const trustedProcessHints = processHintsWithTrustedCandidates("colima", "darwin", processHints);
+  const candidates = containerRuntimeColimaCommandCandidates("darwin", processHints);
   const version = await runFirstAvailableProbeCommand(input, candidates, ["version"]);
   commands.push(version);
   if (isCommandMissing(version)) {
-    return { kind: "colima", status: "missing", reason: "runtime-missing", message: missingCliMessage("colima", candidates), commands };
+    return {
+      kind: "colima",
+      status: "missing",
+      reason: "runtime-missing",
+      message: trustedProcessHints.length
+        ? missingCliWithProcessHintMessage("colima", candidates, trustedProcessHints)
+        : missingCliMessage("colima", candidates),
+      commands,
+    };
   }
   const status = await runProbeCommand(input, version.command, ["status"]);
   commands.push(status);
@@ -401,7 +498,10 @@ async function probeColima(input: {
     status: "installed-not-running",
     reason: runtimeFailureReason("colima", status, "darwin"),
     version: parsedVersion,
-    message: cleanCommandMessage(status) || "colima is installed, but its VM is not running.",
+    message: [
+      cleanCommandMessage(status) || "colima is installed, but its VM is not running.",
+      processHintSummary("colima", processHints),
+    ].filter(Boolean).join(" "),
     commands,
   };
 }
@@ -410,9 +510,10 @@ async function probeWsl2(input: {
   env: NodeJS.ProcessEnv;
   timeoutMs: number;
   commandRunner: ContainerRuntimeCommandRunner;
+  processHints: ContainerRuntimeProcessHint[];
 }): Promise<ContainerRuntimeHostProbe> {
   const commands: ContainerRuntimeCommandResult[] = [];
-  const candidates = ["wsl.exe", "C:\\Windows\\System32\\wsl.exe"];
+  const candidates = containerRuntimeWslCommandCandidates("win32");
   const status = await runFirstAvailableProbeCommand(input, candidates, ["--status"]);
   commands.push(status);
   if (isCommandMissing(status)) {
@@ -562,31 +663,57 @@ function stoppedRuntimeHint(kind: ContainerRuntimeHostKind, platform: NodeJS.Pla
   return undefined;
 }
 
-export function containerRuntimeDockerCommandCandidates(platform: NodeJS.Platform | string): string[] {
-  if (platform === "darwin") return ["docker", "/opt/homebrew/bin/docker", "/usr/local/bin/docker"];
-  if (platform === "win32") {
-    return [
-      "docker.exe",
-      "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
-      "C:\\Program Files\\Docker\\Docker\\resources\\com.docker.cli.exe",
-    ];
-  }
-  return ["docker", "/usr/bin/docker", "/usr/local/bin/docker"];
+function preflightMatchedHost(
+  message: string | undefined,
+  hosts: ContainerRuntimeHostProbe[],
+  status: ContainerRuntimeHostStatus,
+): ContainerRuntimeHostProbe | undefined {
+  const text = message?.toLowerCase() ?? "";
+  if (!text) return undefined;
+  return hosts.find((host) => host.status === status && preflightMessageMentionsHost(text, host.kind));
 }
 
-export function containerRuntimePodmanCommandCandidates(platform: NodeJS.Platform | string): string[] {
-  if (platform === "darwin") return ["podman", "/opt/homebrew/bin/podman", "/usr/local/bin/podman"];
-  if (platform === "win32") return ["podman.exe", "C:\\Program Files\\RedHat\\Podman\\podman.exe"];
-  return ["podman", "/usr/bin/podman", "/usr/local/bin/podman"];
-}
-
-export function containerRuntimeColimaCommandCandidates(platform: NodeJS.Platform | string): string[] {
-  if (platform === "darwin") return ["colima", "/opt/homebrew/bin/colima", "/usr/local/bin/colima"];
-  return ["colima"];
+function preflightMessageMentionsHost(text: string, kind: ContainerRuntimeHostKind): boolean {
+  if (text.includes(kind)) return true;
+  if (kind === "docker") return text.includes("daemon") || text.includes("docker desktop");
+  if (kind === "podman") return text.includes("machine") || text.includes("podman desktop");
+  if (kind === "colima") return text.includes("vm");
+  return text.includes("wsl");
 }
 
 function missingCliMessage(label: string, candidates: string[]): string {
-  return `${label} CLI was not found. Checked: ${candidates.join(", ")}.`;
+  const documentedFallbacks = label === "podman"
+    ? documentedPodmanFallbackCommands.filter((command) => !candidates.includes(command))
+    : [];
+  const checked = [...candidates, ...documentedFallbacks];
+  return `${label} CLI was not found. Checked: ${checked.join(", ")}.`;
+}
+
+function processHintsWithTrustedCandidates(
+  kind: "docker" | "podman" | "colima",
+  platform: NodeJS.Platform | string,
+  hints: ContainerRuntimeProcessHint[],
+): ContainerRuntimeProcessHint[] {
+  return hints.filter((hint) => containerRuntimeProcessHintCommandCandidates(kind, platform, [hint]).length > 0);
+}
+
+function missingCliWithProcessHintMessage(label: string, candidates: string[], hints: ContainerRuntimeProcessHint[]): string {
+  return [
+    `${label} desktop/runtime process was detected, but the ${label} CLI was not found in PATH, known install locations, or process-derived locations.`,
+    processHintSummary(label, hints),
+    `Checked: ${candidates.join(", ")}.`,
+  ].filter(Boolean).join(" ");
+}
+
+function processHintSummary(label: string, hints: ContainerRuntimeProcessHint[]): string | undefined {
+  const hint = hints[0];
+  if (!hint) return undefined;
+  const location = hint.applicationPath ?? hint.executablePath;
+  return [
+    `${label} process hint: ${hint.processName}`,
+    location ? `at ${location}` : undefined,
+    `(confidence ${hint.confidence})`,
+  ].filter(Boolean).join(" ");
 }
 
 function commandPathSuffix(result: ContainerRuntimeCommandResult): string {

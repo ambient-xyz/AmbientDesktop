@@ -139,6 +139,26 @@ describe("container runtime setup state", () => {
     expect(await readContainerRuntimeSetupState(statePath)).not.toHaveProperty("installActionId");
   });
 
+  it("does not show the install-runtime prompt when a host runtime is detected but ToolHive needs repair", async () => {
+    const statePath = await setupStatePath();
+    const result = probeResult("blocked-by-policy", {
+      runtime: "podman",
+      reason: "toolhive-runtime-unavailable",
+      nextAction: "open-settings",
+      message: "Podman is installed and reachable, but ToolHive could not use it.",
+    });
+    const state = await recordContainerRuntimeProbeState(statePath, result, {
+      appVersion: "1.2.3",
+      now: fixedNow,
+    });
+
+    expect(containerRuntimeSetupPromptState(result, state)).toMatchObject({
+      shouldPrompt: false,
+      promptSuppressed: false,
+      reason: "runtime-not-missing",
+    });
+  });
+
   async function setupStatePath(): Promise<string> {
     const root = await mkdtemp(join(tmpdir(), "ambient-container-runtime-setup-state-test-"));
     roots.push(root);
@@ -150,7 +170,10 @@ function fixedNow(): Date {
   return new Date("2026-05-23T20:00:00.000Z");
 }
 
-function probeResult(status: ContainerRuntimeProbeResult["status"]): ContainerRuntimeProbeResult {
+function probeResult(
+  status: ContainerRuntimeProbeResult["status"],
+  overrides: Partial<ContainerRuntimeProbeResult> = {},
+): ContainerRuntimeProbeResult {
   return {
     schemaVersion: "ambient-container-runtime-probe-v1",
     status,
@@ -167,5 +190,6 @@ function probeResult(status: ContainerRuntimeProbeResult["status"]): ContainerRu
     },
     hosts: [],
     postInstallQueue: [{ kind: "default-capability", capabilityId: "scrapling", status: status === "ready" ? "queued" : "blocked" }],
+    ...overrides,
   };
 }

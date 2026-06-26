@@ -1,11 +1,10 @@
 import { existsSync } from "node:fs";
 import { delimiter, dirname } from "node:path";
+import { containerRuntimeExecutableSearchDirs } from "../container-runtime/containerRuntimeCommandDiscovery";
 import { buildSafeProcessEnv } from "./setupSecurityFacade";
 
 const commonRuntimeBinDirs = [
   dirname(process.execPath),
-  "/opt/homebrew/bin",
-  "/usr/local/bin",
   "/usr/bin",
   "/bin",
   "/usr/sbin",
@@ -17,7 +16,7 @@ export function ambientRuntimePath(env: NodeJS.ProcessEnv = process.env): string
     .split(delimiter)
     .map((part) => part.trim())
     .filter(Boolean);
-  const additions = commonRuntimeBinDirs.filter((dir) => dir && existsSync(dir));
+  const additions = [...containerRuntimeExecutableSearchDirs(process.platform), ...commonRuntimeBinDirs].filter((dir) => dir && existsSync(dir));
   return [...new Set([...existing, ...additions])].join(delimiter);
 }
 

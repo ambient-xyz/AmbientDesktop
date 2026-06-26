@@ -1,9 +1,11 @@
 import { AlertCircle, ListChecks, LoaderCircle, Network, Slash, Sparkles, TerminalSquare, X, Workflow } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import type { SlashCommandCatalogEntry, SlashCommandSearchResponse, SlashCommandSelection } from "../../shared/slashCommandTypes";
 import type { ComposerDraftStore } from "./AppComposerControls";
 import { useComposerDraftSelection, useComposerDraftValue } from "./AppComposerControls";
+import { slashCommandDescriptionPopoverPosition } from "./slashCommandDescriptionPopoverPosition";
 import {
   slashCommandAvailabilityLabel,
   slashCommandCatalogNeedsRefreshEvent,
@@ -226,9 +228,12 @@ export function AppComposerSlashCommandPopover({
 }
 
 function SlashCommandDescriptionDisclosure({ entry, keyboardOpen }: { entry: SlashCommandCatalogEntry; keyboardOpen: boolean }) {
+  const descriptionWrapRef = useRef<HTMLSpanElement>(null);
   const descriptionRef = useRef<HTMLElement>(null);
+  const popoverRef = useRef<HTMLSpanElement>(null);
   const [clipped, setClipped] = useState(false);
   const [open, setOpen] = useState(false);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties>({});
 
   useEffect(() => {
     function updateClipped(): void {
@@ -245,25 +250,73 @@ function SlashCommandDescriptionDisclosure({ entry, keyboardOpen }: { entry: Sla
   }, [entry.description]);
 
   const show = clipped && (open || keyboardOpen);
+  const tooltipId = `slash-command-description-popover-${entry.id.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+
+  const updatePopoverPosition = useCallback(() => {
+    const anchor = descriptionWrapRef.current;
+    if (!anchor || typeof window === "undefined") return;
+    const anchorRect = anchor.getBoundingClientRect();
+    const popoverRect = popoverRef.current?.getBoundingClientRect();
+    const position = slashCommandDescriptionPopoverPosition({
+      anchor: {
+        left: anchorRect.left,
+        top: anchorRect.top,
+        right: anchorRect.right,
+        bottom: anchorRect.bottom,
+      },
+      popover: { height: popoverRect?.height || 120 },
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+    });
+    const nextStyle: CSSProperties = {
+      left: `${position.left}px`,
+      top: `${position.top}px`,
+      width: `${position.width}px`,
+    };
+    setPopoverStyle((current) =>
+      current.left === nextStyle.left && current.top === nextStyle.top && current.width === nextStyle.width ? current : nextStyle,
+    );
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!show) return undefined;
+    updatePopoverPosition();
+    window.addEventListener("resize", updatePopoverPosition);
+    window.addEventListener("scroll", updatePopoverPosition, true);
+    return () => {
+      window.removeEventListener("resize", updatePopoverPosition);
+      window.removeEventListener("scroll", updatePopoverPosition, true);
+    };
+  }, [entry.description, entry.title, show, updatePopoverPosition]);
+
   return (
     <span
+      ref={descriptionWrapRef}
       className="slash-command-description-wrap"
+      aria-describedby={show ? tooltipId : undefined}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
       <small ref={descriptionRef} className="slash-command-description">
         {entry.description}
       </small>
-      {clipped && <span className="slash-command-description-affordance" aria-hidden="true">More</span>}
-      {show && (
-        <span className="slash-command-description-popover" role="tooltip">
-          <strong>{entry.title}</strong>
-          <span>{entry.description}</span>
-          <em>
-            {entry.sourceName || entry.groupLabel} · {slashCommandAvailabilityLabel(entry.availability)} · {entry.command} · {entry.invocationKind}
-          </em>
+      {clipped && (
+        <span className="slash-command-description-affordance" aria-hidden="true">
+          More
         </span>
       )}
+      {show &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <span ref={popoverRef} id={tooltipId} className="slash-command-description-popover" role="tooltip" style={popoverStyle}>
+            <strong>{entry.title}</strong>
+            <span>{entry.description}</span>
+            <em>
+              {entry.sourceName || entry.groupLabel} · {slashCommandAvailabilityLabel(entry.availability)} · {entry.command} ·{" "}
+              {entry.invocationKind}
+            </em>
+          </span>,
+          document.body,
+        )}
     </span>
   );
 }

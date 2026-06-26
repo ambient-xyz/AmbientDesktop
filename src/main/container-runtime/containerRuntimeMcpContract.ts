@@ -32,6 +32,9 @@ export type { OciImageResolution } from "./ociImageResolver";
 
 export { pullOciImageWithContainerRuntime } from "./containerRuntimeImagePuller";
 export type {
+  ContainerRuntimeCommandHint,
+} from "./containerRuntimeCommandDiscovery";
+export type {
   ContainerRuntimeImagePullPreferredRuntime,
   ContainerRuntimeImagePullResult,
   PullContainerRuntimeImageInput,

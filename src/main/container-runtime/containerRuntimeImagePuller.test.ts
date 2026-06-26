@@ -81,4 +81,69 @@ describe("container runtime image puller", () => {
       },
     ]);
   });
+
+  it("falls back to the macOS Podman Desktop pkg CLI for Podman pulls", async () => {
+    const calls: Array<{ command: string; args: string[]; runtime: string }> = [];
+    const commandRunner: ContainerRuntimeImagePullCommandRunner = async (input) => {
+      calls.push({ command: input.command, args: input.args, runtime: input.runtime });
+      return {
+        runtime: input.runtime,
+        command: input.command,
+        args: input.args,
+        stdout: input.command === "/opt/podman/bin/podman" ? "pulled" : "",
+        stderr: "",
+        exitCode: input.command === "/opt/podman/bin/podman" ? 0 : 1,
+        durationMs: 12,
+        ...(input.command === "podman" ? { errorCode: "ENOENT" } : {}),
+      };
+    };
+
+    const result = await pullOciImageWithContainerRuntime({
+      image: "ghcr.io/example/server@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      targetPlatform: { os: "linux", architecture: "arm64" },
+      preferredRuntime: "podman",
+      platform: "darwin",
+      commandRunner,
+    });
+
+    expect(result.command).toBe("/opt/podman/bin/podman");
+    expect(calls.map((call) => call.command)).toEqual(["podman", "/opt/podman/bin/podman"]);
+  });
+
+  it("reuses trusted process-derived Docker Desktop candidates for image pulls", async () => {
+    const calls: Array<{ command: string; args: string[]; runtime: string }> = [];
+    const commandRunner: ContainerRuntimeImagePullCommandRunner = async (input) => {
+      calls.push({ command: input.command, args: input.args, runtime: input.runtime });
+      const found = input.command === "/Applications/Docker.app/Contents/Resources/docker";
+      return {
+        runtime: input.runtime,
+        command: input.command,
+        args: input.args,
+        stdout: found ? "pulled" : "",
+        stderr: "",
+        exitCode: found ? 0 : 1,
+        durationMs: 12,
+        ...(!found ? { errorCode: "ENOENT" } : {}),
+      };
+    };
+
+    const result = await pullOciImageWithContainerRuntime({
+      image: "ghcr.io/example/server@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      targetPlatform: { os: "linux", architecture: "arm64" },
+      preferredRuntime: "docker",
+      platform: "darwin",
+      processHints: [{
+        kind: "docker",
+        applicationPath: "/Applications/Docker.app",
+      }],
+      commandRunner,
+    });
+
+    expect(result.command).toBe("/Applications/Docker.app/Contents/Resources/docker");
+    expect(calls.map((call) => call.command)).toEqual([
+      "docker",
+      "/Applications/Docker.app/Contents/Resources/bin/docker",
+      "/Applications/Docker.app/Contents/Resources/docker",
+    ]);
+  });
 });

@@ -34,10 +34,10 @@ Least-destructive defaults:
 
 Live dogfood:
 
-- `AMBIENT_PLUGIN_CHAT_LIVE=1 AMBIENT_API_KEY=<key> bash scripts/test-node-native.sh src/main/pluginDogfood.test.ts -t "plans a generated Ambient capability update through the read-only Capability Builder tool"`
-- `AMBIENT_PLUGIN_CHAT_LIVE=1 AMBIENT_API_KEY=<key> bash scripts/test-node-native.sh src/main/pluginDogfood.test.ts -t "plans generated Ambient capability removal through the read-only Capability Builder tool"`
-- `AMBIENT_PLUGIN_CHAT_LIVE=1 AMBIENT_API_KEY=<key> bash scripts/test-node-native.sh src/main/pluginDogfood.test.ts -t "unregisters a generated Ambient capability through Capability Builder while preserving source"`
-- `AMBIENT_PLUGIN_CHAT_LIVE=1 AMBIENT_API_KEY=<key> bash scripts/test-node-native.sh src/main/pluginDogfood.test.ts -t "re-registers an unregistered generated Ambient capability through Capability Builder"`
-- `AMBIENT_PLUGIN_CHAT_LIVE=1 AMBIENT_API_KEY=<key> bash scripts/test-node-native.sh src/main/pluginDogfood.test.ts -t "discovers unregistered generated Ambient capability source through Capability Builder history"`
-- `AMBIENT_PLUGIN_CHAT_LIVE=1 AMBIENT_API_KEY=<key> bash scripts/test-node-native.sh src/main/pluginDogfood.test.ts -t "dogfoods generated capability management planning prompts"`
+- `AMBIENT_PLUGIN_CHAT_LIVE=1 bash scripts/test-node-native.sh src/main/pluginDogfood.test.ts -t "plans a generated Ambient capability update through the read-only Capability Builder tool"`
+- `AMBIENT_PLUGIN_CHAT_LIVE=1 bash scripts/test-node-native.sh src/main/pluginDogfood.test.ts -t "plans generated Ambient capability removal through the read-only Capability Builder tool"`
+- `AMBIENT_PLUGIN_CHAT_LIVE=1 bash scripts/test-node-native.sh src/main/pluginDogfood.test.ts -t "unregisters a generated Ambient capability through Capability Builder while preserving source"`
+- `AMBIENT_PLUGIN_CHAT_LIVE=1 bash scripts/test-node-native.sh src/main/pluginDogfood.test.ts -t "re-registers an unregistered generated Ambient capability through Capability Builder"`
+- `AMBIENT_PLUGIN_CHAT_LIVE=1 bash scripts/test-node-native.sh src/main/pluginDogfood.test.ts -t "discovers unregistered generated Ambient capability source through Capability Builder history"`
+- `AMBIENT_PLUGIN_CHAT_LIVE=1 bash scripts/test-node-native.sh src/main/pluginDogfood.test.ts -t "dogfoods generated capability management planning prompts"`
 - The dogfood uses the same renderer prompt builders as the UI, verifies Pi calls the read-only update-plan/removal-plan paths for management planning, and asserts no approval-gated validation or registration tool runs during planning-only turns.
