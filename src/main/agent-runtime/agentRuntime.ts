@@ -4,6 +4,7 @@ import type { AgentRuntimeFeatures } from "./agentRuntimeFeatures";
 import { abortSessionRun as abortPiSessionRun, type PiSessionFileCommitReason } from "./agentRuntimeSessionFacade";
 import { commitAgentRuntimeThreadPiSessionFile } from "./agentRuntimeSessionFileCommit";
 import type { DesktopEvent, CompactThreadInput, SendMessageInput, RecoverThreadContextInput } from "../../shared/desktopTypes";
+import type { PermissionMode } from "../../shared/permissionTypes";
 import type {
   CancelCallableWorkflowTaskInput,
   PauseCallableWorkflowTaskInput,
@@ -22,6 +23,7 @@ import type { ContextUsageSnapshot, ModelRuntimeSettings, ThreadSummary } from "
 import { resolveAmbientFeatureFlags, type AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
 import type { AgentMemoryRuntimeSnapshot } from "../../shared/agentMemoryDiagnostics";
 import type { AgentRuntimeContextRecoverySession } from "./agentRuntimeContextRecoveryController";
+import type { RuntimeSessionRecoveryContext } from "./agentRuntimeAssistantRetryInput";
 import {
   createAgentRuntimeControllerInitializer,
   type AgentRuntimeControllerRegistry,
@@ -32,20 +34,14 @@ import { AmbientPluginHost, type PluginMcpRuntimeSnapshot } from "./agentRuntime
 import { AmbientDownloadService } from "./agentRuntimeAmbientFacade";
 import { AmbientCliPackageDescriptionState } from "./ambient-cli-package/agentRuntimeAmbientCliPackageDescriptionState";
 import { workflowRecordingReviewSendInputForThread } from "./workflow-support/agentRuntimeWorkflowRecordingReviewRequest";
-import {
-  createAgentRuntimeDesktopEventCoalescer,
-  type AgentRuntimeDesktopEventCoalescer,
-} from "./agentRuntimeDesktopEventEmit";
+import { createAgentRuntimeDesktopEventCoalescer, type AgentRuntimeDesktopEventCoalescer } from "./agentRuntimeDesktopEventEmit";
 import { AgentRuntimeSessionRegistry } from "./agentRuntimeSessionRegistry";
 import type { AgentRuntimePiSession } from "./agentRuntimeSessionFactoryController";
 import { type SubagentChildExecutionRecord } from "./agentRuntimeSubagentChildLifecycleCoordinator";
 import type { RuntimeSendMessageInput } from "./agentRuntimeSendPreparationController";
 import { type AmbientCliSkillMountDiagnostics } from "./agentRuntimeAmbientCliSkillMount";
 import { AgentRuntimeInstallRouteGuard } from "./agentRuntimeInstallRouteGuard";
-import {
-  LocalModelRuntimeManager,
-  type LocalModelRuntimeStatusSnapshot,
-} from "./agentRuntimeLocalRuntimeFacade";
+import { LocalModelRuntimeManager, type LocalModelRuntimeStatusSnapshot } from "./agentRuntimeLocalRuntimeFacade";
 import { AmbientWorkflowDescriptionState } from "./ambient-workflow/agentRuntimeAmbientWorkflowDescriptionState";
 import { generateAgentRuntimeThreadTitleIfNeeded } from "./agentRuntimeThreadTitleGeneration";
 import {
@@ -60,6 +56,7 @@ import { type TransientFileAuthorityRoot } from "./agentRuntimeFileAuthority";
 import { type RuntimePermissionWaitControl } from "./runtimePermissionWaitController";
 import type { RuntimeAbortContextActiveRun } from "./runtimeAbortContext";
 import { POST_TOOL_ABORT_GRACE_MS, runAgentRuntimeSendOrchestrator, type AgentRuntimeSendHooks } from "./agentRuntimeSendOrchestrator";
+import type { SymphonyParentModePolicy, SymphonyParentModeVerifiedLaunch } from "./agentRuntimeSymphonyParentMode";
 
 export type { AgentRuntimeSendHooks } from "./agentRuntimeSendOrchestrator";
 
@@ -125,6 +122,9 @@ export class AgentRuntime {
   private readonly installRouteGuard = new AgentRuntimeInstallRouteGuard();
   private readonly transientFileAuthorityRoots = new Map<string, TransientFileAuthorityRoot[]>();
   private readonly tencentMemoryRuntimeSnapshots = new Map<string, AgentMemoryRuntimeSnapshot>();
+  private readonly sessionWarmups = new Map<string, Promise<void>>();
+  private readonly warmedSessionPermissionModeByThreadId = new Map<string, PermissionMode>();
+  private sessionWarmupGeneration = 0;
   private readonly desktopEventCoalescer: AgentRuntimeDesktopEventCoalescer;
   private lastRendererSendFailureAt = 0;
 
@@ -206,7 +206,7 @@ export class AgentRuntime {
           this.controllers.toolPermissions.fileAuthorityRootPathsForThread(threadId, access),
         generateTitleIfNeeded: (thread, prompt) => this.generateTitleIfNeeded(thread, prompt),
         getSession: (thread, recovery, symphonyParentModePolicy, symphonyParentModeVerifiedLaunch) =>
-          this.controllers.sessionFactory.getSession(thread, recovery, symphonyParentModePolicy, symphonyParentModeVerifiedLaunch),
+          this.getSession(thread, recovery, symphonyParentModePolicy, symphonyParentModeVerifiedLaunch),
         includeWorkspaceRootAuthorityForThread: (threadId) =>
           this.controllers.toolPermissions.includeWorkspaceRootAuthorityForThread(threadId),
         markPluginToolsStale: (threadId) => this.markPluginToolsStale(threadId),
@@ -218,11 +218,7 @@ export class AgentRuntime {
         recordCallableWorkflowFinalizationBlockedParentMailbox: (threadId, runId, block) =>
           this.controllers.finalizationCoordinator.recordCallableWorkflowFinalizationBlockedParentMailbox(threadId, runId, block),
         recordContextUsageSnapshot: (threadId, session, message) =>
-          this.controllers.contextRecovery.recordContextUsageSnapshot(
-            threadId,
-            session as AgentRuntimeContextRecoverySession,
-            message,
-          ),
+          this.controllers.contextRecovery.recordContextUsageSnapshot(threadId, session as AgentRuntimeContextRecoverySession, message),
         recordSubagentFinalizationBlockedParentMailbox: (threadId, runId, block) =>
           this.controllers.finalizationCoordinator.recordSubagentFinalizationBlockedParentMailbox(threadId, runId, block),
         refreshBrowsersForArtifactChange: (threadId, workspacePath, artifactPath) =>
@@ -232,27 +228,23 @@ export class AgentRuntime {
         resolveCallableWorkflowFinalizationBlock: (threadId, runId, verifiedLaunch) =>
           this.controllers.finalizationCoordinator.callableWorkflowFinalizationBlock(threadId, runId, verifiedLaunch),
         resolveFirstPartyPluginPermission: (input) => this.controllers.pluginPermissions.resolveFirstPartyPluginPermission(input),
-        resolveLocalRuntimeOwnershipForForcedAction: (request) =>
-          this.controllers.localRuntimeOwnership.resolveForForcedAction(request),
+        resolveLocalRuntimeOwnershipForForcedAction: (request) => this.controllers.localRuntimeOwnership.resolveForForcedAction(request),
         resolveLocalRuntimeOwnershipForRestartPlan: (plan) => this.controllers.localRuntimeOwnership.resolveForRestartPlan(plan),
         resolveLocalRuntimeOwnershipForStopPlan: (plan) => this.controllers.localRuntimeOwnership.resolveForStopPlan(plan),
         resolveSubagentFinalizationBlock: (threadId, runId) =>
           this.controllers.finalizationCoordinator.subagentFinalizationBarrierBlock(threadId, runId),
-        resolveSubagentModelRuntimeProfile: (modelId) =>
-          this.controllers.subagentToolExtensions.resolveModelRuntimeProfile(modelId),
+        resolveSubagentModelRuntimeProfile: (modelId) => this.controllers.subagentToolExtensions.resolveModelRuntimeProfile(modelId),
         resolveToolCallPermission: (threadId, workspace, toolName, rawToolInput) =>
           this.controllers.toolPermissions.resolveToolCallPermission(threadId, workspace, toolName, rawToolInput),
         revokeMcpPermissionGrantsForDescriptorDrift: (input) =>
           this.controllers.pluginPermissions.revokeMcpPermissionGrantsForDescriptorDrift(input),
-        revokePluginGrantsForLabels: (labelPrefixes) =>
-          this.controllers.pluginPermissions.revokePluginGrantsForLabels(labelPrefixes),
+        revokePluginGrantsForLabels: (labelPrefixes) => this.controllers.pluginPermissions.revokePluginGrantsForLabels(labelPrefixes),
         runCapabilityBuilderValidationWithPermission: (input) =>
           this.controllers.pluginSetupTools.runCapabilityBuilderValidationWithPermission(input),
         send: (input, hooks) => this.send(input, hooks),
         suppressCallableWorkflowParentAssistantMessages: (block, options) =>
           this.controllers.finalizationCoordinator.suppressCallableWorkflowParentAssistantMessages(block, options),
-        tryRouteBrowserContentThroughScrapling: (input) =>
-          this.controllers.webResearch.tryRouteBrowserContentThroughScrapling(input),
+        tryRouteBrowserContentThroughScrapling: (input) => this.controllers.webResearch.tryRouteBrowserContentThroughScrapling(input),
         unavailableContextUsageSnapshot: (thread, message) =>
           this.controllers.contextRecovery.unavailableContextUsageSnapshot(thread, message),
       },
@@ -290,6 +282,87 @@ export class AgentRuntime {
     await this.send(reviewInput);
   }
 
+  async warmThreadSession(threadId: string, options: { reason?: string } = {}): Promise<void> {
+    if (this.activeRuns.has(threadId) || this.sessions.get(threadId)) return;
+    const existingWarmup = this.sessionWarmups.get(threadId);
+    if (existingWarmup) return existingWarmup;
+
+    const warmup = this.createThreadSessionWarmup(threadId, this.sessionWarmupGeneration);
+    this.sessionWarmups.set(threadId, warmup);
+    try {
+      await warmup;
+    } finally {
+      if (this.sessionWarmups.get(threadId) === warmup) this.sessionWarmups.delete(threadId);
+    }
+  }
+
+  warmThreadSessionInBackground(threadId: string, options: { reason?: string } = {}): void {
+    void this.warmThreadSession(threadId, options).catch((error) => {
+      const reason = options.reason ? ` for ${options.reason}` : "";
+      console.warn(`[agent-runtime] Failed to warm thread session${reason}: ${error instanceof Error ? error.message : String(error)}`);
+    });
+  }
+
+  private async createThreadSessionWarmup(threadId: string, generation: number): Promise<void> {
+    if (this.activeRuns.has(threadId) || this.sessions.get(threadId)) return;
+    const thread = this.store.getThread(threadId);
+    if (thread.kind === "subagent_child" || this.activeRuns.has(threadId) || this.sessions.get(threadId)) return;
+    if (generation !== this.sessionWarmupGeneration) return;
+    const session = await this.controllers.sessionFactory.getSession(thread);
+    if (generation !== this.sessionWarmupGeneration && this.sessions.get(threadId) === session) {
+      this.sessions.delete(threadId);
+      this.warmedSessionPermissionModeByThreadId.delete(threadId);
+      session.dispose();
+      return;
+    }
+    this.warmedSessionPermissionModeByThreadId.set(threadId, thread.permissionMode);
+  }
+
+  private invalidateSessionWarmups(): void {
+    this.sessionWarmupGeneration += 1;
+    for (const threadId of this.warmedSessionPermissionModeByThreadId.keys()) {
+      const session = this.sessions.get(threadId);
+      if (session) {
+        this.sessions.delete(threadId);
+        session.dispose();
+      }
+    }
+    this.warmedSessionPermissionModeByThreadId.clear();
+  }
+
+  private async getSession(
+    thread: ThreadSummary,
+    recovery?: RuntimeSessionRecoveryContext,
+    symphonyParentModePolicy?: SymphonyParentModePolicy | undefined,
+    symphonyParentModeVerifiedLaunch?: SymphonyParentModeVerifiedLaunch | undefined,
+  ): Promise<PiSession> {
+    const warmup = this.sessionWarmups.get(thread.id);
+    if (warmup) {
+      await warmup.catch(() => undefined);
+    }
+    let existingSession = this.sessions.get(thread.id);
+    const warmedPermissionMode = this.warmedSessionPermissionModeByThreadId.get(thread.id);
+    if (existingSession && warmedPermissionMode && warmedPermissionMode !== thread.permissionMode) {
+      existingSession.dispose();
+      this.sessions.delete(thread.id);
+      this.warmedSessionPermissionModeByThreadId.delete(thread.id);
+      existingSession = undefined;
+    }
+    if (recovery && existingSession) {
+      existingSession.dispose();
+      this.sessions.delete(thread.id);
+      this.warmedSessionPermissionModeByThreadId.delete(thread.id);
+    }
+    const session = await this.controllers.sessionFactory.getSession(
+      thread,
+      recovery,
+      symphonyParentModePolicy,
+      symphonyParentModeVerifiedLaunch,
+    );
+    this.warmedSessionPermissionModeByThreadId.delete(thread.id);
+    return session;
+  }
+
   async send(input: SendMessageInput, hooks: AgentRuntimeSendHooks = {}): Promise<void> {
     await runAgentRuntimeSendOrchestrator<PiSession>({
       sendInput: input,
@@ -309,7 +382,7 @@ export class AgentRuntime {
       getFeatureFlagSnapshot: () => this.currentFeatureFlagSnapshot(),
       createWorkflowRecordingReviewSession: (thread) => this.controllers.workflowRecordingReviewSessions.createSession(thread),
       getSession: (thread, recovery, symphonyParentModePolicy, symphonyParentModeVerifiedLaunch) =>
-        this.controllers.sessionFactory.getSession(thread, recovery, symphonyParentModePolicy, symphonyParentModeVerifiedLaunch),
+        this.getSession(thread, recovery, symphonyParentModePolicy, symphonyParentModeVerifiedLaunch),
       commitThreadPiSessionFile: (commitInput) => this.commitThreadPiSessionFile(commitInput),
       abortSessionRun: (session, threadId) => this.abortSessionRunForThread(session, threadId),
       emit: (event) => this.emit(event),
@@ -334,6 +407,7 @@ export class AgentRuntime {
     disposedThreadIds: string[];
     deferredThreadIds: string[];
   } {
+    this.invalidateSessionWarmups();
     return this.controllers.settingsSessions.applyRuntimeSettings(settings);
   }
 
@@ -343,6 +417,7 @@ export class AgentRuntime {
     disposedThreadIds: string[];
     deferredThreadIds: string[];
   } {
+    this.invalidateSessionWarmups();
     return this.controllers.settingsSessions.applyFeatureFlags(_snapshot);
   }
 
@@ -352,6 +427,7 @@ export class AgentRuntime {
     disposedThreadIds: string[];
     deferredThreadIds: string[];
   } {
+    this.invalidateSessionWarmups();
     return this.controllers.settingsSessions.applyMemorySettings();
   }
 
@@ -361,6 +437,7 @@ export class AgentRuntime {
     switchedThreadIds: string[];
     deferredThreadIds: string[];
   }> {
+    this.invalidateSessionWarmups();
     return this.controllers.settingsSessions.applyThreadModelSettings(threadId);
   }
 
@@ -370,6 +447,7 @@ export class AgentRuntime {
     disposedThreadIds: string[];
     deferredThreadIds: string[];
   } {
+    this.invalidateSessionWarmups();
     return this.controllers.settingsSessions.applyThreadMemorySettings(threadId);
   }
 
@@ -390,6 +468,7 @@ export class AgentRuntime {
   }
 
   resetSessions(): void {
+    this.invalidateSessionWarmups();
     this.controllers.runLifecycle.resetSessions();
   }
 
@@ -450,6 +529,7 @@ export class AgentRuntime {
   }
 
   private markPluginToolsStale(threadId: string): void {
+    this.invalidateSessionWarmups();
     this.sessions.markPluginToolsStale(threadId);
     this.emit({ type: "plugin-catalog-updated" });
   }

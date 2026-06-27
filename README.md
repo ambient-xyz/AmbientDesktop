@@ -45,7 +45,6 @@ pnpm install
 pnpm run dev
 ```
 
-
 Build packaged artifacts on the target platform:
 
 ```bash

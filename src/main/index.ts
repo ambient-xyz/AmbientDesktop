@@ -1434,7 +1434,9 @@ function setActiveThreadId(threadId: string): string {
 }
 
 function setProjectHostActiveThreadId(host: ProjectRuntimeHost, threadId: string): string {
-  return projectRuntimeActiveThreadService.setProjectHostActiveThreadId(host, threadId);
+  const selectedThreadId = projectRuntimeActiveThreadService.setProjectHostActiveThreadId(host, threadId);
+  host.runtime.warmThreadSessionInBackground(selectedThreadId, { reason: "thread-selected" });
+  return selectedThreadId;
 }
 
 function activeThreadIdForHost(host: ProjectRuntimeHost): string {
@@ -1455,6 +1457,7 @@ function syncActiveProjectRuntimeHost(host: ProjectRuntimeHost | undefined): voi
   store = host.store;
   browserService = host.browserService;
   setActiveThreadId(host.activeThreadId);
+  host.runtime.warmThreadSessionInBackground(host.activeThreadId, { reason: "active-project-sync" });
 }
 
 function createAgentRuntimeFeatures(context?: RuntimeFeatureHostContext): AgentRuntimeFeatures {
@@ -1476,6 +1479,7 @@ function runSubagentRuntimeStartupReconciliation(reason: "project-runtime-create
 function runProjectRuntimeStartupReconciliation(reason: "project-runtime-created", host: ProjectRuntimeHost): void {
   runSubagentRuntimeStartupReconciliation(reason, host);
   runAgentMemoryStartupReconciliation(reason, host);
+  host.runtime.warmThreadSessionInBackground(host.activeThreadId, { reason });
 }
 
 function projectRuntimeHostForStore(targetStore: ProjectStore): ProjectRuntimeHost | undefined {

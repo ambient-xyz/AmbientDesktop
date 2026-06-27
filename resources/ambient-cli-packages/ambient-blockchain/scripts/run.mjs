@@ -32,7 +32,7 @@ import {
 } from "./runSupport.mjs";
 
 const packageName = "ambient-blockchain";
-const packageVersion = "0.1.16";
+const packageVersion = "0.1.18";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
 const contractsPath = join(packageRoot, "contracts", "ambient-blockchain-contracts.json");
@@ -59,7 +59,9 @@ const readOnlyRpcMethods = new Set([
   "getSlot",
   "getSlotLeader",
   "getSupply",
+  "getTokenAccountsByOwner",
   "getTransaction",
+  "getVoteAccounts",
   "getVersion",
   "isBlockhashValid"
 ]);
@@ -217,6 +219,10 @@ async function main() {
       return commandRpc(options);
     case "account":
       return commandAccount(options);
+    case "validators":
+      return commandValidators(options);
+    case "token-balances":
+      return commandTokenBalances(options);
     case "transaction":
       return commandTransaction(options);
     case "program-observe":
@@ -418,6 +424,99 @@ async function commandAccount(options) {
     address,
     balanceLamports: balance.body?.result?.value,
     account,
+    artifact
+  });
+}
+
+async function commandValidators(options) {
+  const commitment = String(options.commitment ?? "confirmed");
+  const rpcUrl = resolveRpcUrl(options);
+  const response = await callRpc({
+    rpcUrl,
+    method: "getVoteAccounts",
+    params: [{ commitment }],
+    timeoutMs: numberOption(options.timeoutMs, 15_000)
+  });
+  const result = response.body?.result ?? {};
+  const current = Array.isArray(result.current) ? result.current : [];
+  const delinquent = Array.isArray(result.delinquent) ? result.delinquent : [];
+  const summaries = [
+    ...current.map((validator) => summarizeValidatorIdentity(validator, "current")),
+    ...delinquent.map((validator) => summarizeValidatorIdentity(validator, "delinquent"))
+  ];
+  const previewLimit = cappedInteger(options.limit, 25, 1, 100, "limit");
+  const payload = {
+    schemaVersion: "ambient-blockchain-validators-evidence-v1",
+    packageName,
+    generatedAt: nowIso(),
+    rpcUrl,
+    commitment,
+    currentCount: current.length,
+    delinquentCount: delinquent.length,
+    validatorIdentityCount: summaries.length,
+    durationMs: response.durationMs,
+    httpStatus: response.httpStatus,
+    validatorIdentities: summaries,
+    rawResponse: response.body
+  };
+  const artifact = writeArtifact("validators", payload, options);
+  return writeJson({
+    schemaVersion: "ambient-blockchain-validators-result-v1",
+    packageName,
+    status: response.body?.error ? "rpc_error" : "completed",
+    rpcUrl,
+    currentCount: current.length,
+    delinquentCount: delinquent.length,
+    validatorIdentityCount: summaries.length,
+    previewCount: Math.min(summaries.length, previewLimit),
+    truncated: summaries.length > previewLimit,
+    validatorIdentitiesPreview: summaries.slice(0, previewLimit),
+    artifact
+  });
+}
+
+async function commandTokenBalances(options) {
+  const owner = stringOption(options.owner ?? options.address ?? options._[0], "owner");
+  const commitment = String(options.commitment ?? "confirmed");
+  const tokenProgramId = String(options.programId ?? "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+  const filter = options.mint
+    ? { mint: String(options.mint) }
+    : { programId: tokenProgramId };
+  const rpcUrl = resolveRpcUrl(options);
+  const response = await callRpc({
+    rpcUrl,
+    method: "getTokenAccountsByOwner",
+    params: [owner, filter, { commitment, encoding: "jsonParsed" }],
+    timeoutMs: numberOption(options.timeoutMs, 30_000)
+  });
+  const tokenAccounts = Array.isArray(response.body?.result?.value) ? response.body.result.value : [];
+  const summaries = tokenAccounts.map(summarizeTokenAccount);
+  const previewLimit = cappedInteger(options.limit, 25, 1, 100, "limit");
+  const payload = {
+    schemaVersion: "ambient-blockchain-token-balances-evidence-v1",
+    packageName,
+    generatedAt: nowIso(),
+    owner,
+    rpcUrl,
+    commitment,
+    filter,
+    tokenAccountCount: tokenAccounts.length,
+    durationMs: response.durationMs,
+    httpStatus: response.httpStatus,
+    tokenAccountSummaries: summaries,
+    rawResponse: response.body
+  };
+  const artifact = writeArtifact("token-balances", payload, options);
+  return writeJson({
+    schemaVersion: "ambient-blockchain-token-balances-result-v1",
+    packageName,
+    status: response.body?.error ? "rpc_error" : "completed",
+    owner,
+    filter,
+    tokenAccountCount: tokenAccounts.length,
+    previewCount: Math.min(tokenAccounts.length, previewLimit),
+    truncated: tokenAccounts.length > previewLimit,
+    tokenAccountsPreview: summaries.slice(0, previewLimit),
     artifact
   });
 }
@@ -1788,6 +1887,8 @@ function commandSummary() {
       "ambient_chain_doctor",
       "ambient_chain_rpc",
       "ambient_chain_account",
+      "ambient_chain_validators",
+      "ambient_chain_token_balances",
       "ambient_chain_transaction",
       "ambient_chain_program_observe",
       "ambient_keypair_status",
@@ -1862,6 +1963,40 @@ function summarizeProgramAccount(value) {
   };
 }
 
+function summarizeValidatorIdentity(value, status) {
+  return {
+    identity: value?.nodePubkey,
+    voteAccount: value?.votePubkey,
+    status,
+    activatedStake: value?.activatedStake,
+    commission: value?.commission,
+    epochVoteAccount: value?.epochVoteAccount,
+    lastVote: value?.lastVote,
+    rootSlot: value?.rootSlot
+  };
+}
+
+function summarizeTokenAccount(value) {
+  const parsed = value?.account?.data?.parsed;
+  const info = parsed?.info;
+  return {
+    pubkey: value?.pubkey,
+    mint: info?.mint,
+    owner: info?.owner,
+    state: info?.state,
+    isNative: info?.isNative,
+    tokenAmount: info?.tokenAmount ? {
+      amount: info.tokenAmount.amount,
+      decimals: info.tokenAmount.decimals,
+      uiAmount: info.tokenAmount.uiAmount,
+      uiAmountString: info.tokenAmount.uiAmountString
+    } : undefined,
+    account: summarizeAccountInfo(value?.account),
+    dataProgram: value?.account?.data?.program,
+    parsedType: parsed?.type
+  };
+}
+
 function summarizeAccountInfo(value) {
   if (!value) return { exists: false };
   return {
@@ -1885,6 +2020,8 @@ function printHelp(_options) {
     examples: [
       "ambient_chain_doctor --json",
       "ambient_chain_rpc --method getVersion --params-json '[]' --json",
+      "ambient_chain_validators --json",
+      "ambient_chain_token_balances --owner <owner> --json",
       "ambient_chain_transaction --signature <signature> --json",
       "ambient_chain_program_observe --program-id <program> --filters-json '[{\"dataSize\":8}]' --json",
       "ambient_program_scaffold --project-dir ambient-program --template native-rust --json",

@@ -22,7 +22,9 @@ Use this capability when the user wants Ambient Desktop or Pi to inspect Ambient
 
 - `ambient_chain_doctor --json`: reports package readiness, pinned contract IDs, env configured booleans, and live-test lanes. Add `--network` to probe read-only RPC reachability.
 - `ambient_chain_rpc --method <read-only-method> --params-json '<json-array>' --json`: calls an allowlisted read-only JSON-RPC method and writes the full response under `.ambient/blockchain/rpc/`.
-- `ambient_chain_account --address <pubkey> --json`: reads balance and account metadata, then writes full evidence under `.ambient/blockchain/account/`.
+- `ambient_chain_account --address <pubkey> --json`: reads native lamport balance and account metadata, then writes full evidence under `.ambient/blockchain/account/`.
+- `ambient_chain_validators --json [--limit <n>]`: lists validator identities and vote accounts through read-only RPC, then writes full evidence under `.ambient/blockchain/validators/`. Use an `identity` value from the preview as a funded demo address for `ambient_chain_account`.
+- `ambient_chain_token_balances --owner <pubkey> --json [--mint <pubkey>]`: reads SPL-style token accounts and parsed token balances for an owner address, then writes full evidence under `.ambient/blockchain/token-balances/`. Use `--program-id <pubkey>` only for a nonstandard token program scan.
 - `ambient_chain_transaction --signature <sig> --json`: reads one transaction, summarizes status and logs, and writes the raw response under `.ambient/blockchain/transaction/`. Use `--address <pubkey> --limit <n>` instead to list recent signatures for an address.
 - `ambient_chain_program_observe --program-id <pubkey> --filters-json '<json-array>' --json`: reads program accounts with bounded data slices, account summaries, and a full artifact. Use `--allow-unfiltered` only when the user explicitly wants a broad scan.
 - `ambient_keypair_status --json [--kind chain|x402]`: validates signer bindings without exposing paths or secrets, and writes the same redacted status under `.ambient/blockchain/keypair/`.
@@ -66,7 +68,7 @@ Use this capability when the user wants Ambient Desktop or Pi to inspect Ambient
 
 - The bundled commands are read-only or non-mutating planners except `ambient_x402_request_execute`, `ambient_program_deploy_execute`, `ambient_program_upgrade_execute`, and `ambient_program_authority_execute`, which are signer-backed funded lanes gated by approval digest, cap replay, and signer binding checks.
 - Generic RPC is allowlisted. Transaction submission, airdrops, and simulation of signed payloads are blocked by default.
-- Prefer the purpose-built account, transaction, and program observation commands over generic RPC so the chat transcript stays bounded and full evidence is preserved.
+- Prefer the purpose-built validator, account, token balance, transaction, and program observation commands over generic RPC so the chat transcript stays bounded and full evidence is preserved.
 - Stdout is bounded for the chat transcript. Full JSON responses and logs are written as workspace artifacts with path, size, and hash metadata.
 - Do not expose keypair paths, key material, payment secrets, or API keys in chat output, descriptor text, logs, or artifacts.
 - Payment headers must come from `--payment-header-file` or `AMBIENT_X402_PAYMENT_HEADER_FILE`; do not pass one-use x402 payment values in chat text or command arguments.

@@ -51,6 +51,8 @@ describe("Ambient Blockchain CLI package", () => {
         "ambient_chain_doctor",
         "ambient_chain_rpc",
         "ambient_chain_account",
+        "ambient_chain_validators",
+        "ambient_chain_token_balances",
         "ambient_chain_transaction",
         "ambient_chain_program_observe",
         "ambient_keypair_status",
@@ -120,7 +122,7 @@ describe("Ambient Blockchain CLI package", () => {
         }),
         healthCheck: expect.objectContaining({
           parsedStatus: "ready",
-          parsedPackageVersion: "0.1.16",
+          parsedPackageVersion: "0.1.18",
         }),
         redactionFacts: {
           keypairPathsIncluded: false,
@@ -241,6 +243,90 @@ describe("Ambient Blockchain CLI package", () => {
         signaturesPreview: [expect.objectContaining({ signature: "historySig" })],
       });
 
+      const validators = await runAmbientCliPackageCommand(workspace, {
+        packageName: "ambient-blockchain",
+        command: "ambient_chain_validators",
+        args: ["--limit", "1", "--rpc-url", rpc.url, "--json"],
+      });
+      const validatorsResult = JSON.parse(validators.stdout ?? "{}");
+      expect(validatorsResult).toMatchObject({
+        status: "completed",
+        currentCount: 1,
+        delinquentCount: 1,
+        validatorIdentityCount: 2,
+        previewCount: 1,
+        truncated: true,
+        validatorIdentitiesPreview: [
+          expect.objectContaining({
+            identity: "ValidatorIdentity1",
+            voteAccount: "VoteAccount1",
+            status: "current",
+          }),
+        ],
+      });
+      const validatorsArtifact = JSON.parse(await readFile(join(workspace, validatorsResult.artifact.relativePath), "utf8"));
+      expect(validatorsArtifact.rawResponse.result.current).toHaveLength(1);
+      expect(validatorsArtifact.rawResponse.result.delinquent).toHaveLength(1);
+
+      const tokenBalances = await runAmbientCliPackageCommand(workspace, {
+        packageName: "ambient-blockchain",
+        command: "ambient_chain_token_balances",
+        args: ["--owner", "Owner1111111111111111111111111111111111", "--rpc-url", rpc.url, "--json"],
+      });
+      const tokenBalancesResult = JSON.parse(tokenBalances.stdout ?? "{}");
+      expect(tokenBalancesResult).toMatchObject({
+        status: "completed",
+        owner: "Owner1111111111111111111111111111111111",
+        filter: { programId: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
+        tokenAccountCount: 2,
+        previewCount: 2,
+        tokenAccountsPreview: [
+          expect.objectContaining({
+            pubkey: "TokenAccount1",
+            mint: "Mint111111111111111111111111111111111111",
+            owner: "Owner1111111111111111111111111111111111",
+            tokenAmount: {
+              amount: "1234500",
+              decimals: 6,
+              uiAmount: 1.2345,
+              uiAmountString: "1.2345",
+            },
+          }),
+          expect.objectContaining({
+            pubkey: "TokenAccount2",
+            mint: "Mint222222222222222222222222222222222222",
+            tokenAmount: {
+              amount: "42",
+              decimals: 0,
+              uiAmount: 42,
+              uiAmountString: "42",
+            },
+          }),
+        ],
+      });
+      const tokenBalancesArtifact = JSON.parse(await readFile(join(workspace, tokenBalancesResult.artifact.relativePath), "utf8"));
+      expect(tokenBalancesArtifact.rawResponse.result.value).toHaveLength(2);
+
+      const filteredTokenBalances = await runAmbientCliPackageCommand(workspace, {
+        packageName: "ambient-blockchain",
+        command: "ambient_chain_token_balances",
+        args: [
+          "--owner",
+          "Owner1111111111111111111111111111111111",
+          "--mint",
+          "Mint111111111111111111111111111111111111",
+          "--rpc-url",
+          rpc.url,
+          "--json",
+        ],
+      });
+      const filteredTokenBalancesResult = JSON.parse(filteredTokenBalances.stdout ?? "{}");
+      expect(filteredTokenBalancesResult).toMatchObject({
+        status: "completed",
+        filter: { mint: "Mint111111111111111111111111111111111111" },
+        tokenAccountCount: 2,
+      });
+
       await expect(runAmbientCliPackageCommand(workspace, {
         packageName: "ambient-blockchain",
         command: "ambient_chain_program_observe",
@@ -282,6 +368,9 @@ describe("Ambient Blockchain CLI package", () => {
       expect(rpc.calls.map((call) => call.method)).toEqual([
         "getTransaction",
         "getSignaturesForAddress",
+        "getVoteAccounts",
+        "getTokenAccountsByOwner",
+        "getTokenAccountsByOwner",
         "getProgramAccounts",
       ]);
     } finally {
@@ -1682,6 +1771,32 @@ function mockRpcResult(method: string): unknown {
       },
     ];
   }
+  if (method === "getVoteAccounts") {
+    return {
+      current: [
+        {
+          votePubkey: "VoteAccount1",
+          nodePubkey: "ValidatorIdentity1",
+          activatedStake: 5000,
+          commission: 5,
+          epochVoteAccount: true,
+          lastVote: 100,
+          rootSlot: 90,
+        },
+      ],
+      delinquent: [
+        {
+          votePubkey: "VoteAccount2",
+          nodePubkey: "ValidatorIdentity2",
+          activatedStake: 1000,
+          commission: 10,
+          epochVoteAccount: false,
+          lastVote: 80,
+          rootSlot: 70,
+        },
+      ],
+    };
+  }
   if (method === "getProgramAccounts") {
     return [
       {
@@ -1707,6 +1822,69 @@ function mockRpcResult(method: string): unknown {
         },
       },
     ];
+  }
+  if (method === "getTokenAccountsByOwner") {
+    return {
+      context: { slot: 101 },
+      value: [
+        {
+          pubkey: "TokenAccount1",
+          account: {
+            lamports: 2039280,
+            owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            executable: false,
+            rentEpoch: 1,
+            data: {
+              program: "spl-token",
+              parsed: {
+                type: "account",
+                info: {
+                  mint: "Mint111111111111111111111111111111111111",
+                  owner: "Owner1111111111111111111111111111111111",
+                  state: "initialized",
+                  isNative: false,
+                  tokenAmount: {
+                    amount: "1234500",
+                    decimals: 6,
+                    uiAmount: 1.2345,
+                    uiAmountString: "1.2345",
+                  },
+                },
+              },
+            },
+            space: 165,
+          },
+        },
+        {
+          pubkey: "TokenAccount2",
+          account: {
+            lamports: 2039280,
+            owner: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            executable: false,
+            rentEpoch: 1,
+            data: {
+              program: "spl-token",
+              parsed: {
+                type: "account",
+                info: {
+                  mint: "Mint222222222222222222222222222222222222",
+                  owner: "Owner1111111111111111111111111111111111",
+                  state: "initialized",
+                  isNative: false,
+                  tokenAmount: {
+                    amount: "42",
+                    decimals: 0,
+                    uiAmount: 42,
+                    uiAmountString: "42",
+                  },
+                },
+              },
+            },
+            space: 165,
+          },
+        },
+      ],
+    };
   }
   if (method === "getAccountInfo") {
     const oracleAccount = Buffer.from(JSON.stringify({ state: "Completed", output: "42.00" }), "utf8").toString("base64");

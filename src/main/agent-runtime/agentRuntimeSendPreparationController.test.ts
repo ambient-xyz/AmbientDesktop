@@ -96,6 +96,21 @@ describe("AgentRuntimeSendPreparationController", () => {
     });
   });
 
+  it("injects first-prompt bootstrap for empty warmed threads with a session file", async () => {
+    await withController(({ store, controller }) => {
+      const thread = store.createThread("warmed empty thread");
+      store.updateThreadSettings(thread.id, { piSessionFile: join(store.getWorkspace().sessionPath, "warm.jsonl") });
+
+      const context = controller.prepareRuntimeSendLoopContext(
+        sendInput(thread.id, {
+          content: "Build a dashboard.",
+        }),
+      );
+
+      expect(context.shouldInjectBootstrap).toBe(true);
+    });
+  });
+
   it("emits goal continuation activity without adding a visible user message", async () => {
     await withController(({ store, controller, emitted, generateTitleIfNeeded }) => {
       const thread = store.createThread("hidden continuation");

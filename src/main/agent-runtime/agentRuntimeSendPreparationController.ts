@@ -147,7 +147,7 @@ export class AgentRuntimeSendPreparationController {
     if (!usesDedicatedReviewSession) promptContent = appendSearchRoutingGuidance(promptContent, this.options.readSearchSettings?.());
     if (!usesDedicatedReviewSession) promptContent = appendMcpInstallRouteGuidance(promptContent, visibleUserContent);
     const shouldInjectBootstrap =
-      !input.retryOfMessageId && !thread.piSessionFile && this.options.store.countMessages(input.threadId) === 0 && input.delivery !== "follow-up";
+      !input.retryOfMessageId && this.options.store.countMessages(input.threadId) === 0 && input.delivery !== "follow-up";
     let retrySourceUserMessageId = retryUserMessage?.id;
 
     if (retryUserMessage) {

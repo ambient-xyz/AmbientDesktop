@@ -1,6 +1,6 @@
 {
   "name": "ambient-blockchain",
-  "version": "0.1.16",
+  "version": "0.1.18",
   "description": "Ambient adapter for safe Ambient Blockchain observation, Tool Oracle/x402 planning, program workbench readiness, and local live-test evidence.",
   "skills": "./SKILL.md",
   "env": [
@@ -59,6 +59,20 @@
       "description": "Fetch balance and account metadata for an Ambient address through read-only RPC, with full response artifacting.",
       "command": "node",
       "args": ["./scripts/run.mjs", "account"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_chain_validators": {
+      "description": "List Ambient validator identities and vote accounts through read-only RPC so funded demo addresses can be discovered.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "validators"],
+      "cwd": "workspace",
+      "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
+    },
+    "ambient_chain_token_balances": {
+      "description": "Fetch SPL-style token accounts and parsed token balances for an Ambient owner address through read-only RPC.",
+      "command": "node",
+      "args": ["./scripts/run.mjs", "token-balances"],
       "cwd": "workspace",
       "healthCheck": ["node", "./scripts/run.mjs", "doctor", "--fast", "--json"]
     },
