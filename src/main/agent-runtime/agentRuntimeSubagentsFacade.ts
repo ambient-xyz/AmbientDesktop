@@ -1,6 +1,7 @@
 export {
   AMBIENT_SUBAGENT_TOOL_NAME,
   ambientSubagentActiveToolNamesForThread,
+  ambientSubagentRegisteredToolNamesForThread,
   appendMappedSubagentRuntimeEvent,
   assertCanCloseSubagentRun,
   buildSubagentChildPrompt,

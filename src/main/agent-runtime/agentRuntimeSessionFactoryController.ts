@@ -85,6 +85,7 @@ import {
 } from "./agentRuntimeToolRuntimeFacade";
 import {
   ambientSubagentActiveToolNamesForThread,
+  ambientSubagentRegisteredToolNamesForThread,
   resolveAgentRuntimeActiveToolNamesForThread,
   subagentChildCallableWorkflowToolNamesFromSnapshots,
 } from "./agentRuntimeSubagentsFacade";
@@ -206,6 +207,7 @@ export class AgentRuntimeSessionFactoryController {
       sessionPath: appWorkspace.sessionPath,
     };
     const featureFlagSnapshot = this.options.getFeatureFlagSnapshot();
+    const subagentRegisteredToolNames = ambientSubagentRegisteredToolNamesForThread(thread, featureFlagSnapshot);
     const subagentToolNames = ambientSubagentActiveToolNamesForThread(thread, featureFlagSnapshot);
     const subagentToolScopeSnapshots =
       thread.kind === "subagent_child" && thread.subagentRunId
@@ -343,7 +345,7 @@ export class AgentRuntimeSessionFactoryController {
       interruptedToolCallRecoveryToolsAvailable,
       pluginMcpTools,
       callableWorkflowToolNames,
-      subagentToolNames,
+      subagentRegisteredToolNames,
       initialCallableWorkflowRecordedPlaybooks,
       childCallableWorkflowToolNames,
       symphonyParentModePolicy,

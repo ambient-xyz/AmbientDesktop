@@ -219,7 +219,7 @@ const lambdaRlmThirdPartyCreditSource = {
 
 let mainWindow: BrowserWindow | undefined;
 let mediaPlaybackSettings = { generatedMediaAutoplay: false };
-let thinkingDisplaySettings: ThinkingDisplaySettings = { mode: "transient", showRunStatusCard: false };
+let thinkingDisplaySettings: ThinkingDisplaySettings = { mode: "transient", showRunStatusCard: true };
 let plannerSettings: PlannerSettings = { autoFinalize: true };
 let localDeepResearchSettings: LocalDeepResearchSettings = normalizeLocalDeepResearchAppSettings(undefined);
 let searchRoutingSettings: SearchRoutingSettings = {};

@@ -79,7 +79,7 @@ describe("registerSettingsIpc", () => {
     await invoke("search-routing:update-settings", { webSearch: { activity: "web_search" }, extra: true });
 
     expect(deps.updateMediaPlaybackSettings).toHaveBeenCalledWith({ generatedMediaAutoplay: true });
-    expect(deps.updateThinkingDisplaySettings).toHaveBeenCalledWith({ mode: "transient", showRunStatusCard: false });
+    expect(deps.updateThinkingDisplaySettings).toHaveBeenCalledWith({ mode: "transient", showRunStatusCard: true });
     expect(deps.updateFeatureFlagSettings).toHaveBeenCalledWith({ subagents: true, tencentDbMemory: true, slashCommands: true });
     expect(deps.updateMemorySettings).toHaveBeenCalledWith({ enabled: true, defaultThreadEnabled: true });
     expect(deps.getAgentMemoryStarterStatus).toHaveBeenCalledOnce();

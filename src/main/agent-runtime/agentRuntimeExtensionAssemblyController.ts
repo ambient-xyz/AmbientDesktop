@@ -138,7 +138,7 @@ export interface AgentRuntimeExtensionAssemblyInput {
   interruptedToolCallRecoveryToolsAvailable: boolean;
   pluginMcpTools: PluginMcpToolRegistration[];
   callableWorkflowToolNames: readonly string[];
-  subagentToolNames: readonly string[];
+  subagentRegisteredToolNames: readonly string[];
   initialCallableWorkflowRecordedPlaybooks: readonly WorkflowRecordingLibraryDescription[];
   childCallableWorkflowToolNames: readonly string[];
   symphonyParentModePolicy?: SymphonyParentModePolicy;
@@ -203,7 +203,7 @@ export class AgentRuntimeExtensionAssemblyController {
           ),
         ]
         : []),
-      ...(input.subagentToolNames.length
+      ...(input.subagentRegisteredToolNames.length
         ? [this.options.createSubagentToolExtension(thread.id, input.pluginMcpTools)]
         : []),
       this.createPlannerModeExtension(thread.id),

@@ -4,7 +4,7 @@
   "network": {
     "name": "ambient",
     "runtime": "Solana-compatible",
-    "defaultRpcUrl": "https://rpc.ambient.xyz",
+    "defaultRpcUrl": "http://rpc.ambient.xyz:8899/",
     "defaultWsUrl": "wss://rpc.ambient.xyz"
   },
   "programs": {

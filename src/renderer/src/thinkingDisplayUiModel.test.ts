@@ -122,6 +122,7 @@ describe("thinkingDisplayUiModel", () => {
     expect(shouldShowRunStatusCard({ showRunStatusCard: false }, true)).toBe(false);
     expect(shouldShowRunStatusCard({ showRunStatusCard: true }, false)).toBe(false);
     expect(shouldShowRunStatusCard({ showRunStatusCard: true }, true)).toBe(true);
+    expect(shouldShowRunStatusCard({ showRunStatusCard: false }, true, "starting")).toBe(true);
     expect(shouldShowRunStatusCard({ showRunStatusCard: false }, true, "compacting")).toBe(true);
     expect(shouldShowRunStatusCard({ showRunStatusCard: false }, false, "compacting")).toBe(false);
   });

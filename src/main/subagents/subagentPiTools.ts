@@ -193,7 +193,8 @@ import {
 } from "./subagentTargetResolver";
 
 export const AMBIENT_SUBAGENT_TOOL_NAME = "ambient_subagent" as const;
-export const AMBIENT_SUBAGENT_ACTIVE_TOOL_NAMES = [AMBIENT_SUBAGENT_TOOL_NAME] as const;
+export const AMBIENT_SUBAGENT_REGISTERED_TOOL_NAMES = [AMBIENT_SUBAGENT_TOOL_NAME] as const;
+export const AMBIENT_SUBAGENT_ACTIVE_TOOL_NAMES = [] as const;
 
 const SUBAGENT_RUNTIME = "ambient-subagents";
 const SUBAGENT_PHASE = "phase-2-pi-tool-surface";
@@ -354,9 +355,16 @@ export function ambientSubagentActiveToolNamesForThread(
   thread: Pick<ThreadSummary, "kind">,
   featureFlags: AmbientFeatureFlagSnapshot,
 ): readonly typeof AMBIENT_SUBAGENT_TOOL_NAME[] {
+  return [];
+}
+
+export function ambientSubagentRegisteredToolNamesForThread(
+  thread: Pick<ThreadSummary, "kind">,
+  featureFlags: AmbientFeatureFlagSnapshot,
+): readonly typeof AMBIENT_SUBAGENT_TOOL_NAME[] {
   if (!isAmbientSubagentsEnabled(featureFlags)) return [];
   if (thread.kind === "subagent_child") return [];
-  return AMBIENT_SUBAGENT_ACTIVE_TOOL_NAMES;
+  return AMBIENT_SUBAGENT_REGISTERED_TOOL_NAMES;
 }
 
 export function createSubagentPiToolDefinitions(options: CreateSubagentPiToolDefinitionsOptions): ToolDefinition<any, any, any>[] {

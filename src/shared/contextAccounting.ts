@@ -4,9 +4,17 @@ export interface ProviderPayloadAccounting {
   messageCount?: number;
   roles?: string[];
   contentBytes?: number;
+  toolCount?: number;
+  toolNames?: string[];
   toolSchemaBytes?: number;
+  toolSchemaBreakdown?: ProviderToolSchemaAccounting[];
   totalBytes?: number;
   estimatedTokens?: number;
+}
+
+export interface ProviderToolSchemaAccounting {
+  name: string;
+  bytes: number;
 }
 
 export interface PromptPreflightResult {
@@ -22,6 +30,8 @@ export interface PromptPreflightResult {
 const TOKEN_CHAR_RATIO = 4;
 const MAX_ACCOUNTED_ARRAY_ITEMS = 200;
 const MAX_ACCOUNTED_OBJECT_KEYS = 200;
+const MAX_ACCOUNTED_TOOL_NAMES = 120;
+const MAX_ACCOUNTED_TOOL_SCHEMA_BREAKDOWN = 80;
 const TRUNCATED_JSON_OVERHEAD_BYTES = 64;
 
 export function estimateTokensFromText(value: string): number {
@@ -45,7 +55,8 @@ export function summarizeProviderPayload(payload: unknown, requestType: Provider
     .filter((role): role is string => typeof role === "string")
     .slice(0, 80);
   const contentBytes = messages.reduce((total, message) => total + byteLength(objectRecord(message)?.content), 0);
-  const toolSchemaBytes = byteLength(record?.tools) + byteLength(record?.functions) + byteLength(record?.tool_choice);
+  const toolSchema = summarizeToolSchemas(record);
+  const toolSchemaBytes = toolSchema.bytes + byteLength(record?.tool_choice);
   const totalBytes = estimateProviderPayloadBytes(record, contentBytes, toolSchemaBytes);
   return {
     requestType,
@@ -53,7 +64,10 @@ export function summarizeProviderPayload(payload: unknown, requestType: Provider
     messageCount: messages.length || undefined,
     roles: roles.length ? roles : undefined,
     contentBytes: contentBytes || undefined,
+    toolCount: toolSchema.toolCount || undefined,
+    toolNames: toolSchema.toolNames.length ? toolSchema.toolNames : undefined,
     toolSchemaBytes: toolSchemaBytes || undefined,
+    toolSchemaBreakdown: toolSchema.breakdown.length ? toolSchema.breakdown : undefined,
     totalBytes: totalBytes || undefined,
     estimatedTokens: estimateTokensFromBytes(totalBytes),
   };
@@ -113,6 +127,46 @@ function byteLength(value: unknown): number {
   if (value === undefined || value === null) return 0;
   if (typeof value === "string") return Buffer.byteLength(value);
   return estimateJsonByteLength(value);
+}
+
+function summarizeToolSchemas(record: Record<string, unknown> | undefined): {
+  bytes: number;
+  toolCount: number;
+  toolNames: string[];
+  breakdown: ProviderToolSchemaAccounting[];
+} {
+  const tools = [
+    ...arrayValue(record?.tools),
+    ...arrayValue(record?.functions),
+  ];
+  const breakdown = tools
+    .map((tool, index) => ({
+      name: toolSchemaName(tool) ?? `unnamed_tool_${index + 1}`,
+      bytes: byteLength(tool),
+    }))
+    .sort((a, b) => b.bytes - a.bytes || a.name.localeCompare(b.name))
+    .slice(0, MAX_ACCOUNTED_TOOL_SCHEMA_BREAKDOWN);
+  return {
+    bytes: byteLength(record?.tools) + byteLength(record?.functions),
+    toolCount: tools.length,
+    toolNames: tools
+      .map((tool, index) => toolSchemaName(tool) ?? `unnamed_tool_${index + 1}`)
+      .slice(0, MAX_ACCOUNTED_TOOL_NAMES),
+    breakdown,
+  };
+}
+
+function arrayValue(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+function toolSchemaName(value: unknown): string | undefined {
+  const record = objectRecord(value);
+  const fn = objectRecord(record?.function);
+  const directName = typeof record?.name === "string" ? record.name : undefined;
+  const functionName = typeof fn?.name === "string" ? fn.name : undefined;
+  const name = functionName ?? directName;
+  return name?.trim() || undefined;
 }
 
 function estimateProviderPayloadBytes(

@@ -13,12 +13,12 @@ import {
 } from "./featureFlags";
 
 describe("ambient feature flags", () => {
-  it("defaults memory on and other experimental flags off", () => {
+  it("defaults memory and slash commands on while subagents are off", () => {
     const snapshot = resolveAmbientFeatureFlags({ generatedAt: "2026-06-05T00:00:00.000Z" });
 
     expect(isAmbientSubagentsEnabled(snapshot)).toBe(false);
     expect(isAmbientTencentDbMemoryEnabled(snapshot)).toBe(true);
-    expect(isAmbientSlashCommandsEnabled(snapshot)).toBe(false);
+    expect(isAmbientSlashCommandsEnabled(snapshot)).toBe(true);
     expect(snapshot.flags[AMBIENT_SUBAGENTS_FEATURE_FLAG]).toMatchObject({
       enabled: false,
       source: "default",
@@ -30,9 +30,9 @@ describe("ambient feature flags", () => {
       defaultEnabled: true,
     });
     expect(snapshot.flags[AMBIENT_SLASH_COMMANDS_FEATURE_FLAG]).toMatchObject({
-      enabled: false,
+      enabled: true,
       source: "default",
-      defaultEnabled: false,
+      defaultEnabled: true,
     });
   });
 
@@ -67,7 +67,7 @@ describe("ambient feature flags", () => {
     expect(normalizeAmbientFeatureFlagSettings()).toEqual({
       subagents: false,
       tencentDbMemory: true,
-      slashCommands: false,
+      slashCommands: true,
     });
     expect(applyAmbientFeatureFlagSettingsPatch(
       { subagents: false, tencentDbMemory: false, slashCommands: false },

@@ -173,6 +173,43 @@ export const modelStatusToolDescriptors: DesktopToolDescriptor[] = [
   },
 ];
 
+export const subagentToolDescriptors: DesktopToolDescriptor[] = [
+  {
+    name: "ambient_subagent",
+    label: "Ambient Sub-Agent",
+    description:
+      "Create and manage visible Ambient child-thread sub-agents for explicit delegation, staged workflows, parallel exploration, review, and wait-barrier handling.",
+    promptSnippet:
+      "ambient_subagent: Discover this tool for explicit sub-agent, child-agent, parallel delegation, or Symphony-style orchestration requests; describe before calling.",
+    promptGuidelines: [
+      "Use only when the user explicitly asks for sub-agents/child agents/delegation or the request clearly needs visible staged or parallel child-thread work.",
+      "Load the full contract with ambient_tool_describe before first execution in a thread; search results intentionally omit the large schema.",
+      "Execute through ambient_tool_call with toolName ambient_subagent unless the tool has been activated directly for the current session.",
+      "Spawn required child work before synthesizing the parent answer, then wait for required children before final synthesis.",
+    ],
+    inputSchema: {
+      type: "object",
+      properties: {
+        action: {
+          type: "string",
+          description:
+            "Sub-agent operation such as spawn_agent, wait_agent, send_agent, followup_agent, resolve_barrier, list_agents, status_agent, close_agent, or cancel_agent. Use ambient_tool_describe for the exact schema.",
+        },
+      },
+      required: ["action"],
+      additionalProperties: true,
+    },
+    source: "first-party",
+    sideEffects: "write-workspace",
+    permissionScope: "ambient-subagent-parent-orchestration",
+    supportsDryRun: false,
+    supportsUndo: false,
+    idempotency: "recommended",
+    defaultTimeoutMs: 30_000,
+    runtimeSupport: ["chat"],
+  },
+];
+
 export function firstPartyDesktopToolDescriptors(): DesktopToolDescriptor[] {
   return [
     bashToolDescriptor,
@@ -188,6 +225,7 @@ export function firstPartyDesktopToolDescriptors(): DesktopToolDescriptor[] {
     ...managedDownloadToolDescriptors,
     ...productContextToolDescriptors,
     ...modelStatusToolDescriptors,
+    ...subagentToolDescriptors,
     ...installRouteToolDescriptors,
     ...gitToolDescriptors,
     ...providerCatalogToolDescriptors,

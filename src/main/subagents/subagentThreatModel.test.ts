@@ -7,7 +7,7 @@ import type { SubagentRunEventSummary, SubagentRunSummary } from "../../shared/s
 import type { ThreadSummary } from "../../shared/threadTypes";
 import { validateSubagentCompletionGuard } from "./subagentCompletionGuard";
 import { isSubagentParentOnlyContextMessage, subagentParentContextForMessages } from "./subagentContextFilter";
-import { ambientSubagentActiveToolNamesForThread } from "./subagentPiTools";
+import { ambientSubagentActiveToolNamesForThread, ambientSubagentRegisteredToolNamesForThread } from "./subagentPiTools";
 
 const enabledFlags = resolveAmbientFeatureFlags({
   startup: { enabled: [AMBIENT_SUBAGENTS_FEATURE_FLAG], disabled: [] },
@@ -421,8 +421,10 @@ describe("sub-agent threat model regressions", () => {
   });
 
   it("hides parent-facing sub-agent fanout tools inside child sessions even when the flag is enabled", () => {
-    expect(ambientSubagentActiveToolNamesForThread(thread({ kind: "chat" }), enabledFlags)).toEqual(["ambient_subagent"]);
+    expect(ambientSubagentActiveToolNamesForThread(thread({ kind: "chat" }), enabledFlags)).toEqual([]);
+    expect(ambientSubagentRegisteredToolNamesForThread(thread({ kind: "chat" }), enabledFlags)).toEqual(["ambient_subagent"]);
     expect(ambientSubagentActiveToolNamesForThread(thread({ kind: "subagent_child" }), enabledFlags)).toEqual([]);
+    expect(ambientSubagentRegisteredToolNamesForThread(thread({ kind: "subagent_child" }), enabledFlags)).toEqual([]);
   });
 });
 

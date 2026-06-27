@@ -240,7 +240,7 @@ const updateMediaPlaybackSettingsSchema = z.object({
 });
 const updateThinkingDisplaySettingsSchema = z.object({
   mode: z.enum(["off", "transient", "full"]),
-  showRunStatusCard: z.boolean().optional().default(false),
+  showRunStatusCard: z.boolean().optional().default(true),
 });
 const updateModelRuntimeSettingsSchema = z.object({
   aggressiveRetries: z.boolean().optional(),

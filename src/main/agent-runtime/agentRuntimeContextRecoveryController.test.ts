@@ -53,6 +53,27 @@ describe("AgentRuntimeContextRecoveryController", () => {
       const sessionFile = join(threadSessionDir, "session.jsonl");
       await writeFile(sessionFile, "", "utf8");
       activeSessions.set(thread.id, fakePiSession(sessionFile));
+      store.recordContextUsageSnapshot({
+        threadId: thread.id,
+        source: "estimate",
+        tokens: 480,
+        contextWindow: 128_000,
+        percent: 0.375,
+        compactionCount: 0,
+        diagnostics: {
+          activeSession: true,
+          providerPayload: {
+            requestType: "normal",
+            model: "example/model-id",
+            messageCount: 2,
+            toolCount: 2,
+            toolNames: ["read", "ambient_tool_search"],
+            toolSchemaBytes: 987,
+            totalBytes: 4321,
+            estimatedTokens: 1080,
+          },
+        },
+      });
 
       const snapshot = await controller.getContextUsage(thread.id);
 
@@ -66,6 +87,12 @@ describe("AgentRuntimeContextRecoveryController", () => {
           piSessionFile: sessionFile,
           piSessionFileExists: true,
           activeSession: true,
+          providerPayload: expect.objectContaining({
+            model: "example/model-id",
+            toolCount: 2,
+            toolNames: ["read", "ambient_tool_search"],
+            toolSchemaBytes: 987,
+          }),
         }),
       });
       expect(store.getLatestContextUsageSnapshot(thread.id)).toMatchObject({

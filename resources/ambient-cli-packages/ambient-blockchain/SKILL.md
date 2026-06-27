@@ -13,7 +13,7 @@ Use this capability when the user wants Ambient Desktop or Pi to inspect Ambient
 - Call `ambient_cli_describe` before first use so the exact commands, env bindings, and safety gates are visible.
 - Run `ambient_chain_doctor --json` before other commands. The health check is deterministic and does not touch the network unless `--network` is passed.
 - Safe live-read is the default live lane: `ambient_blockchain_live_gate --live-read --json` tests `getHealth`, `getVersion`, and `getSlot` without secrets or spend.
-- The default RPC is `https://rpc.ambient.xyz`; set `AMBIENT_BLOCKCHAIN_RPC_URL` only when a local or alternate Ambient-compatible endpoint is intended.
+- The default RPC is `http://rpc.ambient.xyz:8899/`; set `AMBIENT_BLOCKCHAIN_RPC_URL` only when a local or alternate Ambient-compatible endpoint is intended.
 - Keypair env bindings are acceptable for now, but treat them like browser/Electron wallet secrets: bind through Ambient-managed secret/file flows, never paste key material into chat, and only use signer-backed lanes after explicit spend approval.
 - Use `ambient_keypair_status --json` before any signer-backed plan. It reports configured booleans, path hashes, file metadata, and public keys only; it never prints keypair paths or private bytes.
 - Use `ambient_approval_verify --plan-artifact <path> --approval-sha256 <sha> --require-signer --json` immediately before any submit, payment, deploy, upgrade, or authority command.

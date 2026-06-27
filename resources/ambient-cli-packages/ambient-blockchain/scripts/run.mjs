@@ -36,7 +36,7 @@ const packageVersion = "0.1.16";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
 const contractsPath = join(packageRoot, "contracts", "ambient-blockchain-contracts.json");
-const defaultRpcUrl = "https://rpc.ambient.xyz";
+const defaultRpcUrl = "http://rpc.ambient.xyz:8899/";
 const defaultWsUrl = "wss://rpc.ambient.xyz";
 const base58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 

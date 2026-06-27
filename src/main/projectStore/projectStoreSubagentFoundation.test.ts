@@ -88,7 +88,7 @@ describe("ProjectStore sub-agent foundation settings", () => {
       expect(reopened.getDefaultSettings().featureFlags).toEqual({
         subagents: true,
         tencentDbMemory: true,
-        slashCommands: false,
+        slashCommands: true,
       });
       expect(reopened.getDefaultSettings().memory).toEqual({
         mode: "enabled_all",

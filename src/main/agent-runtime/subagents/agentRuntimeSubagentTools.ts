@@ -5,6 +5,7 @@ import type { ThreadSummary } from "../../../shared/threadTypes";
 import type { PluginMcpToolRegistration } from "../agentRuntimePluginsFacade";
 import {
   ambientSubagentActiveToolNamesForThread as defaultAmbientSubagentActiveToolNamesForThread,
+  ambientSubagentRegisteredToolNamesForThread as defaultAmbientSubagentRegisteredToolNamesForThread,
   createSubagentPiToolDefinitions as defaultCreateSubagentPiToolDefinitions,
   type CreateSubagentPiToolDefinitionsOptions,
   type SubagentPiToolStore,
@@ -23,6 +24,7 @@ export interface SubagentToolExtensionOptions {
   prepareChildWorktree: NonNullable<CreateSubagentPiToolDefinitionsOptions["prepareChildWorktree"]>;
   runtime: NonNullable<CreateSubagentPiToolDefinitionsOptions["runtime"]>;
   ambientSubagentActiveToolNamesForThread?: typeof defaultAmbientSubagentActiveToolNamesForThread;
+  ambientSubagentRegisteredToolNamesForThread?: typeof defaultAmbientSubagentRegisteredToolNamesForThread;
   createSubagentPiToolDefinitions?: (options: CreateSubagentPiToolDefinitionsOptions) => ToolDefinition<any, any, any>[];
 }
 
@@ -43,6 +45,7 @@ export function createAgentRuntimeSubagentToolExtension(input: {
   prepareChildWorktree: NonNullable<CreateSubagentPiToolDefinitionsOptions["prepareChildWorktree"]>;
   runtime: NonNullable<CreateSubagentPiToolDefinitionsOptions["runtime"]>;
   ambientSubagentActiveToolNamesForThread?: typeof defaultAmbientSubagentActiveToolNamesForThread;
+  ambientSubagentRegisteredToolNamesForThread?: typeof defaultAmbientSubagentRegisteredToolNamesForThread;
   createSubagentPiToolDefinitions?: (options: CreateSubagentPiToolDefinitionsOptions) => ToolDefinition<any, any, any>[];
 }): ExtensionFactory {
   return createSubagentToolExtension({
@@ -67,6 +70,7 @@ export function createAgentRuntimeSubagentToolExtension(input: {
     prepareChildWorktree: input.prepareChildWorktree,
     runtime: input.runtime,
     ambientSubagentActiveToolNamesForThread: input.ambientSubagentActiveToolNamesForThread,
+    ambientSubagentRegisteredToolNamesForThread: input.ambientSubagentRegisteredToolNamesForThread,
     createSubagentPiToolDefinitions: input.createSubagentPiToolDefinitions,
   });
 }
@@ -75,8 +79,11 @@ export function createSubagentToolExtension(options: SubagentToolExtensionOption
   return (pi) => {
     const thread = options.getThread();
     const featureFlags = options.getFeatureFlagSnapshot();
-    const activeToolNamesForThread = options.ambientSubagentActiveToolNamesForThread ?? defaultAmbientSubagentActiveToolNamesForThread;
-    if (!activeToolNamesForThread(thread, featureFlags).length) return;
+    const registeredToolNamesForThread =
+      options.ambientSubagentRegisteredToolNamesForThread ??
+      options.ambientSubagentActiveToolNamesForThread ??
+      defaultAmbientSubagentRegisteredToolNamesForThread;
+    if (!registeredToolNamesForThread(thread, featureFlags).length) return;
 
     const availableExtensionToolNames = (options.pluginMcpTools ?? []).map((tool) => tool.registeredName);
     const createToolDefinitions = options.createSubagentPiToolDefinitions ?? defaultCreateSubagentPiToolDefinitions;

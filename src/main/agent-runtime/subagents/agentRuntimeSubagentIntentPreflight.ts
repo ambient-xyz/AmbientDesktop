@@ -1,4 +1,8 @@
 import {
+  AMBIENT_TOOL_CALL,
+  AMBIENT_TOOL_DESCRIBE,
+} from "../agentRuntimeAmbientFacade";
+import {
   isAmbientSubagentsEnabled,
   type AmbientFeatureFlagSnapshot,
 } from "../../../shared/featureFlags";
@@ -47,7 +51,7 @@ export interface ExplicitSubagentRequestPreflightInput {
   prompt: string;
   thread: Pick<ThreadSummary, "kind">;
   featureFlags: AmbientFeatureFlagSnapshot;
-  activeToolNames: readonly string[];
+  availableToolNames: readonly string[];
 }
 
 export function hasExplicitSubagentRequest(prompt: string): boolean {
@@ -161,7 +165,7 @@ export function explicitSubagentRequestPreflight(
   const implicitPattern = explicit ? undefined : detectSubagentOrchestrationPattern(input.prompt);
   if (!explicit && !implicitPattern) return { kind: "none" };
 
-  const hasSubagentTool = input.activeToolNames.includes(AMBIENT_SUBAGENT_TOOL_NAME);
+  const hasSubagentTool = input.availableToolNames.includes(AMBIENT_SUBAGENT_TOOL_NAME);
   if (isAmbientSubagentsEnabled(input.featureFlags) && input.thread.kind !== "subagent_child" && hasSubagentTool) {
     const pattern = detectIterativeChildEvaluationPattern(input.prompt);
     return {
@@ -179,7 +183,7 @@ export function explicitSubagentRequestPreflight(
     ? "ambient.subagents is disabled."
     : input.thread.kind === "subagent_child"
       ? "Nested sub-agent fanout is disabled for child threads."
-      : "ambient_subagent is not active for this thread.";
+      : "ambient_subagent is not registered for this thread.";
 
   return {
     kind: "blocked",
@@ -201,6 +205,7 @@ function explicitSubagentRequestGuidance(): string {
     "Explicit Ambient sub-agent request:",
     "- The user explicitly asked for sub-agent or child-agent delegation.",
     `- Use ${AMBIENT_SUBAGENT_TOOL_NAME} with spawn_agent for each required child before doing the delegated work.`,
+    `- Load the contract with ${AMBIENT_TOOL_DESCRIBE}({ name: "${AMBIENT_SUBAGENT_TOOL_NAME}" }) first, then execute through ${AMBIENT_TOOL_CALL}({ toolName: "${AMBIENT_SUBAGENT_TOOL_NAME}", toolInput: { action: "spawn_agent", ... } }).`,
     "- Do not simulate sub-agents by writing role prompts into shell commands, files, or assistant prose.",
     "- Wait for required children with wait_agent before synthesizing the parent answer.",
   ].join("\n");
@@ -210,7 +215,7 @@ function implicitSubagentPatternGuidance(pattern: DetectedSubagentOrchestrationP
   return [
     `Ambient sub-agent orchestration pattern detected: ${pattern.label}.`,
     "- The user did not name sub-agents, but this request has independent branches, verification, staged handoff, alternatives, or build-test-repair structure where visible child threads improve reliability and inspectability.",
-    `- Use ${AMBIENT_SUBAGENT_TOOL_NAME} with spawn_agent for the child work before doing the parent synthesis.`,
+    `- Use ${AMBIENT_TOOL_DESCRIBE} to load ${AMBIENT_SUBAGENT_TOOL_NAME}, then use ${AMBIENT_TOOL_CALL} with action spawn_agent for the child work before doing the parent synthesis.`,
     "- For every child whose result is needed for the answer, pass dependencyMode required at spawn time; optional_background is only for work the parent can safely ignore.",
     "- Use roleId worker only when the child will mutate files or artifacts inside an isolated worktree. Use drafter for non-mutating copy/proposals/plans, explorer for research, reviewer for checks, and summarizer for reducers.",
     "- Give each child a short, descriptive task title/summary so the UI can show what the parent is waiting on.",

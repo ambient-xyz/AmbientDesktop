@@ -47,6 +47,7 @@ export interface BuildActiveContextUsageSnapshotInput {
   session: ActiveContextUsageSnapshotSession;
   unavailableContextWindow: number;
   ambientCliSkillMount?: ContextUsageAmbientCliSkillMountDiagnostic;
+  providerPayload?: ContextUsageDiagnostics["providerPayload"];
   message?: string;
   now?: () => Date;
   fileExists?: (path: string) => boolean;
@@ -137,6 +138,7 @@ export function buildActiveContextUsageSnapshot(input: BuildActiveContextUsageSn
       piSessionFileExists: sessionFile ? fileExists(sessionFile) : false,
       activeSession: true,
       ...(input.ambientCliSkillMount ? { ambientCliSkillMount: input.ambientCliSkillMount } : {}),
+      ...(input.providerPayload ? { providerPayload: input.providerPayload } : {}),
       ...(input.message ? { message: input.message } : {}),
     },
   };

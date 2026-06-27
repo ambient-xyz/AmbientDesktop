@@ -9,7 +9,10 @@ describe("context accounting", () => {
         { role: "system", content: "system prompt" },
         { role: "user", content: "write the app" },
       ],
-      tools: [{ type: "function", function: { name: "bash", parameters: { type: "object" } } }],
+      tools: [
+        { type: "function", function: { name: "bash", parameters: { type: "object" } } },
+        { type: "function", function: { name: "ambient_subagent", parameters: { type: "object", properties: { action: { type: "string" } } } } },
+      ],
     });
 
     expect(summary).toMatchObject({
@@ -19,6 +22,9 @@ describe("context accounting", () => {
       roles: ["system", "user"],
     });
     expect(summary.contentBytes).toBeGreaterThan(0);
+    expect(summary.toolCount).toBe(2);
+    expect(summary.toolNames).toEqual(["bash", "ambient_subagent"]);
+    expect(summary.toolSchemaBreakdown?.[0]).toMatchObject({ name: "ambient_subagent" });
     expect(summary.toolSchemaBytes).toBeGreaterThan(0);
     expect(summary.estimatedTokens).toBeGreaterThan(0);
     expect(JSON.stringify(summary)).not.toContain("write the app");

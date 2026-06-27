@@ -20,7 +20,7 @@ import {
 } from "./agentRuntimeLocalRuntimeFacade";
 import { createDefaultModelRuntimeRegistry } from "./agentRuntimeModelProviderFacade";
 import {
-  ambientSubagentActiveToolNamesForThread,
+  ambientSubagentRegisteredToolNamesForThread,
 } from "./agentRuntimeSubagentsFacade";
 import type { RuntimeSendMessageInput } from "./agentRuntimeSendPreparationController";
 import type { SymphonyParentModePolicy } from "./agentRuntimeSymphonyParentMode";
@@ -156,7 +156,7 @@ export class AgentRuntimeSendPreflightController {
         prompt: input.visibleUserContent,
         thread: input.thread,
         featureFlags: featureFlagSnapshotForPrompt,
-        activeToolNames: ambientSubagentActiveToolNamesForThread(input.thread, featureFlagSnapshotForPrompt),
+        availableToolNames: ambientSubagentRegisteredToolNamesForThread(input.thread, featureFlagSnapshotForPrompt),
       });
     if (subagentPreflight.kind === "blocked") {
       finalizeRuntimeSubagentPreflightBlock({

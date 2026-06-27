@@ -28,7 +28,7 @@ describe("agentRuntimeSubagentIntentPreflight", () => {
       prompt: "Use a feedback subagent and a judge subagent.",
       thread: thread(),
       featureFlags: resolveAmbientFeatureFlags(),
-      activeToolNames: [],
+      availableToolNames: [],
     });
 
     expect(result).toMatchObject({
@@ -38,17 +38,17 @@ describe("agentRuntimeSubagentIntentPreflight", () => {
     expect(result.kind === "blocked" ? result.message : "").toContain("I will not simulate sub-agents");
   });
 
-  it("blocks explicit subagent requests when the tool is not active despite the flag", () => {
+  it("blocks explicit subagent requests when the tool is not registered despite the flag", () => {
     const result = explicitSubagentRequestPreflight({
       prompt: "Use a child agent for review.",
       thread: thread(),
       featureFlags: resolveAmbientFeatureFlags({ startup: { enabled: ["ambient.subagents"], disabled: [] } }),
-      activeToolNames: [],
+      availableToolNames: [],
     });
 
     expect(result).toMatchObject({
       kind: "blocked",
-      reason: "ambient_subagent is not active for this thread.",
+      reason: "ambient_subagent is not registered for this thread.",
     });
   });
 
@@ -57,7 +57,7 @@ describe("agentRuntimeSubagentIntentPreflight", () => {
       prompt: "Launch a sub-agent to judge this.",
       thread: thread({ kind: "subagent_child" }),
       featureFlags: resolveAmbientFeatureFlags({ startup: { enabled: ["ambient.subagents"], disabled: [] } }),
-      activeToolNames: [],
+      availableToolNames: [],
     });
 
     expect(result).toMatchObject({
@@ -71,7 +71,7 @@ describe("agentRuntimeSubagentIntentPreflight", () => {
       prompt: "Sub-agent task: Return ambient-subagent-structured-result-v1 JSON with roleId reviewer.",
       thread: thread({ kind: "subagent_child" }),
       featureFlags: resolveAmbientFeatureFlags({ startup: { enabled: ["ambient.subagents"], disabled: [] } }),
-      activeToolNames: [],
+      availableToolNames: [],
     });
 
     expect(result).toEqual({ kind: "none" });
@@ -82,7 +82,7 @@ describe("agentRuntimeSubagentIntentPreflight", () => {
       prompt: "Sub-agent task: You are a FEEDBACK subagent for an iterative essay improvement loop. Read the current essay and provide exactly one improvement idea.",
       thread: thread({ kind: "subagent_child" }),
       featureFlags: resolveAmbientFeatureFlags({ startup: { enabled: ["ambient.subagents"], disabled: [] } }),
-      activeToolNames: [],
+      availableToolNames: [],
     });
 
     expect(result).toEqual({ kind: "none" });
@@ -93,7 +93,7 @@ describe("agentRuntimeSubagentIntentPreflight", () => {
       prompt: "Sub-agent task: You are a judge subagent. Launch a sub-agent to compare this with another essay.",
       thread: thread({ kind: "subagent_child" }),
       featureFlags: resolveAmbientFeatureFlags({ startup: { enabled: ["ambient.subagents"], disabled: [] } }),
-      activeToolNames: [],
+      availableToolNames: [],
     });
 
     expect(result).toMatchObject({
@@ -107,12 +107,14 @@ describe("agentRuntimeSubagentIntentPreflight", () => {
       prompt: "Use one feedback subagent and one judge subagent.",
       thread: thread(),
       featureFlags: resolveAmbientFeatureFlags({ startup: { enabled: ["ambient.subagents"], disabled: [] } }),
-      activeToolNames: ["ambient_subagent"],
+      availableToolNames: ["ambient_subagent"],
     });
 
     expect(result).toMatchObject({ kind: "ready" });
     const guided = applyExplicitSubagentRequestGuidance("User request", result.kind === "ready" ? result.guidance : "");
     expect(guided).toContain("Use ambient_subagent with spawn_agent");
+    expect(guided).toContain("ambient_tool_describe");
+    expect(guided).toContain("ambient_tool_call");
     expect(guided).toContain("Do not simulate sub-agents");
     expect(guided).not.toContain("iterative_child_evaluation_loop");
   });
@@ -127,7 +129,7 @@ describe("agentRuntimeSubagentIntentPreflight", () => {
       ].join(" "),
       thread: thread(),
       featureFlags: resolveAmbientFeatureFlags({ startup: { enabled: ["ambient.subagents"], disabled: [] } }),
-      activeToolNames: ["ambient_subagent"],
+      availableToolNames: ["ambient_subagent"],
     });
 
     expect(result).toMatchObject({ kind: "ready" });
@@ -168,18 +170,19 @@ describe("agentRuntimeSubagentIntentPreflight", () => {
     )).toMatchObject({ id: "ensemble" });
   });
 
-  it("adds turn-scoped guidance for natural orchestration patterns when the real tool is active", () => {
+  it("adds turn-scoped guidance for natural orchestration patterns when the real tool is registered", () => {
     const result = explicitSubagentRequestPreflight({
       prompt: "Here is a rough announcement. Please polish it and check carefully that all required facts remain.",
       thread: thread(),
       featureFlags: resolveAmbientFeatureFlags({ startup: { enabled: ["ambient.subagents"], disabled: [] } }),
-      activeToolNames: ["ambient_subagent"],
+      availableToolNames: ["ambient_subagent"],
     });
 
     expect(result).toMatchObject({ kind: "ready" });
     const guidance = result.kind === "ready" ? result.guidance : "";
     expect(guidance).toContain("Ambient sub-agent orchestration pattern detected: Imitate and Verify.");
-    expect(guidance).toContain("Use ambient_subagent with spawn_agent");
+    expect(guidance).toContain("Use ambient_tool_describe to load ambient_subagent");
+    expect(guidance).toContain("ambient_tool_call");
     expect(guidance).toContain("roleId drafter");
     expect(guidance).toContain("dependencyMode required");
     expect(guidance).toContain("Wait for the drafter, then pass the draft text/result");
@@ -191,7 +194,7 @@ describe("agentRuntimeSubagentIntentPreflight", () => {
       prompt: "Please compare these three options and choose the best.",
       thread: thread(),
       featureFlags: resolveAmbientFeatureFlags(),
-      activeToolNames: [],
+      availableToolNames: [],
     })).toEqual({ kind: "none" });
   });
 });

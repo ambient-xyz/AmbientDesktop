@@ -157,7 +157,13 @@ export interface ContextUsageSnapshot {
       messageCount?: number;
       roles?: string[];
       contentBytes?: number;
+      toolCount?: number;
+      toolNames?: string[];
       toolSchemaBytes?: number;
+      toolSchemaBreakdown?: Array<{
+        name: string;
+        bytes: number;
+      }>;
       totalBytes?: number;
       estimatedTokens?: number;
     };

@@ -19,6 +19,7 @@ export { cancelPendingParentToChildMailboxEvents } from "./subagentMailbox";
 export {
   AMBIENT_SUBAGENT_TOOL_NAME,
   ambientSubagentActiveToolNamesForThread,
+  ambientSubagentRegisteredToolNamesForThread,
   createSubagentPiToolDefinitions,
 } from "./subagentPiTools";
 export type {

@@ -20,7 +20,7 @@ describe("AgentRuntimeExtensionAssemblyController", () => {
       interruptedToolCallRecoveryToolsAvailable: true,
       pluginMcpTools: [],
       callableWorkflowToolNames: ["workflow_one"],
-      subagentToolNames: ["ambient_subagent_spawn"],
+      subagentRegisteredToolNames: ["ambient_subagent"],
       initialCallableWorkflowRecordedPlaybooks: [],
       childCallableWorkflowToolNames: ["child_workflow"],
     }));
@@ -67,7 +67,7 @@ describe("AgentRuntimeExtensionAssemblyController", () => {
       interruptedToolCallRecoveryToolsAvailable: false,
       pluginMcpTools: [],
       callableWorkflowToolNames: [],
-      subagentToolNames: [],
+      subagentRegisteredToolNames: [],
       initialCallableWorkflowRecordedPlaybooks: [],
       childCallableWorkflowToolNames: [],
     }));

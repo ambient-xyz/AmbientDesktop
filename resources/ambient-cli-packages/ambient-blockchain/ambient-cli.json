@@ -6,7 +6,7 @@
   "env": [
     {
       "name": "AMBIENT_BLOCKCHAIN_RPC_URL",
-      "description": "Optional Ambient RPC override. Defaults to https://rpc.ambient.xyz.",
+      "description": "Optional Ambient RPC override. Defaults to http://rpc.ambient.xyz:8899/.",
       "required": false
     },
     {

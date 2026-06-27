@@ -12,7 +12,12 @@ import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import type { ThreadSummary, ThreadWorktreeSummary } from "../../shared/threadTypes";
 import { createAgentRoleRegistry } from "./subagentAgentFacade";
 import { ProjectStore } from "./subagentProjectStoreFacade";
-import { AMBIENT_SUBAGENT_TOOL_NAME, ambientSubagentActiveToolNamesForThread, createSubagentPiToolDefinitions } from "./subagentPiTools";
+import {
+  AMBIENT_SUBAGENT_TOOL_NAME,
+  ambientSubagentActiveToolNamesForThread,
+  ambientSubagentRegisteredToolNamesForThread,
+  createSubagentPiToolDefinitions,
+} from "./subagentPiTools";
 import {
   cleanupTempWorkspaces,
   disabledFlags,
@@ -27,13 +32,15 @@ import {
 afterEach(cleanupTempWorkspaces);
 
 describe("sub-agent Pi tool catalog gating", () => {
-  it("exposes ambient_subagent only for enabled parent chat threads", () => {
+  it("registers ambient_subagent only for enabled parent chat threads but keeps it out of default active tools", () => {
     const parent = { kind: "chat" } as ThreadSummary;
     const child = { kind: "subagent_child" } as ThreadSummary;
 
     expect(ambientSubagentActiveToolNamesForThread(parent, disabledFlags)).toEqual([]);
-    expect(ambientSubagentActiveToolNamesForThread(parent, enabledFlags)).toEqual([AMBIENT_SUBAGENT_TOOL_NAME]);
+    expect(ambientSubagentActiveToolNamesForThread(parent, enabledFlags)).toEqual([]);
+    expect(ambientSubagentRegisteredToolNamesForThread(parent, enabledFlags)).toEqual([AMBIENT_SUBAGENT_TOOL_NAME]);
     expect(ambientSubagentActiveToolNamesForThread(child, enabledFlags)).toEqual([]);
+    expect(ambientSubagentRegisteredToolNamesForThread(child, enabledFlags)).toEqual([]);
   });
 
   it("describes direct parent spawn and wait semantics for explicit delegation requests", () => {

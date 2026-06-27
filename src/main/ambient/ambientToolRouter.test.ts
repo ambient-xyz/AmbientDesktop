@@ -138,6 +138,40 @@ describe("ambient tool router", () => {
     });
   });
 
+  it("routes sub-agent orchestration through progressive discovery instead of default activation", async () => {
+    const active = ["read", AMBIENT_TOOL_SEARCH, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_CALL];
+    const session = fakeSession({
+      active,
+      tools: [
+        fakeTool("ambient_subagent", {
+          description: "Create and manage Ambient child-thread sub-agents.",
+          parameters: {
+            type: "object",
+            properties: {
+              action: { type: "string", enum: ["spawn_agent", "wait_agent"] },
+              task: { type: "string" },
+            },
+            required: ["action"],
+            additionalProperties: false,
+          } as any,
+        }),
+      ],
+    });
+    const [search, describe] = createAmbientToolRouterTools({ getSession: () => session });
+
+    const result = await search.execute("search-subagent", { query: "use subagents for parallel delegation", limit: 5 }, undefined, undefined, {} as any);
+    const text = result.content.map((part: any) => part.text ?? "").join("\n");
+
+    expect(text).toContain("ambient_subagent");
+    expect(text).not.toContain("spawn_agent");
+    expect(session.getActiveToolNames()).toEqual(active);
+
+    const described = await describe.execute("describe-subagent", { name: "ambient_subagent" }, undefined, undefined, {} as any);
+    const describedText = described.content.map((part: any) => part.text ?? "").join("\n");
+    expect(describedText).toContain('"spawn_agent"');
+    expect(session.getActiveToolNames()).toContain("ambient_subagent");
+  });
+
   it("prioritizes the web research broker for ordinary public research searches", async () => {
     const session = fakeSession({
       active: ["read", AMBIENT_TOOL_SEARCH, AMBIENT_TOOL_DESCRIBE, AMBIENT_TOOL_CALL],

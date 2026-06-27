@@ -821,6 +821,7 @@ function relatedActivationBundle(name: string): string[] {
       "ambient_workflows_restore_version",
     ];
   }
+  if (name === "ambient_subagent") return ["ambient_subagent"];
   return [name];
 }
 
@@ -840,7 +841,9 @@ function catalogEntryFor(session: AmbientToolRouterSession, name: string, defini
     description: descriptor?.description ?? live?.description ?? "",
     promptSnippet: descriptor?.promptSnippet ?? live?.promptSnippet,
     promptGuidelines: descriptor?.promptGuidelines ?? live?.promptGuidelines ?? [],
-    parameters: descriptor?.inputSchema ?? live?.parameters ?? {},
+    parameters: name === "ambient_subagent"
+      ? live?.parameters ?? descriptor?.inputSchema ?? {}
+      : descriptor?.inputSchema ?? live?.parameters ?? {},
     category: categoryForToolName(name),
     sideEffects: descriptor?.sideEffects,
     permissionScope: descriptor?.permissionScope,
@@ -941,6 +944,8 @@ function searchRouteBoost(entry: AmbientToolCatalogEntry, query: string, context
   if (ambientCliBoost) return ambientCliBoost;
   const recordedWorkflowBoost = recordedWorkflowPlaybookRouteBoost(entry, query, context);
   if (recordedWorkflowBoost) return recordedWorkflowBoost;
+  const subagentBoost = subagentRouteBoost(entry, query, context);
+  if (subagentBoost) return subagentBoost;
   if (isInstalledMcpToolUseQuery(query, context)) {
     if (entry.name === "ambient_mcp_tool_search") return 2_000;
     if (entry.name === "ambient_mcp_tool_describe") return 1_600;
@@ -956,6 +961,11 @@ function searchRouteBoost(entry: AmbientToolCatalogEntry, query: string, context
     if (entry.name === "ambient_mcp_server_search") return 250;
   }
   return 0;
+}
+
+function subagentRouteBoost(entry: AmbientToolCatalogEntry, query: string, context: AmbientToolSearchContext): number {
+  if (!isSubagentToolUseQuery(query, context)) return 0;
+  return entry.name === "ambient_subagent" ? 3_600 : 0;
 }
 
 function ambientCliCapabilityRouteBoost(entry: AmbientToolCatalogEntry, query: string, context: AmbientToolSearchContext): number {
@@ -1037,6 +1047,14 @@ function isRecordedWorkflowPlaybookUseQuery(query: string, context: AmbientToolS
   if (looksLikeSavedWorkflowTitleQuery(query) && !isWorkflowAgentNativeQuery(normalized) && !isInstallRouteQuery(normalized)) return true;
   if (/\bworkflows?\b/.test(normalized) && !isWorkflowAgentNativeQuery(normalized) && !isInstallRouteQuery(normalized)) return true;
   return /\b(run|use|launch|execute|start)\b/.test(normalized) && hasTitleCasedRunTarget(query);
+}
+
+function isSubagentToolUseQuery(query: string, context: AmbientToolSearchContext): boolean {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return false;
+  const category = context.category;
+  if (category && !["ambient", "workflow", "workflows", "subagent", "sub-agent", "agent", "orchestration"].includes(category)) return false;
+  return /\b(ambient_subagent|sub[-\s]?agents?|child[-\s]?agents?|parallel\s+(?:delegation|agents?)|delegate(?:d|s|ion)?|symphony)\b/.test(normalized);
 }
 
 function isWorkflowAgentNativeQuery(normalizedQuery: string): boolean {

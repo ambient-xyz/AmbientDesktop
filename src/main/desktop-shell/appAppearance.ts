@@ -17,7 +17,7 @@ export const DEFAULT_MEDIA_PLAYBACK_SETTINGS: MediaPlaybackSettings = {
 };
 export const DEFAULT_THINKING_DISPLAY_SETTINGS: ThinkingDisplaySettings = {
   mode: "transient",
-  showRunStatusCard: false,
+  showRunStatusCard: true,
 };
 export const DEFAULT_PLANNER_SETTINGS: PlannerSettings = {
   autoFinalize: true,

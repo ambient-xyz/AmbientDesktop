@@ -62,7 +62,7 @@ export function shouldShowRunStatusCard(
   running: boolean,
   status?: RunStatus,
 ): boolean {
-  return Boolean(running && (settings?.showRunStatusCard || status === "compacting"));
+  return Boolean(running && (settings?.showRunStatusCard || status === "starting" || status === "compacting"));
 }
 
 export function visibleTextMatchCountForThinkingDisplay(input: {

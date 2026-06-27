@@ -217,11 +217,13 @@ export class AgentRuntimeContextRecoveryController {
     session: AgentRuntimeContextRecoverySession,
     message?: string,
   ): ContextUsageSnapshot {
+    const latestProviderPayload = this.options.store.getLatestContextUsageSnapshot(threadId)?.diagnostics?.providerPayload;
     return buildActiveContextUsageSnapshot({
       threadId,
       session,
       unavailableContextWindow: CONTEXT_USAGE_UNAVAILABLE_WINDOW,
       ambientCliSkillMount: this.options.ambientCliSkillMountForThread(threadId),
+      providerPayload: latestProviderPayload,
       message,
     });
   }
