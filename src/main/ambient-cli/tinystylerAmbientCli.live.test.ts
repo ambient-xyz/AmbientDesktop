@@ -16,7 +16,7 @@ import {
 import { ProjectStore } from "./ambientCliProjectStoreFacade";
 
 const itLive = process.env.AMBIENT_TINYSTYLER_LIVE === "1" ? it : it.skip;
-const kimiModel = "moonshotai/kimi-k2.7-code";
+const kimiModel = "example/model-id";
 const degradedLiveModelPattern = /(?:zai-org\/)?glm[-_. ]?5\.1/i;
 
 describe("TinyStyler Ambient CLI live Pi dogfood", () => {
@@ -207,7 +207,7 @@ function configureTinyStylerLiveEnv(workspacePath: string): () => void {
   try {
     const requestedModel = process.env.AMBIENT_TINYSTYLER_LIVE_MODEL || kimiModel;
     if (degradedLiveModelPattern.test(requestedModel)) {
-      throw new Error(`TinyStyler live dogfood must not use degraded GLM 5.1 model ${requestedModel}.`);
+      throw new Error(`TinyStyler live dogfood must not use degraded Example Model model ${requestedModel}.`);
     }
     process.env.AMBIENT_PROVIDER = "ambient";
     process.env.AMBIENT_TINYSTYLER_LIVE_MODEL = requestedModel;

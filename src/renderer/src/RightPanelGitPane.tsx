@@ -1,4 +1,4 @@
-import { ChevronDown, ExternalLink, RefreshCw, RotateCcw } from "lucide-react";
+import { ChevronDown, ExternalLink, RefreshCw, RotateCcw, Save } from "lucide-react";
 import { useState } from "react";
 import type { GitReviewFile, GitReviewSummary, GitSimpleAction } from "../../shared/workspaceTypes";
 import {
@@ -203,7 +203,13 @@ function GitSummaryPanel({
 
   return (
     <div className="git-summary-stack">
-      <GitSummaryDiffCard review={review} busy={busy} formatTimelineTime={formatTimelineTime} onUndo={() => void onAction("restore-latest-checkpoint")} />
+      <GitSummaryDiffCard
+        review={review}
+        busy={busy}
+        formatTimelineTime={formatTimelineTime}
+        onCheckpoint={() => void onAction("create-checkpoint")}
+        onUndo={() => void onAction("restore-latest-checkpoint")}
+      />
 
       <section className="git-summary-card hero">
         <div>
@@ -313,7 +319,7 @@ function GitSummaryPanel({
           <span>Checkpoint</span>
           <strong>{checkpoint ? formatTimelineTime(checkpoint.createdAt) : "No checkpoint yet"}</strong>
           {checkpoint && <small>{checkpoint.reason}</small>}
-          <small>{checkpoint ? "Undo reapplies the saved staged, unstaged, and untracked files where possible." : "Ambient creates checkpoints before runs and destructive Git actions."}</small>
+          <small>{checkpoint ? "Restore reapplies the saved staged, unstaged, and untracked files where possible." : "Create a checkpoint manually when you want a restore point."}</small>
         </div>
       </section>
     </div>
@@ -324,11 +330,13 @@ function GitSummaryDiffCard({
   review,
   busy,
   formatTimelineTime,
+  onCheckpoint,
   onUndo,
 }: {
   review: GitReviewSummary;
   busy?: string;
   formatTimelineTime: (value: string) => string;
+  onCheckpoint: () => void;
   onUndo: () => void;
 }) {
   const checkpoint = review.latestCheckpoint;
@@ -348,16 +356,28 @@ function GitSummaryDiffCard({
             {review.stagedCount} staged | {review.unstagedCount} unstaged | {review.untrackedCount} untracked
           </span>
         </div>
-        <button
-          type="button"
-          className="git-undo-button"
-          disabled={Boolean(busy) || !checkpoint}
-          title={checkpoint ? `Restore checkpoint from ${formatTimelineTime(checkpoint.createdAt)}` : "No checkpoint available yet"}
-          onClick={onUndo}
-        >
-          Restore
-          <RotateCcw size={15} />
-        </button>
+        <div className="git-codex-summary-actions">
+          <button
+            type="button"
+            className="git-undo-button"
+            disabled={Boolean(busy)}
+            title="Create a manual checkpoint from the current workspace changes"
+            onClick={onCheckpoint}
+          >
+            Checkpoint
+            <Save size={15} />
+          </button>
+          <button
+            type="button"
+            className="git-undo-button"
+            disabled={Boolean(busy) || !checkpoint}
+            title={checkpoint ? `Restore checkpoint from ${formatTimelineTime(checkpoint.createdAt)}` : "No checkpoint available yet"}
+            onClick={onUndo}
+          >
+            Restore
+            <RotateCcw size={15} />
+          </button>
+        </div>
       </div>
       {review.files.length > 0 ? (
         <div className="git-codex-file-list">
@@ -586,6 +606,7 @@ function diffLineClass(line: string): string {
 }
 
 export function formatGitSimpleAction(action: GitSimpleAction): string {
+  if (action === "create-checkpoint") return "create-checkpoint";
   if (action === "restore-latest-checkpoint") return "restore-checkpoint";
   return action;
 }

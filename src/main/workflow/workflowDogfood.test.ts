@@ -18,11 +18,7 @@ import {
 } from "./workflowDebugRewrite";
 import { buildWorkflowRecoveryPlan } from "./workflowRecovery";
 import { runWorkflowArtifact } from "./workflowRunService";
-import { workflowGraphEventCards } from "../../renderer/src/workflowAgentGraphUiModel";
-import { workflowGraphRecoveryDecisionCard } from "../../renderer/src/workflowRuntimeDecisionUiModel";
-import { workflowRuntimeInputCards } from "../../renderer/src/workflowRuntimeInputUiModel";
-import { workflowTotalRuntimePauseModel } from "../../renderer/src/workflowRunLimitsUiModel";
-import { workflowThreadComposerModel } from "../../renderer/src/workflowThreadComposerUiModel";
+import { workflowGraphEventCards, workflowGraphRecoveryDecisionCard, workflowRuntimeInputCards, workflowThreadComposerModel, workflowTotalRuntimePauseModel } from "../../renderer/src/workflowTestUiModelContract";
 
 import {
   fakeBrowser,

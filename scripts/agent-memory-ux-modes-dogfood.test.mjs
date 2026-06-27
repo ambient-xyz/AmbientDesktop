@@ -14,7 +14,7 @@ describe("Agent Memory UX modes Desktop dogfood harness wiring", () => {
     expect(packageJson.scripts["test:memory:ux-modes:desktop-dogfood"]).toContain("scripts/run-electron-dogfood.mjs");
     expect(packageJson.scripts["test:memory:ux-modes:desktop-dogfood"]).toContain("--scenario=agent-memory-ux-modes");
     expect(packageJson.scripts["test:memory:ux-modes:desktop-dogfood"]).toContain("AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient}");
-    expect(packageJson.scripts["test:memory:ux-modes:desktop-dogfood"]).toContain("moonshotai/kimi-k2.7-code");
+    expect(packageJson.scripts["test:memory:ux-modes:desktop-dogfood"]).toContain("example/model-id");
     expect(packageJson.scripts["test:memory:ux-modes:desktop-dogfood:unit"]).toContain("scripts/agent-memory-ux-modes-dogfood.test.mjs");
     expect(supervisor).toContain("agent-memory-ux-modes");
     expect(supervisor).toContain("scripts/agent-memory-ux-modes-dogfood.mjs");

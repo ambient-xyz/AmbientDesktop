@@ -13,10 +13,10 @@ describe("Security URL egress Desktop dogfood wiring", () => {
 
     expect(packageJson.scripts["test:security-url-egress:desktop-dogfood:plugin"]).toContain("scripts/run-electron-dogfood.mjs");
     expect(packageJson.scripts["test:security-url-egress:desktop-dogfood:plugin"]).toContain("--scenario=security-plugin-preview-egress");
-    expect(packageJson.scripts["test:security-url-egress:desktop-dogfood:plugin"]).toContain("moonshotai/kimi-k2.7-code");
+    expect(packageJson.scripts["test:security-url-egress:desktop-dogfood:plugin"]).toContain("example/model-id");
     expect(packageJson.scripts["test:security-url-egress:desktop-dogfood:download"]).toContain("scripts/run-electron-dogfood.mjs");
     expect(packageJson.scripts["test:security-url-egress:desktop-dogfood:download"]).toContain("--scenario=security-managed-download-egress");
-    expect(packageJson.scripts["test:security-url-egress:desktop-dogfood:download"]).toContain("moonshotai/kimi-k2.7-code");
+    expect(packageJson.scripts["test:security-url-egress:desktop-dogfood:download"]).toContain("example/model-id");
     expect(packageJson.scripts["test:security-url-egress:desktop-dogfood:unit"]).toContain("scripts/security-url-egress-dogfood.test.mjs");
     expect(supervisor).toContain("scripts/security-url-egress-dogfood.mjs");
     expect(supervisor).toContain("test-results/security-plugin-preview-egress/latest.json");

@@ -29,7 +29,7 @@ from typing import Any
 
 
 DEFAULT_BASE_URL = "https://api.ambient.xyz/v1"
-DEFAULT_MODEL = "moonshotai/kimi-k2.7-code"
+DEFAULT_MODEL = "example/model-id"
 DEFAULT_OUTPUT_DIR = Path("test-results/ambient-long-tool-call-stream-fixture")
 
 

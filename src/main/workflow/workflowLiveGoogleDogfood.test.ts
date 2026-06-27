@@ -18,11 +18,7 @@ import {
 } from "./workflowDebugRewrite";
 import { runWorkflowArtifact } from "./workflowRunService";
 import { runDueWorkflowArtifactSchedules, workflowScheduleRunStartedEventData } from "./workflowScheduleDispatch";
-import { workflowPermissionGrantRegistryModel } from "../../renderer/src/permissionGrantRegistryUiModel";
-import { workflowRunOutputCards } from "../../renderer/src/workflowRunOutputUiModel";
-import { workflowScheduleRunHistoryItems } from "../../renderer/src/workflowReviewUiModel";
-import { workflowRemoveTotalRunLimitOverrides, workflowTotalRuntimePauseModel } from "../../renderer/src/workflowRunLimitsUiModel";
-import { workflowThreadComposerModel } from "../../renderer/src/workflowThreadComposerUiModel";
+import { workflowPermissionGrantRegistryModel, workflowRemoveTotalRunLimitOverrides, workflowRunOutputCards, workflowScheduleRunHistoryItems, workflowThreadComposerModel, workflowTotalRuntimePauseModel } from "../../renderer/src/workflowTestUiModelContract";
 import { registerWorkflowLiveGoogleWorkspaceRunDogfoodTests } from "./workflowLiveGoogleWorkspaceRunDogfoodCases";
 import {
   liveAmbientApiKey,

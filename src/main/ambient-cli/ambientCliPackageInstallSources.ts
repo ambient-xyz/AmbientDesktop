@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
 import { cp, mkdir, rm } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
-import { managedInstallWorkspacePath } from "../setup/setupAmbientCliContract";
-import { redactGitSourceCredentials } from "../security/securityAmbientCliContract";
+import { managedInstallWorkspacePath } from "./ambientCliSetupFacade";
+import { redactGitSourceCredentials } from "./ambientCliSecurityFacade";
 import { isPathInside } from "./ambientCliSessionFacade";
 import { piCatalogAdapterDescriptor, resolvePiCatalogCliAdapter, writePiCatalogAdapterFiles } from "./ambientCliPiCatalogAdapter";
 import type { createAmbientCliPackageInstallSafetyServices } from "./ambientCliPackageInstallSafety";

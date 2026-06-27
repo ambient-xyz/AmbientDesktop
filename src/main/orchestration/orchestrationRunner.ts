@@ -37,8 +37,8 @@ import {
 } from "./orchestrationProjectBoardFacade";
 
 const execFileAsync = promisify(execFile);
-const AUTO_COMMIT_EXCLUDED_PATH_PREFIXES = [".ambient/", ".ambient-codex/", ".git/", "node_modules/"];
-const AUTO_COMMIT_EXCLUDED_PATHS = new Set([".ambient", ".ambient-codex", ".git", "node_modules"]);
+const MANUAL_COMMIT_EXCLUDED_PATH_PREFIXES = [".ambient/", ".ambient-codex/", ".git/", "node_modules/"];
+const MANUAL_COMMIT_EXCLUDED_PATHS = new Set([".ambient", ".ambient-codex", ".git", "node_modules"]);
 
 function mergeProjectBoardTaskToolActions(actions: ProjectBoardTaskToolAction[]): ProjectBoardTaskToolAction[] {
   const byId = new Map<string, ProjectBoardTaskToolAction>();
@@ -373,7 +373,7 @@ async function runAndRecordCompletion(input: {
       const status = canceled ? "canceled" : failed ? "failed" : "completed";
       const error = canceled ? "Canceled by user." : failed ? String(proofOfWork.lastAssistantText ?? "") : null;
       if (status === "completed" && input.workflowConfig.workspace.strategy === "git-worktree") {
-        proofOfWork = await withTaskWorkspaceAutoCommit(input.workspacePath, input.taskIdentifier, proofOfWork);
+        proofOfWork = await withTaskWorkspaceManualCommitSummary(input.workspacePath, input.taskIdentifier, proofOfWork);
       }
       const decision = orchestrationFocusDecisionAfterRun({
         status,
@@ -471,7 +471,7 @@ async function runAndRecordCompletion(input: {
     const status = durableTaskCompletion ? "completed" : "failed";
     const runError = durableTaskCompletion ? null : message;
     if (durableTaskCompletion && input.workflowConfig.workspace.strategy === "git-worktree") {
-      proofOfWork = await withTaskWorkspaceAutoCommit(input.workspacePath, input.taskIdentifier, proofOfWork);
+      proofOfWork = await withTaskWorkspaceManualCommitSummary(input.workspacePath, input.taskIdentifier, proofOfWork);
     }
     const decision = orchestrationFocusDecisionAfterRun({
       status,
@@ -1004,38 +1004,38 @@ async function runAfterRunHook(
   return hook ? { ...proofOfWork, afterRunHook: hook } : proofOfWork;
 }
 
-async function withTaskWorkspaceAutoCommit(
+async function withTaskWorkspaceManualCommitSummary(
   workspacePath: string,
   taskId: string,
   proofOfWork: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  const result = await autoCommitCompletedTaskWorkspaceChanges(workspacePath, taskId, proofOfWork);
-  return result ? { ...proofOfWork, taskWorkspaceAutoCommit: result } : proofOfWork;
+  const result = await summarizeCompletedTaskWorkspaceChangesForManualCommit(workspacePath, taskId, proofOfWork);
+  return result ? { ...proofOfWork, taskWorkspaceManualCommit: result } : proofOfWork;
 }
 
-export interface TaskWorkspaceAutoCommitResult {
-  status: "committed" | "skipped" | "failed";
+export interface TaskWorkspaceManualCommitSummary {
+  status: "skipped" | "failed";
   reason?: string;
-  commit?: string;
   changedFiles: string[];
   excludedFiles?: string[];
   error?: string;
 }
 
-export async function autoCommitCompletedTaskWorkspaceChanges(
+export async function summarizeCompletedTaskWorkspaceChangesForManualCommit(
   workspacePath: string,
   taskId: string,
   proofOfWork: Record<string, unknown>,
-): Promise<TaskWorkspaceAutoCommitResult | undefined> {
+): Promise<TaskWorkspaceManualCommitSummary | undefined> {
+  void taskId;
   const taskActions = projectBoardTaskToolActionsFromProofOfWork(proofOfWork);
   if (!taskActions.some((action) => action.action === "task_complete")) return undefined;
 
-  const repo = await gitForAutoCommit(workspacePath, ["rev-parse", "--is-inside-work-tree"]);
+  const repo = await gitForManualCommitSummary(workspacePath, ["rev-parse", "--is-inside-work-tree"]);
   if (!repo.ok || repo.stdout.trim() !== "true") return undefined;
 
-  const candidatePaths = autoCommitCandidatePaths(proofOfWork, taskActions);
-  const materialCandidatePaths = candidatePaths.filter((file) => !autoCommitExcludedPath(file));
-  const excludedCandidatePaths = candidatePaths.filter(autoCommitExcludedPath);
+  const candidatePaths = manualCommitCandidatePaths(proofOfWork, taskActions);
+  const materialCandidatePaths = candidatePaths.filter((file) => !manualCommitExcludedPath(file));
+  const excludedCandidatePaths = candidatePaths.filter(manualCommitExcludedPath);
   if (candidatePaths.length === 0 || materialCandidatePaths.length === 0) {
     return {
       status: "skipped",
@@ -1045,7 +1045,7 @@ export async function autoCommitCompletedTaskWorkspaceChanges(
     };
   }
 
-  const statusBefore = await gitForAutoCommit(workspacePath, [
+  const statusBefore = await gitForManualCommitSummary(workspacePath, [
     "status",
     "--porcelain=v1",
     "-z",
@@ -1064,8 +1064,8 @@ export async function autoCommitCompletedTaskWorkspaceChanges(
   }
 
   const statusPaths = parseGitStatusZPaths(statusBefore.stdout);
-  const changedFiles = statusPaths.filter((file) => !autoCommitExcludedPath(file));
-  const excludedFiles = [...new Set([...excludedCandidatePaths, ...statusPaths.filter(autoCommitExcludedPath)])].sort();
+  const changedFiles = statusPaths.filter((file) => !manualCommitExcludedPath(file));
+  const excludedFiles = [...new Set([...excludedCandidatePaths, ...statusPaths.filter(manualCommitExcludedPath)])].sort();
   if (changedFiles.length === 0) {
     return {
       status: "skipped",
@@ -1075,69 +1075,15 @@ export async function autoCommitCompletedTaskWorkspaceChanges(
     };
   }
 
-  const added = await gitForAutoCommit(workspacePath, ["add", "-A", "--", ...changedFiles]);
-  if (!added.ok) {
-    return {
-      status: "failed",
-      reason: "could not stage completed task changes",
-      changedFiles,
-      ...(excludedFiles.length ? { excludedFiles } : {}),
-      error: added.stderr || added.stdout,
-    };
-  }
-
-  const staged = await gitForAutoCommit(workspacePath, ["diff", "--cached", "--quiet", "--", ...changedFiles]);
-  if (staged.ok) {
-    return {
-      status: "skipped",
-      reason: "reported task files had no staged changes",
-      changedFiles: [],
-      ...(excludedFiles.length ? { excludedFiles } : {}),
-    };
-  }
-  if (staged.code !== 1) {
-    return {
-      status: "failed",
-      reason: "could not verify staged completed task changes",
-      changedFiles,
-      ...(excludedFiles.length ? { excludedFiles } : {}),
-      error: staged.stderr || staged.stdout,
-    };
-  }
-
-  const committed = await gitForAutoCommit(workspacePath, [
-    "-c",
-    "user.name=Ambient Local Task",
-    "-c",
-    "user.email=ambient-local-task@example.invalid",
-    "commit",
-    "--no-gpg-sign",
-    "--no-verify",
-    "-m",
-    `Complete ${taskId}`,
-    "--",
-    ...changedFiles,
-  ]);
-  if (!committed.ok) {
-    return {
-      status: "failed",
-      reason: "could not commit completed task changes",
-      changedFiles,
-      ...(excludedFiles.length ? { excludedFiles } : {}),
-      error: committed.stderr || committed.stdout,
-    };
-  }
-
-  const head = await gitForAutoCommit(workspacePath, ["rev-parse", "--short", "HEAD"]);
   return {
-    status: "committed",
-    commit: head.ok ? head.stdout.trim() : undefined,
+    status: "skipped",
+    reason: "commits are manual; completed task changes are ready for review",
     changedFiles,
     ...(excludedFiles.length ? { excludedFiles } : {}),
   };
 }
 
-function autoCommitCandidatePaths(proofOfWork: Record<string, unknown>, taskActions: ReturnType<typeof projectBoardTaskToolActionsFromProofOfWork>): string[] {
+function manualCommitCandidatePaths(proofOfWork: Record<string, unknown>, taskActions: ReturnType<typeof projectBoardTaskToolActionsFromProofOfWork>): string[] {
   const paths = new Set<string>();
   const collect = (value: unknown) => {
     const path = proofChangedFilePath(value);
@@ -1163,9 +1109,9 @@ function proofChangedFilePath(value: unknown): string | undefined {
   return normalized;
 }
 
-function autoCommitExcludedPath(path: string): boolean {
+function manualCommitExcludedPath(path: string): boolean {
   const normalized = path.replace(/\\/g, "/").replace(/^\.\/+/, "").replace(/\/+$/, "");
-  return AUTO_COMMIT_EXCLUDED_PATHS.has(normalized) || AUTO_COMMIT_EXCLUDED_PATH_PREFIXES.some((prefix) => normalized.startsWith(prefix));
+  return MANUAL_COMMIT_EXCLUDED_PATHS.has(normalized) || MANUAL_COMMIT_EXCLUDED_PATH_PREFIXES.some((prefix) => normalized.startsWith(prefix));
 }
 
 function parseGitStatusZPaths(output: string): string[] {
@@ -1182,7 +1128,7 @@ function parseGitStatusZPaths(output: string): string[] {
   return [...new Set(paths)].sort();
 }
 
-async function gitForAutoCommit(workspacePath: string, args: string[]): Promise<{ ok: boolean; stdout: string; stderr: string; code?: number }> {
+async function gitForManualCommitSummary(workspacePath: string, args: string[]): Promise<{ ok: boolean; stdout: string; stderr: string; code?: number }> {
   try {
     const { stdout, stderr } = await execFileAsync("git", ["-C", workspacePath, ...args], {
       timeout: 30_000,
@@ -1730,9 +1676,10 @@ export function orchestrationWorkspaceScopePromptSection(input: {
     separateProjectRoot
       ? `- Owning project root: ${projectRoot}. Use it as read-only context only; do not create, modify, delete, stage, or commit files there during this run.`
       : "",
-    "- Create, modify, delete, stage, and commit task files only inside the writable task workspace. Use paths relative to that workspace whenever possible.",
+    "- Create, modify, and delete task files only inside the writable task workspace. Use paths relative to that workspace whenever possible.",
+    "- Do not stage or commit files automatically; leave Git commits to explicit user action.",
     "- Put scratch files, fixtures, generated reports, proof outputs, and temporary files inside the writable task workspace; do not write them to /tmp, /var/tmp, the owning project root, or sibling worktrees.",
-    "- Do not stage or commit Ambient runtime support directories such as .ambient/, .ambient-codex/, or node_modules/; keep commits limited to material task deliverables.",
+    "- Do not include Ambient runtime support directories such as .ambient/, .ambient-codex/, or node_modules/ in task deliverables.",
     "- If board source context mentions the owning project root or another sibling worktree, resolve the corresponding file inside the writable task workspace before editing.",
     "- Do not request outside-workspace file or shell permissions to mutate the owning project root. If the card cannot be completed from the prepared workspace, report a concrete blocker instead.",
   ]

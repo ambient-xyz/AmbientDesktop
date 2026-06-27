@@ -9,8 +9,8 @@ import type {
   SeedProjectBoardDeliverableIntegrationDogfoodInput,
   SeedProjectBoardProofJudgmentDogfoodInput,
 } from "../../shared/projectBoardTypes";
-import { ProjectStore } from "../projectStore/projectStore";
 import { validateProposalJsonlRecordArtifact, type ProposalJsonlRecordArtifact } from "./projectBoardArtifacts";
+import { ProjectStore } from "./projectBoardProjectStoreFacade";
 import type { ProjectBoardSynthesisDraft } from "./projectBoardSynthesis";
 
 export interface ProjectBoardDogfoodRuntimeHost {

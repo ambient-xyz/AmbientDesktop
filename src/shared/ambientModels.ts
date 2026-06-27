@@ -1,4 +1,4 @@
-export const AMBIENT_KIMI_K2_7_CODE_MODEL = "moonshotai/kimi-k2.7-code";
+export const AMBIENT_KIMI_K2_7_CODE_MODEL = "example/model-id";
 export const AMBIENT_GLM_5_1_FP8_MODEL = "zai-org/GLM-5.1-FP8";
 export const AMBIENT_GLM_5_2_FP8_MODEL = "zai-org/GLM-5.2-FP8";
 export const AMBIENT_DEFAULT_MODEL = AMBIENT_KIMI_K2_7_CODE_MODEL;

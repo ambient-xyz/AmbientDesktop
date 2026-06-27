@@ -27524,6 +27524,13 @@ button.workflow-source-mapping-row:focus-visible {
   font-size: 11px;
 }
 
+.git-codex-summary-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .git-undo-button {
   height: 30px;
   display: inline-flex;

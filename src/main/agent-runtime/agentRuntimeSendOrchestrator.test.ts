@@ -212,7 +212,7 @@ function sendStartContext(thread: ThreadSummary): any {
       addActivityListener: vi.fn(() => () => undefined),
       detachFromWorkspace: vi.fn(),
     },
-    runtimeModel: "moonshotai/kimi-k2.7-code",
+    runtimeModel: "example/model-id",
   };
 }
 
@@ -236,7 +236,7 @@ function threadSummary(): ThreadSummary {
     runs: [],
     workspacePath: "/workspace",
     permissionMode: "workspace",
-    model: "moonshotai/kimi-k2.7-code",
+    model: "example/model-id",
   } as unknown as ThreadSummary;
 }
 

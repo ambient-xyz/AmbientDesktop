@@ -5,7 +5,7 @@ import {
   AMBIENT_KIMI_K2_7_CODE_MODEL,
 } from "../../shared/ambientModels";
 import type { ProviderStatus } from "../../shared/desktopTypes";
-import { createModelRuntimeCatalog } from "../model-provider/modelRuntimeRegistry";
+import { createModelRuntimeCatalog } from "./agentRuntimeModelProviderFacade";
 import {
   AMBIENT_MODEL_STATUS_TOOL_NAME,
   buildAmbientModelStatus,

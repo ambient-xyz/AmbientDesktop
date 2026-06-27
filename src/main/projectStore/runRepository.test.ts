@@ -75,7 +75,7 @@ describe("ProjectStoreRunRepository", () => {
         threadId: "thread-1",
         assistantMessageId: "message-1",
         provider: "ambient",
-        model: "moonshotai/kimi-k2.7-code",
+        model: "example/model-id",
         failure: { kind: "stream-stall", message: largePreview },
         retry: { scheduled: false, replaySafe: true },
         stream: {

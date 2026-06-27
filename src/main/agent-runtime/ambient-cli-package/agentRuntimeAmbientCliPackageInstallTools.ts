@@ -28,19 +28,13 @@ import {
   cliPackageInstallGrantIdentity,
   cliPackagePiCatalogInstallGrantIdentity,
 } from "./agentRuntimeAmbientCliPackageInstallModel";
-import { redactGitSourceCredentials } from "../../security/securityAgentRuntimeContract";
+import { redactGitSourceCredentials } from "../agentRuntimeSecurityFacade";
 import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 
-export {
-  ambientCliPackageInstallText,
-  ambientCliSummaryHydrationText,
-} from "./agentRuntimeAmbientCliPackageInstallModel";
+export { ambientCliPackageInstallText, ambientCliSummaryHydrationText } from "./agentRuntimeAmbientCliPackageInstallModel";
 
-type ToolUpdateHandler = (update: {
-  content: Array<{ type: "text"; text: string }>;
-  details: Record<string, unknown>;
-}) => void;
+type ToolUpdateHandler = (update: { content: Array<{ type: "text"; text: string }>; details: Record<string, unknown> }) => void;
 
 export interface AmbientCliPackageInstallPermissionRequest {
   thread: ThreadSummary;
@@ -118,9 +112,7 @@ export function registerAmbientCliPackageInstallTool(
       const preview = await previewInstallSource(workspace.path, installInput);
       if (!preview.installable) throw new Error(`Ambient CLI package source is not installable: ${preview.errors.join("; ")}`);
       if (ambientCliPackageInstallRequiresPinnedSource({ ...input, preview })) {
-        throw new Error(
-          "Unpinned Ambient CLI package installs that run dependency installation require an immutable sha-pinned source.",
-        );
+        throw new Error("Unpinned Ambient CLI package installs that run dependency installation require an immutable sha-pinned source.");
       }
 
       const detail = ambientCliPackageInstallApprovalDetail(workspace, preview);
@@ -129,7 +121,8 @@ export function registerAmbientCliPackageInstallTool(
         workspace,
         toolName: "ambient_cli_package_install",
         title: `Install Ambient CLI package "${preview.candidate?.name ?? input.source}"?`,
-        message: "Ambient wants to install a local descriptor-backed CLI package. Declared commands can be run later through ambient_cli with separate approval.",
+        message:
+          "Ambient wants to install a local descriptor-backed CLI package. Declared commands can be run later through ambient_cli with separate approval.",
         detail,
         grantTargetLabel: `Install Ambient CLI package ${preview.candidate?.name ?? input.source}`,
         grantTargetIdentity: cliPackageInstallGrantIdentity({ ...input, preview }),
@@ -197,7 +190,8 @@ export function registerAmbientCliPackagePiCatalogInstallTool(
         workspace,
         toolName: "ambient_cli_package_install_pi_catalog",
         title: `Install Pi catalog CLI package "${preview.candidate?.name ?? source}"?`,
-        message: "Ambient wants to translate a supported Pi catalog package into an Ambient-managed CLI package. Declared commands can be run later through ambient_cli with separate approval.",
+        message:
+          "Ambient wants to translate a supported Pi catalog package into an Ambient-managed CLI package. Declared commands can be run later through ambient_cli with separate approval.",
         detail,
         grantTargetLabel: `Install Pi catalog CLI package ${preview.candidate?.name ?? source}`,
         grantTargetIdentity: cliPackagePiCatalogInstallGrantIdentity({ source, preview }),

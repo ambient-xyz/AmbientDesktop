@@ -2,7 +2,6 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ProjectStore } from "../projectStore/projectStore";
 import {
   configureProjectBoardDogfoodDesktopService,
   projectBoardSemanticIdleDogfoodFastRetryEnabled,
@@ -10,6 +9,7 @@ import {
   seedProjectBoardSemanticIdleDogfoodRetry,
   seedProjectBoardSemanticIdleDogfoodRun,
 } from "./projectBoardDogfoodDesktopService";
+import { ProjectStore } from "./projectBoardProjectStoreFacade";
 
 const tempRoots: string[] = [];
 

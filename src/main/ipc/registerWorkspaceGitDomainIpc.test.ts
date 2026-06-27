@@ -45,23 +45,18 @@ describe("registerWorkspaceGitDomainIpc", () => {
     expect(deps.openWorkspaceTarget).toHaveBeenCalledWith(resolvedPath.realPath, "browser");
   });
 
-  it("keeps Git branch creation checkpoint and review wiring intact", async () => {
+  it("routes manual checkpoint creation through the Git run action", async () => {
     const { deps, gitContext, gitReview, invoke } = registerWithFakes();
 
-    await expect(invoke("git:create-branch", { name: "feature/workspace-git", checkout: true })).resolves.toBe(
-      gitReview,
-    );
+    await expect(invoke("git:run-action", "create-checkpoint")).resolves.toBe(gitReview);
 
     expect(deps.createAndRecordCheckpoint).toHaveBeenCalledWith(
-      "pre-git-action",
-      "Before creating or switching a branch.",
+      "manual",
+      "Manual checkpoint.",
       gitContext.thread,
       gitContext.targetStore,
     );
-    expect(deps.createGitBranch).toHaveBeenCalledWith(gitContext.workspacePath, {
-      name: "feature/workspace-git",
-      checkout: true,
-    });
+    expect(deps.createGitBranch).not.toHaveBeenCalled();
     expect(deps.readGitReviewForProjectHost).toHaveBeenCalledWith(gitContext.host, gitContext.threadId);
   });
 

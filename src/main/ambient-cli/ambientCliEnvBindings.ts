@@ -2,14 +2,14 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { z } from "zod";
-import { ambientRuntimeEnv, managedInstallWorkspacePath } from "../setup/setupAmbientCliContract";
+import { ambientRuntimeEnv, managedInstallWorkspacePath } from "./ambientCliSetupFacade";
 import {
   isSecretEnvName,
   isSecretReference,
   readSecretReference,
   saveSecretReference,
   secretReferenceFor,
-} from "../security/securityAmbientCliContract";
+} from "./ambientCliSecurityFacade";
 import { isPathInside } from "./ambientCliSessionFacade";
 import type {
   AmbientCliPackageEnvBindingInput,

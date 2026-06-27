@@ -13,7 +13,7 @@ function sendInput(overrides: Partial<SendMessageInput> = {}): SendMessageInput 
     content: "Prompt",
     permissionMode: "workspace",
     collaborationMode: "agent",
-    model: "moonshotai/kimi-k2.7-code",
+    model: "example/model-id",
     thinkingLevel: "medium",
     delivery: "prompt",
     ...overrides,
@@ -55,11 +55,11 @@ function baseStateInput(overrides: Partial<AgentRuntimeSendPromptStateInput<Runt
     piPreStreamTimeoutMs: 5_000,
     piStreamIdleTimeoutMs: 30_000,
     runStartedAt: "2026-06-22T00:00:00.000Z",
-    runtimeModel: "moonshotai/kimi-k2.7-code",
+    runtimeModel: "example/model-id",
     getPermissionMode: () => "workspace",
     getCurrentSessionFile: () => "/tmp/pi-session.jsonl",
     getCurrentThreadPiSessionFile: () => null,
-    getCurrentThreadModel: () => "moonshotai/kimi-k2.7-code",
+    getCurrentThreadModel: () => "example/model-id",
     commitThreadPiSessionFile: vi.fn(async () => undefined),
     getSession: () => session,
     getPromptContentLength: () => "Prompt".length,
@@ -159,7 +159,7 @@ describe("createAgentRuntimeSendPromptState", () => {
     const { input } = baseStateInput({
       getCurrentSessionFile: () => "/tmp/current-session.jsonl",
       getCurrentThreadModel: () => "zai-org/GLM-5.1-FP8",
-      runtimeModel: "moonshotai/kimi-k2.7-code",
+      runtimeModel: "example/model-id",
     });
     const state = createAgentRuntimeSendPromptState(input);
 

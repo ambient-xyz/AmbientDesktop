@@ -15,6 +15,7 @@ import {
   modelStatusToolDescriptor as desktopModelStatusToolDescriptor,
   piToolFieldsFromDescriptor as desktopPiToolFieldsFromDescriptor,
   pluginInstallToolDescriptor as desktopPluginInstallToolDescriptor,
+  pluginMcpToolDescriptor as desktopPluginMcpToolDescriptor,
   privilegedActionToolDescriptor as desktopPrivilegedActionToolDescriptor,
   productContextToolDescriptor as desktopProductContextToolDescriptor,
   productContextToolDescriptors as desktopProductContextToolDescriptors,
@@ -41,6 +42,7 @@ export const messagingGatewayToolDescriptor = desktopMessagingGatewayToolDescrip
 export const modelStatusToolDescriptor = desktopModelStatusToolDescriptor;
 export const piToolFieldsFromDescriptor = desktopPiToolFieldsFromDescriptor;
 export const pluginInstallToolDescriptor = desktopPluginInstallToolDescriptor;
+export const pluginMcpToolDescriptor = desktopPluginMcpToolDescriptor;
 export const privilegedActionToolDescriptor = desktopPrivilegedActionToolDescriptor;
 export const productContextToolDescriptor = desktopProductContextToolDescriptor;
 export const productContextToolDescriptors = desktopProductContextToolDescriptors;
@@ -49,9 +51,6 @@ export const searchPreferenceToolDescriptor = desktopSearchPreferenceToolDescrip
 export const visionToolDescriptor = desktopVisionToolDescriptor;
 export const webResearchToolDescriptor = desktopWebResearchToolDescriptor;
 
-export type DescriptorToolRegistration<TDetails = unknown, TState = unknown> = DesktopDescriptorToolRegistration<
-  TDetails,
-  TState
->;
+export type DescriptorToolRegistration<TDetails = unknown, TState = unknown> = DesktopDescriptorToolRegistration<TDetails, TState>;
 export type DesktopToolDescriptor = DesktopToolDescriptorContract;
 export type PiToolRegistrationFields = DesktopPiToolRegistrationFields;

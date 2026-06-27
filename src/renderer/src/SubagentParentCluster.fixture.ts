@@ -183,7 +183,7 @@ export function subagentParentClusterFixtureModel(): SubagentParentClusterModel 
       isTerminal: false,
       isSynthesisSafe: false,
       dependencyLabel: "Required",
-      runtimeLabel: "GLM 5.1",
+      runtimeLabel: "Example Model",
       preview: "Needs approval before continuing.",
       canCancel: true,
       cancelTitle: "Cancel sub-agent Reviewer",

@@ -3,6 +3,7 @@ export {
   permissionGrantTargetHash,
   resolvePermissionWithGrants,
 } from "./permissionGrants";
+export { createLocalFolderAllowlistGrantInput } from "./localFolderAllowlistGrants";
 export type {
   PermissionPromptRequester,
 } from "./permissionGrants";

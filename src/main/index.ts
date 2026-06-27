@@ -34,7 +34,6 @@ import {
 import { createMainWindowBootstrapService } from "./desktop-shell/mainWindowBootstrapService";
 import { createMainWindowRendererDiagnosticsService } from "./desktop-shell/mainWindowRendererDiagnosticsService";
 import { createThreadMiniWindowService, isThreadMiniWindowRendererUrl } from "./desktop-shell/threadMiniWindowService";
-import { createProjectBoardDesktopIpcDependencies } from "./project-board/projectBoardDesktopIpcDependencies";
 import { createProjectRuntimeHostResolver } from "./project-runtime/projectRuntimeHostResolver";
 import { createProjectRuntimeHostActivationService } from "./project-runtime/projectRuntimeHostActivationService";
 import { createProjectRuntimeHostFactory } from "./project-runtime/projectRuntimeHostFactory";
@@ -79,6 +78,7 @@ import { LocalPreviewServerManager } from "./browser/localPreviewServer";
 import { redactSensitiveText } from "./security/secretRedaction";
 import { readSecretReference } from "./security/secretReferenceStore";
 import { defaultNamedSecretStoreFilePath, NamedSecretStore } from "./security/namedSecretStore";
+import { createNamedSecretDesktopService } from "./security/namedSecretDesktopService";
 import { currentSecureStorageStatus, electronSecureSecretStore, secureStorageRepairGuidance } from "./security/secureSecretStore";
 import { selectStartupWorkspacePath } from "./workspace/workspaceDefaults";
 import { shouldStartAgentMemoryManagedEmbeddingsAfterSettingsUpdate } from "../shared/agentMemorySettings";
@@ -138,12 +138,11 @@ import {
   configureAgentMemoryDesktopService,
   getAgentMemoryDiagnostics,
   getAgentMemoryStarterStatus,
-  releaseAgentMemoryEmbeddingRuntimeForHost,
   runAgentMemoryStartupReconciliation,
+  releaseAgentMemoryEmbeddingRuntimeForHost,
   startAgentMemoryManagedEmbeddingsAfterSettingsUpdate,
   stopAgentMemoryManagedEmbeddingsAfterSettingsUpdate,
 } from "./memory/agentMemoryDesktopService";
-import { createChatPdfExport, createElectronPrintToPdfRenderer } from "./chat-export/chatPdfExport";
 import { BrowserService, managedChromeRevealBoundsForWorkArea, type ManagedChromeWindowBounds } from "./browser/browserService";
 import { createBrowserDesktopStateService } from "./browser/browserDesktopStateService";
 import { BrowserCredentialStore } from "./browser/browserCredentialStore";
@@ -207,8 +206,7 @@ import { validatePlannerDurableHtmlFileInBrowser } from "./planner/plannerDurabl
 import { writePlannerDurableHtmlArtifact } from "./planner/plannerDurableHtml";
 import { plannerDurableFallbackWarnings } from "./planner/plannerDurableRepair";
 import { createPlannerDurableArtifactDesktopService } from "./planner/plannerDurableArtifactDesktopService";
-import { registerMainIpc } from "./ipc/registerMainIpc";
-import { mainIpcStaticDependencies } from "./mainIpcStaticDependencies";
+import { registerMainIpcForDesktop } from "./mainIpcRuntimeDependencies";
 
 installAppLogCapture();
 
@@ -1166,7 +1164,6 @@ configureAgentMemoryDesktopService({
 configureOrchestrationAutoDispatchService({
   activeThreadIdForHost: (host) => activeThreadIdForHost(host as ProjectRuntimeHost),
   callPluginMcpTool: (plan, invocation, options) => pluginHost.callCodexPluginMcpTool(plan as never, invocation as never, options as never),
-  createAndRecordCheckpoint,
   emitDesktopEvent: (event) => mainWindow?.webContents.send("desktop:event", event),
   emitPermissionAuditCreated,
   emitProjectScopedEvent: (host, event) => emitProjectScopedEvent(host as ProjectRuntimeHost, event),
@@ -1318,6 +1315,12 @@ let activeHost: ProjectRuntimeHost | undefined;
 let store: ProjectStore;
 let browserService: BrowserService;
 let namedSecretStore: NamedSecretStore;
+const namedSecretDesktopService = createNamedSecretDesktopService({
+  namedSecretStore: () => namedSecretStore,
+  emitDesktopState: () => emitDesktopState(),
+});
+const { saveNamedSecret, updateNamedSecret, deleteNamedSecret, brokerNamedSecretToLocalFixture, exportNamedSecretMetadata } =
+  namedSecretDesktopService;
 const projectRuntimeActiveThreadService = createProjectRuntimeActiveThreadService<ProjectStore, ProjectRuntimeHost>({
   activeHost: () => activeHost,
   activeStore: () => store,
@@ -1549,37 +1552,8 @@ function refreshSecureStorageStatus() {
   return result;
 }
 
-async function saveNamedSecret(input: Parameters<NamedSecretStore["save"]>[0]) {
-  const result = await namedSecretStore.save(input);
-  emitDesktopState();
-  return result;
-}
-
-async function updateNamedSecret(input: Parameters<NamedSecretStore["update"]>[0]) {
-  const result = await namedSecretStore.update(input);
-  emitDesktopState();
-  return result;
-}
-
-async function deleteNamedSecret(input: Parameters<NamedSecretStore["delete"]>[0]) {
-  const result = await namedSecretStore.delete(input);
-  emitDesktopState();
-  return result;
-}
-
-async function brokerNamedSecretToLocalFixture(input: Parameters<NamedSecretStore["brokerToLocalFixture"]>[0]) {
-  const result = await namedSecretStore.brokerToLocalFixture(input);
-  emitDesktopState();
-  return result;
-}
-
-function exportNamedSecretMetadata() {
-  return namedSecretStore.exportMetadata();
-}
-
 function registerIpc(): void {
-  registerMainIpc({
-    ...mainIpcStaticDependencies,
+  registerMainIpcForDesktop({
     AmbientWorkflowExplorationProvider,
     activeGitContextForProjectHost,
     activeHost,
@@ -1606,11 +1580,6 @@ function registerIpc(): void {
     clearMessageVoiceArtifact,
     compileWorkflowArtifact,
     createAndRecordCheckpoint,
-    createChatPdfExport: (store: ProjectStore, threadId: string, options: { appName: string; appVersion: string }) =>
-      createChatPdfExport(store, threadId, {
-        ...options,
-        renderHtmlToPdf: createElectronPrintToPdfRenderer(BrowserWindow),
-      }),
     createThreadLocalFolderAllowlistGrant,
     createMainDiagnosticSource,
     createMcpInstallCatalog,
@@ -1686,14 +1655,14 @@ function registerIpc(): void {
     prepareWorktreeForThread,
     privilegedCredentials,
     projectRegistry,
-    projectBoardDesktopIpcDependencies: createProjectBoardDesktopIpcDependencies({
+    projectBoardDesktopIpcHostDependencies: {
       emitProjectStateIfActive,
       readStateForProjectHostAction,
       requireProjectRuntimeHostForOrchestrationTask,
       requireProjectRuntimeHostForPlannerPlanArtifact,
       scheduleAutoDispatch,
       setProjectHostActiveThreadId,
-    }),
+    },
     projectRuntimeHostForTerminal,
     projectRuntimeHostForWorkflowRun,
     projectRuntimeHostForWorkspacePath,

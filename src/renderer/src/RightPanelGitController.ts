@@ -90,6 +90,20 @@ export function useRightPanelGitController({
   }
 
   async function runSimpleAction(action: GitSimpleAction) {
+    if (action === "create-checkpoint") {
+      confirmAndRunReviewAction(
+        {
+          title: "Create checkpoint?",
+          message: "This saves the current staged, unstaged, and untracked workspace changes so Restore can reapply them later.",
+          details: ["Large untracked directories can make checkpoint creation take a while."],
+          confirmLabel: "Create checkpoint",
+        },
+        formatGitSimpleAction(action),
+        () => window.ambientDesktop.gitRunAction(action),
+        "Created checkpoint.",
+      );
+      return;
+    }
     if (action === "pull") {
       confirmAndRunReviewAction(
         {
@@ -97,7 +111,7 @@ export function useRightPanelGitController({
           message: "This will update the current worktree with remote commits using a fast-forward pull.",
           details: review?.latestCheckpoint
             ? [`Checkpoint available: ${formatTimelineTime(review.latestCheckpoint.createdAt)} (${review.latestCheckpoint.reason})`]
-            : ["A checkpoint will be attempted before pulling if this is a Git repository."],
+            : ["No checkpoint is available. Create one first if you want a restore point."],
           confirmLabel: "Pull",
         },
         formatGitSimpleAction(action),
@@ -134,7 +148,7 @@ export function useRightPanelGitController({
     confirmAndRunReviewAction(
       {
         title: "Initialize Git repository?",
-        message: "This creates a .git directory in the current workspace so Ambient can track, review, checkpoint, and commit changes.",
+        message: "This creates a .git directory in the current workspace so Ambient can track, review, checkpoint, and commit changes when you request them.",
         details: [`Workspace: ${activeWorkspacePath}`],
         confirmLabel: "Initialize repository",
       },

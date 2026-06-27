@@ -13,7 +13,7 @@ import type { ToolRunnerPolicy } from "../agentRuntimeToolRuntimeFacade";
 import {
   clearRegisteredSecretRedactionsForTests,
   registerSecretRedaction,
-} from "../../security/securityToolRuntimeContract";
+} from "../agentRuntimeSecurityFacade";
 
 describe("AgentRuntimeAsyncBashJobService", () => {
   it("starts a detached command, polls incremental output, and materializes final artifacts", async () => {

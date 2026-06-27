@@ -13,7 +13,7 @@ describe("model reasoning modes Desktop dogfood harness wiring", () => {
     expect(packageJson.scripts["test:model-reasoning:desktop-dogfood"]).toContain("scripts/run-electron-dogfood.mjs");
     expect(packageJson.scripts["test:model-reasoning:desktop-dogfood"]).toContain("--scenario=model-reasoning-modes");
     expect(packageJson.scripts["test:model-reasoning:desktop-dogfood"]).toContain("AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient}");
-    expect(packageJson.scripts["test:model-reasoning:desktop-dogfood"]).toContain("moonshotai/kimi-k2.7-code");
+    expect(packageJson.scripts["test:model-reasoning:desktop-dogfood"]).toContain("example/model-id");
     expect(packageJson.scripts["test:model-reasoning:desktop-dogfood:unit"]).toContain("scripts/model-reasoning-modes-dogfood.test.mjs");
     expect(supervisor).toContain("scripts/model-reasoning-modes-dogfood.mjs");
     expect(supervisor).toContain("test-results/model-reasoning-modes/latest.json");

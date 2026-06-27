@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { safeStorage } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
+import { BrowserCredentialStore, BrowserService } from "./pluginsBrowserDogfoodFacade";
 import { AgentRuntime } from "./pluginsAgentRuntimeDogfoodFacade";
 import { ProjectStore } from "./pluginsProjectStoreFacade";
 import { isolatePluginDiscoveryEnv, restoreProcessEnv, seedFixtureMarketplace, sendDogfoodTurn } from "./pluginDogfoodTestSupport";

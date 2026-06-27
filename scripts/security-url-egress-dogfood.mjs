@@ -11,7 +11,7 @@ import { setTimeout as delay } from "node:timers/promises";
 
 const repoRoot = process.cwd();
 const defaultProvider = "ambient";
-const defaultModel = "moonshotai/kimi-k2.7-code";
+const defaultModel = "example/model-id";
 const supportedScenarios = new Set(["security-plugin-preview-egress", "security-managed-download-egress"]);
 const scenario = parseScenario(process.argv.slice(2));
 const resultsDir = join(repoRoot, "test-results", scenario);

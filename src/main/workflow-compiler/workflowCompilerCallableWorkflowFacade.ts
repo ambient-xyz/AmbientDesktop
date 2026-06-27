@@ -5,4 +5,5 @@ export type {
 export {
   callableWorkflowExecutionPlanFromTask,
   type CallableWorkflowCompilerHandoffPlan,
+  type CallableWorkflowSymphonyLaunchBridgeContract,
 } from "../callable-workflow/callableWorkflowCompilerContract";

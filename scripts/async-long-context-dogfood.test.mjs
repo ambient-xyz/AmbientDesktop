@@ -13,7 +13,7 @@ describe("Async long-context Desktop dogfood harness wiring", () => {
 
     expect(packageJson.scripts["test:async-long-context:desktop-dogfood"]).toContain("scripts/run-electron-dogfood.mjs");
     expect(packageJson.scripts["test:async-long-context:desktop-dogfood"]).toContain("--scenario=async-long-context");
-    expect(packageJson.scripts["test:async-long-context:desktop-dogfood"]).toContain("moonshotai/kimi-k2.7-code");
+    expect(packageJson.scripts["test:async-long-context:desktop-dogfood"]).toContain("example/model-id");
     expect(packageJson.scripts["test:async-long-context:desktop-dogfood:unit"]).toContain("scripts/async-long-context-dogfood.test.mjs");
     expect(supervisor).toContain("scripts/async-long-context-dogfood.mjs");
     expect(supervisor).toContain("test-results/async-long-context-dogfood/latest.json");

@@ -27,7 +27,7 @@ import { registerMainShellBrowserIpc } from "./registerMainShellBrowserIpc";
 
 import { registerMainWorkflowAutomationIpc } from "./registerMainWorkflowAutomationIpc";
 
-import type { ProjectRuntimeHost as ProjectRuntimeHostContract } from "../project-runtime/projectRuntimeHost";
+import type { ProjectRuntimeHost as ProjectRuntimeHostContract } from "./ipcProjectRuntimeFacade";
 import type { ProjectStore } from "./ipcProjectStoreFacade";
 import { resolvePermissionWithGrants } from "../permissions/permissionGrants";
 

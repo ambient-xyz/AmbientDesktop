@@ -1,6 +1,6 @@
 import type { IpcMain } from "electron";
 
-import type { ProjectRuntimeHost as ProjectRuntimeHostContract } from "../project-runtime/projectRuntimeHost";
+import type { ProjectRuntimeHost as ProjectRuntimeHostContract } from "./ipcProjectRuntimeFacade";
 import type { ProjectStore } from "./ipcProjectStoreFacade";
 import {
   projectBoardCardIpcChannels,

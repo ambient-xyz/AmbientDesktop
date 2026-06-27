@@ -1,6 +1,7 @@
 export {
   createWorkflowConnectorBridge,
   validateWorkflowConnectorDescriptor,
+  workspaceInventoryConnectorDescriptor,
 } from "../workflow/workflowGoogleWorkspaceContract";
 export type {
   WorkflowConnectorAccessToken,

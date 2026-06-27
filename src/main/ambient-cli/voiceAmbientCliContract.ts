@@ -1,5 +1,8 @@
 export {
+  ambientCliWorkspaceProviderMarkerPath,
+  discoverAmbientCliEmbeddingProviders,
   discoverAmbientCliVoiceProviders,
+  hasAmbientCliWorkspaceProviderDiscoverySignal,
   installAmbientCliPackageSource,
   runAmbientCliPackageCommand,
 } from "./ambientCliPackages";

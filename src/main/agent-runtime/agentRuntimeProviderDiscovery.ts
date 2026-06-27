@@ -9,8 +9,8 @@ import {
   discoverAmbientCliEmbeddingProviders as defaultDiscoverEmbeddingProviders,
   discoverAmbientCliSttProviders as defaultDiscoverSttProviders,
   discoverAmbientCliVoiceProviders as defaultDiscoverVoiceProviders,
+  hasAmbientCliWorkspaceProviderDiscoverySignal,
 } from "./agentRuntimeAmbientCliFacade";
-import { hasAmbientCliWorkspaceProviderDiscoverySignal } from "../ambient-cli/ambientCliPackages";
 import { discoverAmbientMemoryEmbeddingProviders as defaultDiscoverManagedMemoryEmbeddingProviders } from "./agentRuntimeMemoryFacade";
 import {
   mergeSttProvidersWithValidation as defaultMergeSttProvidersWithValidation,

@@ -17,7 +17,7 @@ const manifestPath = resolve(args.manifestOut || process.env.AMBIENT_HARNESS_MAN
 const stdoutPath = manifestPath.replace(/\.manifest\.json$/i, ".stdout.txt").replace(/\.json$/i, ".stdout.txt");
 const stderrPath = manifestPath.replace(/\.manifest\.json$/i, ".stderr.txt").replace(/\.json$/i, ".stderr.txt");
 const DEFAULT_DOGFOOD_PROVIDER = "ambient";
-const DEFAULT_DOGFOOD_MODEL = "moonshotai/kimi-k2.7-code";
+const DEFAULT_DOGFOOD_MODEL = "example/model-id";
 const startedAt = new Date().toISOString();
 let checkout;
 let exitCode = 1;

@@ -258,8 +258,6 @@ export function registerWorkspaceGitDomainIpc({
     getWorkspaceDiff,
     getWorkspaceGitStatus,
     switchWorkspaceBranch,
-    createAndRecordPreGitActionCheckpoint: (reason: string, thread: any, targetStore: any) =>
-      createAndRecordCheckpoint("pre-git-action", reason, thread, targetStore),
   });
 
   registerGitReviewIpc({
@@ -326,8 +324,6 @@ export function registerWorkspaceGitDomainIpc({
   registerGitDiscardFileIpc({
     handleIpc,
     activeGitContextForProjectHost,
-    createAndRecordPreGitActionCheckpoint: (reason: string, thread: any, targetStore: any) =>
-      createAndRecordCheckpoint("pre-git-action", reason, thread, targetStore),
     discardGitFile,
     readGitReviewForProjectHost,
   });
@@ -342,8 +338,6 @@ export function registerWorkspaceGitDomainIpc({
   registerGitCreateBranchIpc({
     handleIpc,
     activeGitContextForProjectHost,
-    createAndRecordPreGitActionCheckpoint: (reason: string, thread: any, targetStore: any) =>
-      createAndRecordCheckpoint("pre-git-action", reason, thread, targetStore),
     createGitBranch,
     readGitReviewForProjectHost,
   });
@@ -352,8 +346,8 @@ export function registerWorkspaceGitDomainIpc({
     handleIpc,
     activeGitContextForProjectHost,
     fetchGit,
-    createAndRecordPreGitActionCheckpoint: (reason: string, thread: any, targetStore: any) =>
-      createAndRecordCheckpoint("pre-git-action", reason, thread, targetStore),
+    createAndRecordManualCheckpoint: (reason: string, thread: any, targetStore: any) =>
+      createAndRecordCheckpoint("manual", reason, thread, targetStore),
     pullGit,
     pushGit,
     restoreLatestGitCheckpoint,

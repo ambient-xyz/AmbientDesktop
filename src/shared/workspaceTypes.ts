@@ -238,7 +238,7 @@ export interface GitFileActionInput {
   path: string;
 }
 
-export type GitSimpleAction = "fetch" | "pull" | "push" | "restore-latest-checkpoint";
+export type GitSimpleAction = "create-checkpoint" | "fetch" | "pull" | "push" | "restore-latest-checkpoint";
 
 export type WorkspaceSearchScope = "chat" | "project" | "all-projects";
 

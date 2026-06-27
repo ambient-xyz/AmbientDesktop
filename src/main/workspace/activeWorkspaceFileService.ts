@@ -2,7 +2,7 @@ import { join, resolve } from "node:path";
 import { z } from "zod";
 import type { AmbientPermissionGrant } from "../../shared/permissionTypes";
 import type { WorkspaceFileContent } from "../../shared/workspaceTypes";
-import { permissionGrantAllowsLocalPath } from "../permissions/localFolderAllowlistGrants";
+import { permissionGrantAllowsLocalPath } from "./workspacePermissionsFacade";
 import { readLocalFilePreview, readWorkspaceFile, type ReadWorkspaceFileOptions } from "./workspaceFiles";
 import { isPathInside } from "./workspaceSessionFacade";
 

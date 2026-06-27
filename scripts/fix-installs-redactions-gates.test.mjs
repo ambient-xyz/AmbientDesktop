@@ -30,29 +30,29 @@ describe("fix-installs-redactions gates", () => {
     expect(() => fixInstallsRedactionsLatestArtifactPath("unknown")).toThrow(/Unsupported/);
   });
 
-  it("keeps live gates on Ambient Kimi and rejects degraded GLM 5.1", () => {
+  it("keeps live gates on Ambient Kimi and rejects degraded Example Model", () => {
     expect(assertFixInstallsRedactionsProviderAllowed({
       providerId: "ambient",
-      modelId: "moonshotai/kimi-k2.7-code",
+      modelId: "example/model-id",
     })).toEqual({
       providerId: "ambient",
-      modelId: "moonshotai/kimi-k2.7-code",
+      modelId: "example/model-id",
     });
     expect(() => assertFixInstallsRedactionsProviderAllowed({
       providerId: "gmi-cloud",
-      modelId: "moonshotai/kimi-k2.7-code",
+      modelId: "example/model-id",
     })).toThrow(/AMBIENT_PROVIDER=ambient/);
     expect(() => assertFixInstallsRedactionsProviderAllowed({
       providerId: "ambient",
       modelId: "zai-org/glm-5.1",
-    })).toThrow(/GLM 5.1/);
+    })).toThrow(/Example Model/);
   });
 
   it("builds a baseline prompt and report without exposing secrets", () => {
     const gate = fixInstallsRedactionsGateForScenario("provider-setup-baseline");
     expect(fixInstallsRedactionsGatePrompt(gate)).toContain("Do not call tools");
     const report = newFixInstallsRedactionsReport(gate, {
-      provider: { providerId: "ambient", modelId: "moonshotai/kimi-k2.7-code" },
+      provider: { providerId: "ambient", modelId: "example/model-id" },
       git: { branch: "branch", commit: "abc" },
       workspacePath: "/tmp/workspace",
       userDataPath: "/tmp/userData",

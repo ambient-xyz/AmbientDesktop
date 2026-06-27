@@ -13,7 +13,7 @@ describe("Container runtime lifecycle Desktop dogfood harness wiring", () => {
 
     expect(packageJson.scripts["test:mcp-container-runtime-lifecycle:desktop-dogfood"]).toContain("scripts/run-electron-dogfood.mjs");
     expect(packageJson.scripts["test:mcp-container-runtime-lifecycle:desktop-dogfood"]).toContain("--scenario=container-runtime-lifecycle");
-    expect(packageJson.scripts["test:mcp-container-runtime-lifecycle:desktop-dogfood"]).toContain("moonshotai/kimi-k2.7-code");
+    expect(packageJson.scripts["test:mcp-container-runtime-lifecycle:desktop-dogfood"]).toContain("example/model-id");
     expect(packageJson.scripts["test:mcp-container-runtime-lifecycle:desktop-dogfood:unit"]).toContain("scripts/container-runtime-lifecycle-dogfood.test.mjs");
     expect(supervisor).toContain("scripts/container-runtime-lifecycle-dogfood.mjs");
     expect(supervisor).toContain("test-results/container-runtime-lifecycle-dogfood/latest.json");
@@ -36,7 +36,7 @@ describe("Container runtime lifecycle Desktop dogfood harness wiring", () => {
     expect(scenario).toContain("blocked-ready-no-mutation");
     expect(scenario).toContain("exportDiagnosticBundle");
     expect(scenario).toContain("ambient-container-runtime-lifecycle-dogfood-v1");
-    expect(scenario).toContain("moonshotai/kimi-k2.7-code");
+    expect(scenario).toContain("example/model-id");
     expect(scenario).toContain("Force quit and restart can interrupt every container on this runtime");
   });
 });

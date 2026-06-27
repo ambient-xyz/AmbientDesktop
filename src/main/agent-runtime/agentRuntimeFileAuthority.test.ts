@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import type { SubagentToolScopeSnapshotSummary } from "../../shared/subagentTypes";
 import type { AmbientPermissionGrant } from "../../shared/permissionTypes";
-import { createLocalFolderAllowlistGrantInput } from "../permissions/localFolderAllowlistGrants";
+import { createLocalFolderAllowlistGrantInput } from "./agentRuntimePermissionsFacade";
 import {
   childAuthorityFileRootPathsFromSnapshot,
   childAuthorityFileRootPathsForThread,

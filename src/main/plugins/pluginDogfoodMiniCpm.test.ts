@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { safeStorage } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
+import { BrowserCredentialStore, BrowserService } from "./pluginsBrowserDogfoodFacade";
 import { ProjectStore } from "./pluginsProjectStoreFacade";
 import { runAmbientCliPackageCommand } from "./pluginsAmbientCliFacade";
 import { AgentRuntime } from "./pluginsAgentRuntimeDogfoodFacade";

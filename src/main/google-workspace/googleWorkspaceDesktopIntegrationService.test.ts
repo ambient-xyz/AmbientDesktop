@@ -6,9 +6,9 @@ import type {
   GoogleWorkspaceCliInstallState,
   GoogleWorkspaceSetupState,
 } from "../../shared/pluginTypes";
-import { workspaceInventoryConnectorDescriptor } from "../workflow/workflowConnectors";
 import { createGoogleWorkspaceDesktopIntegrationService } from "./googleWorkspaceDesktopIntegrationService";
 import type { GoogleWorkspaceCliStatus } from "./googleWorkspaceCliAdapter";
+import { workspaceInventoryConnectorDescriptor } from "./googleWorkspaceWorkflowFacade";
 
 const workspaceDescriptor = workspaceInventoryConnectorDescriptor();
 
@@ -90,11 +90,7 @@ describe("createGoogleWorkspaceDesktopIntegrationService", () => {
       "google.drive",
     ]);
     const integration = service.readFirstPartyGoogleIntegration();
-    expect(integration.connectors.map((connector) => connector.connectorId)).toEqual([
-      "google.gmail",
-      "google.calendar",
-      "google.drive",
-    ]);
+    expect(integration.connectors.map((connector) => connector.connectorId)).toEqual(["google.gmail", "google.calendar", "google.drive"]);
     expect(integration).toMatchObject({
       enabled: true,
       authMode: "gws",

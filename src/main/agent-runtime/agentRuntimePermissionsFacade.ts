@@ -1,5 +1,6 @@
 export {
   classifyToolPermission,
+  createLocalFolderAllowlistGrantInput,
   enrichPermissionRequest,
   permissionGrantTargetHash,
   permissionPolicyFileToolAccess,

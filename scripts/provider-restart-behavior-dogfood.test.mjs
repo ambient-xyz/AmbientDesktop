@@ -14,7 +14,7 @@ describe("Provider restart behavior Desktop dogfood harness wiring", () => {
 
     expect(packageJson.scripts["test:provider-restart:desktop-dogfood"]).toContain("scripts/run-provider-restart-behavior-live-gates.mjs");
     expect(packageJson.scripts["test:provider-restart:desktop-dogfood"]).toContain("AMBIENT_PROVIDER=ambient");
-    expect(packageJson.scripts["test:provider-restart:desktop-dogfood"]).toContain("moonshotai/kimi-k2.7-code");
+    expect(packageJson.scripts["test:provider-restart:desktop-dogfood"]).toContain("example/model-id");
     expect(packageJson.scripts["test:provider-restart:desktop-dogfood:unit"]).toContain("scripts/provider-restart-behavior-dogfood.test.mjs");
     expect(supervisor).toContain("provider-restart-behavior");
     expect(supervisor).toContain("scripts/provider-restart-behavior-dogfood.mjs");
@@ -35,7 +35,7 @@ describe("Provider restart behavior Desktop dogfood harness wiring", () => {
     expect(scenario).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_CDP_PORT");
     expect(scenario).toContain("--remote-debugging-port");
     expect(scenario).toContain("AMBIENT_PROVIDER: DEFAULT_DOGFOOD_PROVIDER");
-    expect(scenario).toContain("moonshotai/kimi-k2.7-code");
+    expect(scenario).toContain("example/model-id");
     expect(scenario).toContain("startAmbientFailpointProxy");
     expect(scenario).toContain("AMBIENT_BASE_URL");
     expect(scenario).toContain("window.ambientDesktop.testAmbientApiKey()");

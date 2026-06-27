@@ -43,7 +43,7 @@ describe("sub-agent Desktop dogfood harness wiring", () => {
 
     expect(supervisor).toContain("verifyHarnessCheckout");
     expect(supervisor).toContain('DEFAULT_DOGFOOD_PROVIDER = "ambient"');
-    expect(supervisor).toContain('DEFAULT_DOGFOOD_MODEL = "moonshotai/kimi-k2.7-code"');
+    expect(supervisor).toContain('DEFAULT_DOGFOOD_MODEL = "example/model-id"');
     expect(supervisor).toContain("dogfoodLaunchEnv");
     expect(supervisor).toContain("providerSnapshot(launchEnv ?? dogfoodLaunchEnv(process.env))");
     expect(supervisor).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_CDP_PORT");
@@ -59,7 +59,7 @@ describe("sub-agent Desktop dogfood harness wiring", () => {
     expect(runner).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD");
     expect(runner).toContain("AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_RUNTIME_PID");
     expect(runner).toContain('DEFAULT_DOGFOOD_PROVIDER = "ambient"');
-    expect(runner).toContain('DEFAULT_DOGFOOD_MODEL = "moonshotai/kimi-k2.7-code"');
+    expect(runner).toContain('DEFAULT_DOGFOOD_MODEL = "example/model-id"');
     expect(runner).toContain("dogfoodProviderEnv(process.env)");
     expect(runner).toContain("GMI_CLOUD_MODEL: modelId");
     expect(runner).toContain("AMBIENT_LIVE_MODEL: modelId");

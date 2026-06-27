@@ -1,11 +1,11 @@
 import type { CallableWorkflowLaunchCardSummary, CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
-import type { CallableWorkflowSymphonyLaunchBridgeContract } from "../callable-workflow/callableWorkflowTaskQueue";
 import {
   callableWorkflowExecutionPlanFromTask,
   type CallableWorkflowCallerProvenance,
   type CallableWorkflowCompilerHandoffPlan,
   type CallableWorkflowSourceContext,
-} from "../callable-workflow/callableWorkflowCompilerContract";
+  type CallableWorkflowSymphonyLaunchBridgeContract,
+} from "./workflowCompilerCallableWorkflowFacade";
 import { workflowCompilerPromptModule, type WorkflowCompilerPromptModule } from "./workflowCompilerPromptModules";
 
 export const WORKFLOW_COMPILER_CALLABLE_INVOCATION_CONTEXT_SCHEMA_VERSION =

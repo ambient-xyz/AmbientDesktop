@@ -149,7 +149,7 @@ function desktopState(overrides: Partial<DesktopState> = {}): DesktopState {
     queue: { steering: [], followUp: [] },
     settings: {
       collaborationMode: "agent",
-      model: "moonshotai/kimi-k2.7-code",
+      model: "example/model-id",
       permissionMode: "full-access",
       thinkingLevel: "medium",
     },
@@ -189,7 +189,7 @@ function thread(input: Partial<ThreadSummary> & { id: string }): ThreadSummary {
     kind: "chat",
     permissionMode: "full-access",
     collaborationMode: "agent",
-    model: "moonshotai/kimi-k2.7-code",
+    model: "example/model-id",
     thinkingLevel: "medium",
     ...rest,
   } as ThreadSummary;

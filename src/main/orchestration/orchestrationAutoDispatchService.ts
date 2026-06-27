@@ -9,11 +9,11 @@ import type {
   SetOrchestrationAutoDispatchInput,
 } from "../../shared/workflowTypes";
 import { getAmbientProviderStatus } from "../provider/providerStatus";
-import type { ProjectStore } from "../projectStore/projectStore";
 import { runDueWorkflowPlaybookSchedules } from "../workflow/workflowPlaybookScheduleDispatch";
 import { runWorkflowArtifact } from "../workflow/workflowRunService";
 import { runDueWorkflowArtifactSchedules, workflowScheduleRunStartedEventData } from "../workflow/workflowScheduleDispatch";
 import { loadWorkflowFile } from "../workflow/workflow";
+import type { ProjectStore } from "./orchestrationProjectStoreFacade";
 import {
   ensureProjectBoardWorkflowForDispatch,
   listAutoContinuableRestartInterruptedRuns,
@@ -55,7 +55,6 @@ export interface OrchestrationAutoDispatchPermissionInput {
 export interface OrchestrationAutoDispatchServiceDependencies {
   activeThreadIdForHost(host: OrchestrationAutoDispatchRuntimeHost): string;
   callPluginMcpTool(plan: unknown, invocation: unknown, options?: unknown): Promise<unknown>;
-  createAndRecordCheckpoint(reason: string, label: string, thread: ThreadSummary, store: ProjectStore): Promise<unknown>;
   emitDesktopEvent(event: DesktopEvent): void;
   emitPermissionAuditCreated(entry: PermissionAuditEntry, workspacePath: string): void;
   emitProjectScopedEvent(host: OrchestrationAutoDispatchRuntimeHost, event: DesktopEvent): void;
@@ -393,7 +392,6 @@ export async function runAutoDispatchTick(host: OrchestrationAutoDispatchRuntime
         runThread = await services().prepareWorktreeForThread(runThread, hostStore);
         services().emitProjectStateIfActive(host, hostActiveThreadId);
       }
-      await services().createAndRecordCheckpoint("pre-run", "Before scheduled Workflow Playbook run.", runThread, hostStore);
       await host.runtime.send(
         {
           threadId: runThread.id,

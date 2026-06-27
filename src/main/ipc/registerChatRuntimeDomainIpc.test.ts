@@ -41,7 +41,7 @@ describe("registerChatRuntimeDomainIpc", () => {
     ]);
   });
 
-  it("prepares worktrees, hydrates context, checkpoints, sends, and marks active threads read", async () => {
+  it("prepares worktrees, hydrates context, sends without checkpointing, and marks active threads read", async () => {
     const { deps, host, invoke, preparedThread, rawInput, resolvedContext, thread } = registerWithFakes();
 
     await expect(invoke("message:send", rawInput)).resolves.toBeUndefined();
@@ -56,12 +56,7 @@ describe("registerChatRuntimeDomainIpc", () => {
       [{ path: "src/main/index.ts", absolute: false }],
       { allowExternal: true },
     );
-    expect(deps.createAndRecordCheckpoint).toHaveBeenCalledWith(
-      "pre-run",
-      "Before Ambient run.",
-      preparedThread,
-      host.store,
-    );
+    expect(deps.createAndRecordCheckpoint).not.toHaveBeenCalled();
     expect(host.runtime.send).toHaveBeenCalledWith({
       ...sampleSendInput(),
       permissionMode: "full-access",
@@ -187,7 +182,7 @@ describe("registerChatRuntimeDomainIpc", () => {
 
     await expect(invoke("message:send", rawInput)).resolves.toBeUndefined();
 
-    expect(deps.createAndRecordCheckpoint).toHaveBeenCalledOnce();
+    expect(deps.createAndRecordCheckpoint).not.toHaveBeenCalled();
     expect(deps.emitDesktopEvent).toHaveBeenCalledWith({
       type: "e2e-message-captured",
       input: rawInput,

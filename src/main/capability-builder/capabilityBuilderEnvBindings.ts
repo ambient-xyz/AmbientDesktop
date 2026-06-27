@@ -5,7 +5,7 @@ import { setAmbientCliPackageEnvBinding, setAmbientCliPackageSecretBinding } fro
 import { isPathInside } from "./capabilityBuilderSessionFacade";
 import { ambientRuntimeEnv, managedInstallWorkspacePath } from "./capabilityBuilderSetupFacade";
 import type { CapabilityBuilderPreviewResult } from "./capabilityBuilderTypes";
-import { isSecretReference, readSecretReference, saveSecretReference } from "../security/securityCapabilityBuilderContract";
+import { isSecretReference, readSecretReference, saveSecretReference } from "./capabilityBuilderSecurityFacade";
 
 export async function capabilityBuilderValidationProcessEnv(
   workspace: string,

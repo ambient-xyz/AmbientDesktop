@@ -36,7 +36,7 @@ import { knownCodexPluginProfile } from "./codexPluginProfiles";
 import { isPathInside } from "../pluginsSessionFacade";
 import { materializeTextOutput } from "../pluginsToolRuntimeFacade";
 import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../pluginsSetupFacade";
-import { allowLocalDevUrlEgressFromEnv, assertAllowedUrlEgressWithDns, fetchWithUrlEgressPolicy } from "../../security/urlEgressPolicy";
+import { allowLocalDevUrlEgressFromEnv, assertAllowedUrlEgressWithDns, fetchWithUrlEgressPolicy } from "../pluginsSecurityFacade";
 
 const execFileAsync = promisify(execFile);
 const marketplaceLocations = [".agents/plugins/marketplace.json", ".claude-plugin/marketplace.json"];

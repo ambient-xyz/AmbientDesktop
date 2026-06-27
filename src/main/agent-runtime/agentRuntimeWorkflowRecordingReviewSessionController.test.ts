@@ -23,11 +23,11 @@ describe("AgentRuntimeWorkflowRecordingReviewSessionController", () => {
     const thread = {
       id: "thread-review",
       workspacePath: "/workspace/project-alpha",
-      model: "moonshotai/kimi-k2.7-code",
+      model: "example/model-id",
       thinkingLevel: "medium",
     } as ThreadSummary;
     const model = {
-      id: "moonshotai/kimi-k2.7-code",
+      id: "example/model-id",
       contextWindow: 128_000,
     } as Model<"openai-completions">;
     const settingsManager = { applyOverrides: vi.fn() };
@@ -124,9 +124,9 @@ describe("AgentRuntimeWorkflowRecordingReviewSessionController", () => {
 
     await expect(controller.createSession(thread)).resolves.toBe(session);
 
-    expect(dependencies.getAmbientProviderStatus).toHaveBeenCalledWith("moonshotai/kimi-k2.7-code");
+    expect(dependencies.getAmbientProviderStatus).toHaveBeenCalledWith("example/model-id");
     expect(dependencies.ambientModel).toHaveBeenCalledWith(
-      "moonshotai/kimi-k2.7-code",
+      "example/model-id",
       "normalized:https://ambient.example.test",
     );
     expect(dependencies.mkdirSync).toHaveBeenNthCalledWith(1, "/state/pi", { recursive: true });

@@ -6,7 +6,7 @@ import { ProjectStore } from "./workflowProjectStoreFacade";
 import { restoreWorkflowVersion } from "./workflowVersionRestore";
 import { commitWorkflowVersionRepo } from "./workflowVersioning";
 import { runDueWorkflowArtifactSchedules } from "./workflowScheduleDispatch";
-import { workflowVersionHistoryModel } from "../../renderer/src/workflowVersionHistoryUiModel";
+import { workflowVersionHistoryModel } from "../../renderer/src/workflowTestUiModelContract";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

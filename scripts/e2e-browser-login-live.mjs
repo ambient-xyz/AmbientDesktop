@@ -1013,7 +1013,7 @@ function browserLoginLiveEnv() {
     ...process.env,
     ...keyFileEnv,
     AMBIENT_PROVIDER: process.env.AMBIENT_PROVIDER || "ambient",
-    AMBIENT_LIVE_MODEL: process.env.AMBIENT_LIVE_MODEL || "moonshotai/kimi-k2.7-code",
+    AMBIENT_LIVE_MODEL: process.env.AMBIENT_LIVE_MODEL || "example/model-id",
     AMBIENT_DESKTOP_WORKSPACE: workspace,
     AMBIENT_E2E: "1",
     AMBIENT_E2E_USER_DATA: userData,

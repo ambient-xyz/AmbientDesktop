@@ -1,7 +1,6 @@
 import type { IpcMainInvokeEvent } from "electron";
 
 import type { DesktopEvent } from "../../shared/desktopTypes";
-import type { ProjectRuntimeHost as ProjectRuntimeHostContract } from "../project-runtime/projectRuntimeHost";
 import {
   registerAmbientCliSecretDomainIpc,
   type RegisterAmbientCliSecretDomainIpcDependencies,
@@ -32,6 +31,7 @@ import {
   registerSlashCommandIpc,
   type RegisterSlashCommandIpcDependencies,
 } from "./registerSlashCommandIpc";
+import type { ProjectRuntimeHost as ProjectRuntimeHostContract } from "./ipcProjectRuntimeFacade";
 import {
   registerTerminalDomainIpc,
   type RegisterTerminalDomainIpcDependencies,
@@ -86,7 +86,6 @@ export function registerMainRuntimeInteractionIpc(
     app,
     assertTrustedMainWindowIpc,
     classifyToolPermission,
-    createAndRecordCheckpoint,
     createChatExportBundle,
     createChatPdfExport,
     createDiagnosticBundle,
@@ -227,7 +226,6 @@ export function registerMainRuntimeInteractionIpc(
     activeHost,
     activeThreadId,
     activeThreadIdForHost,
-    createAndRecordCheckpoint,
     describeWorkspaceContextReferences,
     resolveCanonicalLocalFilePath,
     localPathVisibleToThread,

@@ -42,7 +42,7 @@ describe("prepareAgentRuntimeSendStartContext", () => {
     const thread = threadSummary();
     const sendLoopInput = {
       ...sendInput,
-      model: "moonshotai/kimi-k2.7-code",
+      model: "example/model-id",
     } as SendMessageInput;
     const runtimeInput = {
       ...sendLoopInput,
@@ -53,7 +53,7 @@ describe("prepareAgentRuntimeSendStartContext", () => {
     const runBeforePrompt = vi.fn(async () => ({
       kind: "continue" as const,
       promptContent: "prepared prompt",
-      runtimeModel: "moonshotai/kimi-k2.7-code",
+      runtimeModel: "example/model-id",
     }));
     const prepareRuntimeSendLoopContext = vi.fn(() => sendLoop);
     const onActivity = vi.fn();
@@ -86,7 +86,7 @@ describe("prepareAgentRuntimeSendStartContext", () => {
       hooks: { onActivity },
     }));
     expect(result.context.promptContent).toBe("prepared prompt");
-    expect(result.context.runtimeModel).toBe("moonshotai/kimi-k2.7-code");
+    expect(result.context.runtimeModel).toBe("example/model-id");
     expect(result.context.runtimeInput).toBe(runtimeInput);
     expect(result.context.sendInputWithSymphonyParentModePolicy).toBe(runtimeInput);
     expect(result.context.promptImageInputs).toEqual({ images: [], attachments: [] });
@@ -112,7 +112,7 @@ function baseInput(sendInput: SendMessageInput): AgentRuntimeSendStartContextInp
       runBeforePrompt: vi.fn(async () => ({
         kind: "continue",
         promptContent: sendInput.content,
-        runtimeModel: "moonshotai/kimi-k2.7-code",
+        runtimeModel: "example/model-id",
       })),
     } as unknown as AgentRuntimeSendStartContextInput["sendPreflight"],
     store: storeForThread(threadSummary()),
@@ -148,7 +148,7 @@ function threadSummary(): ThreadSummary {
     runs: [],
     workspacePath: "/tmp/ambient-workspace",
     permissionMode: "suggest",
-    model: "moonshotai/kimi-k2.7-code",
+    model: "example/model-id",
   } as unknown as ThreadSummary;
 }
 

@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { DesktopEvent } from "../../shared/desktopTypes";
 import type { PermissionPromptResolution } from "../../shared/permissionTypes";
-import { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
+import { BrowserCredentialStore, BrowserService } from "./pluginsBrowserDogfoodFacade";
 import { installAmbientCliPackageSource, saveAmbientCliPackageEnvSecret } from "./pluginsAmbientCliFacade";
 import { AgentRuntime } from "./pluginsAgentRuntimeDogfoodFacade";
 import { ProjectStore } from "./pluginsProjectStoreFacade";

@@ -53,6 +53,11 @@ export const KANBAN_FULL_CUT_PHASES = [
   },
 ];
 
+export const KANBAN_FULL_CUT_GMI_DISPATCH_SCRIPT = [
+  "test:project-board-kanban:gmi",
+  "node scripts/project-board-kanban-full-cut-gate.mjs --gmi-scenario",
+];
+
 export const KANBAN_FULL_CUT_GMI_SCRIPTS = [
   ["test:project-board-kanban-canonical-projection:gmi", "node scripts/e2e-kanban-canonical-card-projection-gmi.mjs"],
   ["test:project-board-kanban-deliverable-integration:gmi", "node scripts/e2e-kanban-deliverable-integration-gmi.mjs"],
@@ -62,7 +67,10 @@ export const KANBAN_FULL_CUT_GMI_SCRIPTS = [
   ["test:project-board-kanban-expense-streaming:gmi", "node scripts/e2e-kanban-expense-streaming-snapshot-gmi.mjs"],
   ["test:project-board-kanban-add-cards-after-ticketization:gmi", "node scripts/e2e-kanban-add-cards-after-ticketization-gmi.mjs"],
   ["test:project-board-kanban-link-checker-dependency-import:gmi", "node scripts/e2e-kanban-link-checker-dependency-import-gmi.mjs"],
-  ["test:project-board-kanban-todo-deduper-implementation-bundle:gmi", "node scripts/e2e-kanban-todo-deduper-implementation-bundle-gmi.mjs"],
+  [
+    "test:project-board-kanban-todo-deduper-implementation-bundle:gmi",
+    "node scripts/e2e-kanban-todo-deduper-implementation-bundle-gmi.mjs",
+  ],
   ["test:project-board-kanban-markdown-regex-proof-permission:gmi", "node scripts/e2e-kanban-markdown-regex-proof-permission-gmi.mjs"],
   ["test:project-board-kanban-expense-null-scratch-permission:gmi", "node scripts/e2e-kanban-expense-null-scratch-permission-gmi.mjs"],
   ["test:project-board-kanban-unit-converter-source-authority:gmi", "node scripts/e2e-kanban-unit-converter-source-authority-gmi.mjs"],
@@ -70,6 +78,26 @@ export const KANBAN_FULL_CUT_GMI_SCRIPTS = [
   ["test:project-board-kanban-contrast-native-task-actions:gmi", "node scripts/e2e-kanban-contrast-native-task-actions-gmi.mjs"],
   ["test:project-board-kanban-durable-completion-provider-error:gmi", "node scripts/e2e-kanban-durable-completion-provider-error-gmi.mjs"],
 ];
+
+export function kanbanGmiScenarioKeyFromScriptName(name) {
+  return String(name)
+    .replace(/^test:project-board-kanban-/, "")
+    .replace(/:gmi$/, "");
+}
+
+export function listKanbanGmiScenarios() {
+  return KANBAN_FULL_CUT_GMI_SCRIPTS.map(([name, command]) => ({
+    key: kanbanGmiScenarioKeyFromScriptName(name),
+    legacyScript: name,
+    command,
+  }));
+}
+
+export function findKanbanGmiScenario(identifier) {
+  const normalized = String(identifier ?? "").trim();
+  if (!normalized) return undefined;
+  return listKanbanGmiScenarios().find((scenario) => scenario.key === normalized || scenario.legacyScript === normalized);
+}
 
 export async function evaluateKanbanFullCutGate({ repoRoot }) {
   const facts = await readKanbanFullCutGateFacts(repoRoot);
@@ -79,9 +107,9 @@ export async function evaluateKanbanFullCutGate({ repoRoot }) {
 export async function readKanbanFullCutGateFacts(repoRoot) {
   const packageJson = JSON.parse(await readFile(join(repoRoot, "package.json"), "utf8"));
   const planHtml = await readFile(join(repoRoot, "kanbanAbstractionImprovement.html"), "utf8");
-  const taskToolsSource = await readFile(join(repoRoot, "src", "main", "projectBoardTaskTools.ts"), "utf8");
+  const taskToolsSource = await readFile(join(repoRoot, "src", "main", "project-board", "projectBoardTaskTools.ts"), "utf8");
   const scriptSources = {};
-  for (const [, command] of KANBAN_FULL_CUT_GMI_SCRIPTS) {
+  for (const [, command] of [KANBAN_FULL_CUT_GMI_DISPATCH_SCRIPT, ...KANBAN_FULL_CUT_GMI_SCRIPTS]) {
     const scriptPath = packageScriptPath(command);
     if (!scriptPath || scriptSources[scriptPath]) continue;
     scriptSources[scriptPath] = await readFile(join(repoRoot, scriptPath), "utf8").catch(() => undefined);
@@ -93,9 +121,12 @@ export function evaluateKanbanFullCutGateFacts(facts) {
   const phaseSections = extractKanbanPhaseSections(facts.planHtml);
   const checks = [
     phaseMapCheck(facts.planHtml, phaseSections),
-    ...KANBAN_FULL_CUT_PHASES.flatMap((phase) => [phaseStructureCheck(phase, phaseSections.get(phase.number)), phaseEvidenceCheck(phase, phaseSections.get(phase.number))]),
+    ...KANBAN_FULL_CUT_PHASES.flatMap((phase) => [
+      phaseStructureCheck(phase, phaseSections.get(phase.number)),
+      phaseEvidenceCheck(phase, phaseSections.get(phase.number)),
+    ]),
     packageScriptsCheck(facts.packageJson),
-    harnessSourceCheck(facts.packageJson, facts.scriptSources),
+    harnessSourceCheck(facts.scriptSources),
     nativeTaskPromptContractCheck(facts.taskToolsSource),
     releaseGuidanceCheck(facts.planHtml, facts.packageJson),
     planClosureStateCheck(facts.planHtml),
@@ -170,21 +201,27 @@ function phaseEvidenceCheck(phase, section) {
 }
 
 function packageScriptsCheck(packageJson) {
-  const missing = KANBAN_FULL_CUT_GMI_SCRIPTS.filter(([name, command]) => packageJson.scripts?.[name] !== command).map(
-    ([name, command]) => `${name} expected ${command}, got ${packageJson.scripts?.[name] ?? "<missing>"}`,
+  const [dispatcherName, dispatcherCommand] = KANBAN_FULL_CUT_GMI_DISPATCH_SCRIPT;
+  const dispatcherActual = packageJson.scripts?.[dispatcherName];
+  const retiredScripts = KANBAN_FULL_CUT_GMI_SCRIPTS.filter(([name]) => Object.hasOwn(packageJson.scripts ?? {}, name)).map(
+    ([name]) => name,
   );
+  const missing =
+    dispatcherActual === dispatcherCommand
+      ? []
+      : [`${dispatcherName} expected ${dispatcherCommand}, got ${dispatcherActual ?? "<missing>"}`];
   return check(
-    "package kanban GMI gate scripts",
-    missing.length === 0,
-    "package.json must expose every reviewed kanban GMI gate script with its deterministic command.",
-    `missing=${JSON.stringify(missing)}`,
+    "package kanban GMI scenario dispatcher",
+    missing.length === 0 && retiredScripts.length === 0,
+    "package.json must expose the table-driven kanban GMI dispatcher and keep reviewed one-off GMI scripts out of package.json.",
+    `missing=${JSON.stringify(missing)}; retiredScripts=${JSON.stringify(retiredScripts)}`,
   );
 }
 
-function harnessSourceCheck(packageJson, scriptSources) {
+function harnessSourceCheck(scriptSources) {
   const missing = [];
   for (const [name, command] of KANBAN_FULL_CUT_GMI_SCRIPTS) {
-    const scriptPath = packageScriptPath(packageJson.scripts?.[name] ?? command);
+    const scriptPath = packageScriptPath(command);
     const source = combinedHarnessSource(scriptPath, scriptSources);
     if (!source) {
       missing.push(`${name}: missing ${scriptPath}`);
@@ -261,7 +298,7 @@ function planClosureStateCheck(planHtml) {
   );
 }
 
-function packageScriptPath(command) {
+export function packageScriptPath(command) {
   const match = typeof command === "string" ? command.match(/^node\s+([^\s]+\.mjs)(?:\s|$)/) : undefined;
   return match?.[1];
 }

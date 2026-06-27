@@ -5,7 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { redactArtifactText } from "./harness-eval.mjs";
 
-const DEFAULT_MODEL = "moonshotai/kimi-k2.7-code";
+const DEFAULT_MODEL = "example/model-id";
 const DEFAULT_BASE_URL = "https://api.ambient.xyz/v1";
 const MAX_TEXT_PREVIEW_CHARS = 4000;
 const MAX_CONCERNS = 8;

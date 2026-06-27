@@ -4,7 +4,6 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { WorkflowGraphSnapshot } from "../../shared/workflowTypes";
-import { workflowGraphEventCards } from "../../renderer/src/workflowAgentGraphUiModel";
 import { AmbientWorkflowRunProvider } from "./workflowAmbientProvider";
 import {
   liveAmbientDirectHelperProfile,
@@ -15,6 +14,7 @@ import {
 import { readWorkflowRunDetail, resolveWorkflowApproval } from "./workflowDashboard";
 import { ProjectStore } from "./workflowProjectStoreFacade";
 import { buildWorkflowRecoveryPlan } from "./workflowRecovery";
+import { workflowGraphEventCards } from "../../renderer/src/workflowTestUiModelContract";
 import { runWorkflowArtifact } from "./workflowRunService";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;

@@ -1,1 +1,1 @@
-export { createDefaultModelRuntimeRegistry } from "./modelRuntimeRegistry";
+export { createDefaultModelRuntimeRegistry, createModelRuntimeCatalog } from "./modelRuntimeRegistry";

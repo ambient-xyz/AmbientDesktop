@@ -13,7 +13,7 @@ import type {
   SttTranscriptionState,
 } from "../../shared/localRuntimeTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import { discoverAmbientCliSttProviders } from "../ambient-cli/ambientCliPackages";
+import { discoverAmbientCliSttProviders } from "./sttAmbientCliFacade";
 import {
   mergeSttProvidersWithValidation,
   readQwen3AsrValidationMetadata,

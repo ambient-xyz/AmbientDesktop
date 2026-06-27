@@ -14,14 +14,14 @@ import {
 } from "./capabilityBuilderAmbientCliFacade";
 import type { VoiceProviderCandidate } from "../../shared/localRuntimeTypes";
 import { ambientRuntimeEnv, managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "./capabilityBuilderSetupFacade";
-import { redactSensitiveText } from "../security/securityCapabilityBuilderContract";
+import { redactSensitiveText } from "./capabilityBuilderSecurityFacade";
 import {
   copyBuilderEnvBindingsToInstalledPackage,
   normalizeCapabilityEnvName,
   saveCapabilityBuilderEnvSecretBinding,
 } from "./capabilityBuilderEnvBindings";
 import { buildManifest, normalizedInstallerShape, scaffoldFiles } from "./capabilityBuilderScaffold";
-import { isCommandTimeoutProfile } from "../tool-runtime/commandExecutionProfiles";
+import { isCommandTimeoutProfile } from "./capabilityBuilderToolRuntimeFacade";
 import {
   capabilityBuilderListInventoryArtifactMaxEntries,
   listCapabilityBuilderSourceFiles,

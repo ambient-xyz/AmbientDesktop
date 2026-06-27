@@ -3,8 +3,10 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { vi } from "vitest";
-import type { BrowserCredentialSafeStorage, BrowserService } from "../browser/browserAgentRuntimeContract";
+import type { BrowserCredentialSafeStorage, BrowserService as BrowserServiceContract } from "../browser/browserAgentRuntimeContract";
 import type { WorkflowBrowserAdapter } from "./workflowDesktopTools";
+
+export { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
 
 export function fakeBrowser(targetUrl: string, searchResults: Array<{ title: string; url: string; snippet: string }> = []) {
   return {
@@ -197,7 +199,7 @@ export function fakeScottsdaleEntertainmentBrowserWithIntervention() {
   };
 }
 
-export function recordingWorkflowBrowser(browserService: BrowserService): {
+export function recordingWorkflowBrowser(browserService: BrowserServiceContract): {
   browser: WorkflowBrowserAdapter;
   calls: Record<string, unknown[]>;
 } {

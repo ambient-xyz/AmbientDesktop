@@ -7,7 +7,7 @@ import type { VoiceProviderCandidate, VoiceSettings, VoiceSettingsAuditSource } 
 import type { PermissionGrantScopeKind, PermissionRisk } from "../../shared/permissionTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
-import { registerDesktopTool, voiceToolDescriptor } from "../desktop-tools/desktopToolFirstPartyRuntimeContract";
+import { registerDesktopTool, voiceToolDescriptor } from "./voiceDesktopToolFacade";
 import { isPathInside } from "./voiceSessionFacade";
 import {
   readVoiceDiscoveryCache,

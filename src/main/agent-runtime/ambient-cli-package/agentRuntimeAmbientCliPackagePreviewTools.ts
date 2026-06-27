@@ -6,15 +6,12 @@ import {
   type AmbientCliPackageInstallPreview,
   type PreviewAmbientCliPackageInput,
 } from "../agentRuntimeAmbientCliFacade";
-import { redactGitSourceCredentials } from "../../security/securityAgentRuntimeContract";
+import { redactGitSourceCredentials } from "../agentRuntimeSecurityFacade";
 import { ambientCliPackagePreviewInput, ambientCliPackagePreviewText } from "./agentRuntimeAmbientCliPackageInstallModel";
 import { pluginInstallToolDescriptor } from "../agentRuntimeDesktopToolFacade";
 import { registerDesktopTool } from "../agentRuntimeDesktopToolFacade";
 
-type ToolUpdateHandler = (update: {
-  content: Array<{ type: "text"; text: string }>;
-  details: Record<string, unknown>;
-}) => void;
+type ToolUpdateHandler = (update: { content: Array<{ type: "text"; text: string }>; details: Record<string, unknown> }) => void;
 
 export interface AmbientCliPackagePreviewToolRegistrationOptions {
   workspace: Pick<WorkspaceState, "path">;

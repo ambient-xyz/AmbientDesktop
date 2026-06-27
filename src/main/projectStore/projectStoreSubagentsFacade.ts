@@ -38,7 +38,9 @@ export type {
   SubagentBatchResultReport,
   SubagentLifecycleInterruptionSource,
   SubagentMaturityInput,
+  SubagentMailboxDeliveryStore,
   SubagentObservabilitySummary,
+  SubagentParentStopWaitBarrierStore,
   SubagentRetentionCleanupResult,
   SubagentRetentionPlan,
 } from "../subagents/subagentProjectStoreContract";

@@ -1,10 +1,12 @@
 export {
+  ambientCliWorkspaceProviderMarkerPath,
   describeAmbientCliPackage,
   discoverAmbientCliEmbeddingProviders,
   discoverAmbientCliPackages,
   discoverAmbientCliSttProviders,
   discoverAmbientCliVoiceProviders,
   ensureFirstPartyAmbientCliPackages,
+  hasAmbientCliWorkspaceProviderDiscoverySignal,
   hydrateAmbientCliPackageSummaries,
   installAmbientCliPackagePiCatalogSource,
   installAmbientCliPackageSource,

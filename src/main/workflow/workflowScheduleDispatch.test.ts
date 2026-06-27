@@ -5,8 +5,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ProjectStore } from "./workflowProjectStoreFacade";
 import { runDueWorkflowArtifactSchedules, workflowArtifactScheduleBlockReason, workflowScheduleRunStartedEventData } from "./workflowScheduleDispatch";
 import type { PermissionAuditEntry } from "../../shared/permissionTypes"; import type { WorkflowManifest } from "../../shared/workflowTypes";
-import { workflowThreadScheduleState } from "../../renderer/src/workflowReviewUiModel";
 import { permissionGrantTargetHash } from "./workflowPermissionsFacade";
+import { workflowThreadScheduleState } from "../../renderer/src/workflowTestUiModelContract";
 
 const describeNative = process.env.AMBIENT_TEST_NATIVE === "1" ? describe : describe.skip;
 

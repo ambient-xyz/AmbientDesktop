@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import type { AmbientMcpContainerRuntimeLifecycleResult } from "../../shared/pluginTypes";
-import { isPathInside } from "../privileged-action/privilegedActionSessionFacade";
+import { isPathInside } from "./containerRuntimePrivilegedActionFacade";
 
 const lifecycleLogRoot = "mcp-container-runtime";
 const secretLikePattern = /(password|passwd|pwd|token|secret|credential|authorization|auth[_-]?key|api[_-]?key)=([^&\s"\\]+)/gi;

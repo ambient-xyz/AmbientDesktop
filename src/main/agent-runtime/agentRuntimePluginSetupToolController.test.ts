@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 import { describe, expect, it, vi } from "vitest";
 
-import { pluginMcpToolDescriptor } from "../desktop-tools/desktopToolPluginsContract";
+import { pluginMcpToolDescriptor } from "./agentRuntimeDesktopToolFacade";
 import type { DesktopEvent } from "../../shared/desktopTypes";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import type { PermissionPromptResolution } from "../../shared/permissionTypes";
@@ -39,7 +39,7 @@ describe("AgentRuntimePluginSetupToolController", () => {
       const pi = {
         registerTool: (tool: unknown) => registeredTools.push(tool as RegisteredTool),
       } as unknown as Parameters<ExtensionFactory>[0];
-      const model = ambientModel("moonshotai/kimi-k2.7-code", "https://ambient.invalid/v1");
+      const model = ambientModel("example/model-id", "https://ambient.invalid/v1");
 
       controller.createLambdaRlmToolExtension(thread.id, workspace, model, undefined)(pi);
       controller.createPluginInstallToolExtension(thread.id, workspace, model, undefined)(pi);
@@ -48,17 +48,19 @@ describe("AgentRuntimePluginSetupToolController", () => {
       controller.createPluginMcpToolExtension(thread.id, workspace, [pluginMcpRegistration()])(pi);
 
       const names = registeredTools.map((tool) => tool.name);
-      expect(names).toEqual(expect.arrayContaining([
-        "long_context_process",
-        "long_context_start",
-        "long_context_poll",
-        "long_context_cancel",
-        "ambient_install_route_plan",
-        "ambient_capability_builder_validate",
-        "google_workspace_status",
-        "workflow_current_context",
-        "plugin_fixture_search",
-      ]));
+      expect(names).toEqual(
+        expect.arrayContaining([
+          "long_context_process",
+          "long_context_start",
+          "long_context_poll",
+          "long_context_cancel",
+          "ambient_install_route_plan",
+          "ambient_capability_builder_validate",
+          "google_workspace_status",
+          "workflow_current_context",
+          "plugin_fixture_search",
+        ]),
+      );
       expect(names.indexOf("long_context_process")).toBeLessThan(names.indexOf("ambient_install_route_plan"));
       expect(registeredTools.find((tool) => tool.name === "plugin_fixture_search")?.executionMode).toBe("sequential");
     } finally {

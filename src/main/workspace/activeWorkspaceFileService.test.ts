@@ -5,12 +5,12 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import type { AmbientPermissionGrant } from "../../shared/permissionTypes";
-import { createLocalFolderAllowlistGrantInput } from "../permissions/localFolderAllowlistGrants";
 import {
   createActiveWorkspaceFileService,
   type ActiveWorkspaceFileStore,
   type ActiveWorkspaceFileThread,
 } from "./activeWorkspaceFileService";
+import { createLocalFolderAllowlistGrantInput } from "./workspacePermissionsFacade";
 
 interface FakeThread extends ActiveWorkspaceFileThread {
   id: string;

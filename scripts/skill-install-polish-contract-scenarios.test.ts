@@ -255,7 +255,7 @@ function threadSummary(): ThreadSummary {
     lastMessagePreview: "",
     permissionMode: "full-access",
     collaborationMode: "agent",
-    model: "moonshotai/kimi-k2.7-code",
+    model: "example/model-id",
     thinkingLevel: "minimal",
   };
 }

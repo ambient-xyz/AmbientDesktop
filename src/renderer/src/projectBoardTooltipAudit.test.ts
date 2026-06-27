@@ -34,7 +34,10 @@ const sourceContexts = [
   sourceContext("AppComposerShell.tsx", fileURLToPath(new URL("./AppComposerShell.tsx", import.meta.url))),
   sourceContext("AppShellSidebar.tsx", fileURLToPath(new URL("./AppShellSidebar.tsx", import.meta.url))),
   sourceContext("AppTopbar.tsx", fileURLToPath(new URL("./AppTopbar.tsx", import.meta.url))),
-  sourceContext("ProjectBoardActiveCardDetailViews.tsx", fileURLToPath(new URL("./ProjectBoardActiveCardDetailViews.tsx", import.meta.url))),
+  sourceContext(
+    "ProjectBoardActiveCardDetailViews.tsx",
+    fileURLToPath(new URL("./ProjectBoardActiveCardDetailViews.tsx", import.meta.url)),
+  ),
   sourceContext("ProjectBoardCandidateDetailViews.tsx", fileURLToPath(new URL("./ProjectBoardCandidateDetailViews.tsx", import.meta.url))),
   sourceContext("ProjectBoardDraftInboxViews.tsx", fileURLToPath(new URL("./ProjectBoardDraftInboxViews.tsx", import.meta.url))),
   sourceContext("ProjectBoardExecutionViews.tsx", fileURLToPath(new URL("./ProjectBoardExecutionViews.tsx", import.meta.url))),
@@ -42,6 +45,11 @@ const sourceContexts = [
   sourceContext("ProjectBoardLaneViews.tsx", fileURLToPath(new URL("./ProjectBoardLaneViews.tsx", import.meta.url))),
   sourceContext("ProjectBoardMapViews.tsx", fileURLToPath(new URL("./ProjectBoardMapViews.tsx", import.meta.url))),
   sourceContext("ProjectBoardSourceViews.tsx", fileURLToPath(new URL("./ProjectBoardSourceViews.tsx", import.meta.url))),
+  sourceContext(
+    "ProjectBoardSynthesisProposalViews.tsx",
+    fileURLToPath(new URL("./ProjectBoardSynthesisProposalViews.tsx", import.meta.url)),
+  ),
+  sourceContext("ProjectBoardSynthesisRunViews.tsx", fileURLToPath(new URL("./ProjectBoardSynthesisRunViews.tsx", import.meta.url))),
   sourceContext("ProjectBoardSynthesisViews.tsx", fileURLToPath(new URL("./ProjectBoardSynthesisViews.tsx", import.meta.url))),
   sourceContext("ProjectBoardWorkspace.tsx", fileURLToPath(new URL("./ProjectBoardWorkspace.tsx", import.meta.url))),
 ];
@@ -58,10 +66,7 @@ function hasJsxAttribute(context: SourceContext, node: ts.JsxOpeningLikeElement,
 }
 
 function isButtonElement(context: SourceContext, node: ts.Node): node is ts.JsxOpeningLikeElement {
-  return (
-    (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) &&
-    node.tagName.getText(context.sourceFile) === "button"
-  );
+  return (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) && node.tagName.getText(context.sourceFile) === "button";
 }
 
 function buttonAuditEntries(): ButtonAuditEntry[] {
@@ -105,7 +110,10 @@ function buttonAuditEntriesForSource(context: SourceContext): ButtonAuditEntry[]
 
 function formatMissing(entries: ButtonAuditEntry[]): string {
   return entries
-    .map((entry) => `${entry.file}:${entry.line}${entry.component ? ` ${entry.component}` : ""}${entry.className ? ` ${entry.className}` : ""}`)
+    .map(
+      (entry) =>
+        `${entry.file}:${entry.line}${entry.component ? ` ${entry.component}` : ""}${entry.className ? ` ${entry.className}` : ""}`,
+    )
     .join("\n");
 }
 

@@ -30,9 +30,9 @@ from typing import Any
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEFAULT_BASE_URL = "https://api.ambient.xyz/v1"
-DEFAULT_MODEL = "moonshotai/kimi-k2.7-code"
+DEFAULT_MODEL = "example/model-id"
 DEFAULT_SESSION_LOG = pathlib.Path(
-    "/Users/example/.ambient-hardening/bases/example-no-secrets-2026-05-13/"
+    "/Users/example/.ambient-hardening/bases/example-core-no-secrets-2026-05-13/"
     "workspace/.ambient-codex/sessions/fb1c7ffc-732d-421c-a429-c66c4628bf60/"
     "2026-05-14T23-55-00-533Z_019e28ea-3e35-71f1-a6f9-5233bcce0cac.jsonl"
 )

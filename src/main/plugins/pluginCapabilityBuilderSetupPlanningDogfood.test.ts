@@ -5,7 +5,7 @@ import { safeStorage } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
 import type { VoiceSettings } from "../../shared/localRuntimeTypes";
-import { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
+import { BrowserCredentialStore, BrowserService } from "./pluginsBrowserDogfoodFacade";
 import { AgentRuntime } from "./pluginsAgentRuntimeDogfoodFacade";
 import { scaffoldCapabilityBuilderPackage } from "./pluginsCapabilityBuilderDogfoodFacade";
 import { readDogfoodFilePath } from "./pluginCapabilityBuilderDogfoodFixtures";

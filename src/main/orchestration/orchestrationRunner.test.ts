@@ -6,7 +6,6 @@ import { promisify } from "node:util";
 import { deflateSync } from "node:zlib";
 import { describe, expect, it, vi } from "vitest";
 import {
-  autoCommitCompletedTaskWorkspaceChanges,
   collectProofOfWork,
   collectRunTranscriptProgress,
   collectStructuredProofArtifacts,
@@ -20,6 +19,7 @@ import {
   orchestrationProofPolicyForRun,
   orchestrationTaskStateAfterRun,
   shouldSimulateFinalResponseErrorAfterDurableTaskComplete,
+  summarizeCompletedTaskWorkspaceChangesForManualCommit,
 } from "./orchestrationRunner";
 import { RESTART_INTERRUPTED_LOCAL_TASK_ERROR, restartInterruptedContinuationPrompt } from "./orchestrationRecovery";
 
@@ -133,7 +133,8 @@ describe("orchestrationWorkspaceScopePromptSection", () => {
     expect(prompt).toContain("Writable task workspace: /repo/project/.ambient-codex/orchestration/workspaces/LOCAL-1");
     expect(prompt).toContain("Workspace strategy: git-worktree.");
     expect(prompt).toContain("Owning project root: /repo/project. Use it as read-only context only");
-    expect(prompt).toContain("Create, modify, delete, stage, and commit task files only inside the writable task workspace");
+    expect(prompt).toContain("Create, modify, and delete task files only inside the writable task workspace");
+    expect(prompt).toContain("Do not stage or commit files automatically");
     expect(prompt).toContain("Put scratch files, fixtures, generated reports, proof outputs, and temporary files inside the writable task workspace");
     expect(prompt).toContain("do not write them to /tmp");
     expect(prompt).toContain("Do not request outside-workspace file or shell permissions to mutate the owning project root");
@@ -859,9 +860,9 @@ describe("collectProofOfWork", () => {
   });
 });
 
-describe("autoCommitCompletedTaskWorkspaceChanges", () => {
-  it("commits completed task files while leaving runtime artifacts untracked", async () => {
-    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-task-autocommit-"));
+describe("summarizeCompletedTaskWorkspaceChangesForManualCommit", () => {
+  it("reports completed task files for manual commit while leaving them dirty", async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-task-manual-commit-"));
     try {
       await makeGitRepo(workspacePath);
       await mkdir(join(workspacePath, "fixtures"), { recursive: true });
@@ -869,7 +870,7 @@ describe("autoCommitCompletedTaskWorkspaceChanges", () => {
       await writeFile(join(workspacePath, "fixtures", "links.md"), "# Links\n\n[Missing](missing.md)\n");
       await writeFile(join(workspacePath, ".ambient", "cli-packages", "packages.json"), "{}\n");
 
-      const result = await autoCommitCompletedTaskWorkspaceChanges(workspacePath, "LOCAL-1", {
+      const result = await summarizeCompletedTaskWorkspaceChangesForManualCommit(workspacePath, "LOCAL-1", {
         kind: "agent-run",
         changedFiles: [
           { path: "fixtures/links.md", status: "??" },
@@ -889,31 +890,29 @@ describe("autoCommitCompletedTaskWorkspaceChanges", () => {
       });
 
       expect(result).toMatchObject({
-        status: "committed",
+        status: "skipped",
+        reason: "commits are manual; completed task changes are ready for review",
         changedFiles: ["fixtures/links.md"],
         excludedFiles: [".ambient/cli-packages/packages.json"],
       });
-      expect(result?.commit).toMatch(/^[0-9a-f]+$/);
 
       const tracked = await execFileAsync("git", ["-C", workspacePath, "ls-tree", "--name-only", "HEAD", "fixtures/links.md"]);
-      expect(tracked.stdout.trim()).toBe("fixtures/links.md");
+      expect(tracked.stdout.trim()).toBe("");
       const status = await execFileAsync("git", ["-C", workspacePath, "status", "--short"]);
       expect(status.stdout).toContain("?? .ambient/");
-      expect(status.stdout).not.toContain("fixtures/links.md");
-      const message = await execFileAsync("git", ["-C", workspacePath, "log", "-1", "--pretty=%s"]);
-      expect(message.stdout.trim()).toBe("Complete LOCAL-1");
+      expect(status.stdout).toContain("?? fixtures/");
     } finally {
       await rm(workspacePath, { recursive: true, force: true });
     }
   });
 
   it("does not commit task workspaces before terminal task completion", async () => {
-    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-task-autocommit-"));
+    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-task-manual-commit-"));
     try {
       await makeGitRepo(workspacePath);
       await writeFile(join(workspacePath, "notes.md"), "work in progress\n");
 
-      const result = await autoCommitCompletedTaskWorkspaceChanges(workspacePath, "LOCAL-2", {
+      const result = await summarizeCompletedTaskWorkspaceChangesForManualCommit(workspacePath, "LOCAL-2", {
         kind: "agent-run",
         changedFiles: [{ path: "notes.md", status: "??" }],
         taskToolActions: [

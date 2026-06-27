@@ -16,7 +16,7 @@ import {
   discoverAmbientCliVoiceProviders,
   hasAmbientCliWorkspaceProviderDiscoverySignal,
   runAmbientCliPackageCommand,
-} from "../ambient-cli/ambientCliPackages";
+} from "./voiceAmbientCliFacade";
 import { writeVoiceSettings as writeVoiceSettingsFile, DEFAULT_VOICE_SETTINGS } from "../desktop-shell/appAppearanceDefaultPreferences";
 import { discoverAmbientMemoryEmbeddingProviders } from "../memory/tencentdb/managedEmbeddingProvider";
 import {

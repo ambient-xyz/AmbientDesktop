@@ -17,7 +17,7 @@ const workspacePath = join(scratchRoot, "workspace");
 const userDataPath = join(scratchRoot, "userData");
 const authorityStateRoot = join(userDataPath, "authority-state");
 const DEFAULT_DOGFOOD_PROVIDER = "ambient";
-const DEFAULT_DOGFOOD_MODEL = "moonshotai/kimi-k2.7-code";
+const DEFAULT_DOGFOOD_MODEL = "example/model-id";
 const cdpCommandTimeoutMs = 10_000;
 const promptText = [
   "This is a live Ambient async bash dogfood. Use bash_start, not bash, with exactly this cmd:",

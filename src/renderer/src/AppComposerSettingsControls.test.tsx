@@ -77,7 +77,7 @@ function desktopState(): DesktopState {
     settings: {
       collaborationMode: "agent",
       permissionMode: "full-access",
-      model: "moonshotai/kimi-k2.7-code",
+      model: "example/model-id",
       thinkingLevel: "medium",
       thinkingDisplay: { mode: "transient", showRunStatusCard: true },
     },

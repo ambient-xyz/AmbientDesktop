@@ -78,7 +78,7 @@ describe("createAgentRuntimeSendStreamDiagnosticsAdapter", () => {
       runStartedAt: "2026-06-22T00:00:00.000Z",
       promptContentLength: () => "hello from prompt".length,
       runtimeMessages: { currentAssistantMessageId: () => "assistant-1" },
-      runtimeModel: "moonshotai/kimi-k2.7-code",
+      runtimeModel: "example/model-id",
     });
 
     diagnostics.recordPiStreamTraceEvent({ type: "message_delta", value: "hello" }, { kind: "assistant_delta" });
@@ -108,7 +108,7 @@ describe("createAgentRuntimeSendStreamDiagnosticsAdapter", () => {
       recentEvents?: Array<{ toolMessageCount?: number; assistantOutputChars?: number; thinkingOutputChars?: number }>;
     };
     expect(trace.assistantMessageId).toBe("assistant-1");
-    expect(trace.model).toBe("moonshotai/kimi-k2.7-code");
+    expect(trace.model).toBe("example/model-id");
     expect(trace.sessionFile).toBe("/tmp/pi-session.jsonl");
     expect(trace.prompt?.contentChars).toBe("hello from prompt".length);
     expect(trace.stream).toEqual(

@@ -25,7 +25,7 @@ import type {
   CapabilityBuilderValidationArtifact,
   CapabilityBuilderValidationCommand,
 } from "./capabilityBuilderTypes";
-import { redactSensitiveText } from "../security/securityCapabilityBuilderContract";
+import { redactSensitiveText } from "./capabilityBuilderSecurityFacade";
 import {
   executeProfiledCommand,
   isCommandTimeoutProfile,
@@ -33,7 +33,7 @@ import {
   type CommandTimeoutProfile,
   type ProfiledCommandResult,
   ProfiledCommandError,
-} from "../tool-runtime/commandExecutionProfiles";
+} from "./capabilityBuilderToolRuntimeFacade";
 
 const dependencyOutputPreviewChars = 4_000;
 const legacyValidationCommandTimeoutMs = 120_000;

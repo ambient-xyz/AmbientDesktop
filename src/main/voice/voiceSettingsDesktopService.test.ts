@@ -9,8 +9,8 @@ import type {
   VoiceSettings,
 } from "../../shared/localRuntimeTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import { ambientCliWorkspaceProviderMarkerPath } from "../ambient-cli/ambientCliPackages";
 import { secretReferenceFor } from "../security/securityAmbientCliContract";
+import { ambientCliWorkspaceProviderMarkerPath } from "./voiceAmbientCliFacade";
 import {
   createVoiceSettingsDesktopService,
   type VoiceSettingsDesktopProviders,
@@ -395,7 +395,7 @@ function threadSummary(id: string, workspacePath: string): ThreadSummary {
     lastMessagePreview: "",
     permissionMode: "workspace",
     collaborationMode: "agent",
-    model: "moonshotai/kimi-k2.7-code",
+    model: "example/model-id",
     thinkingLevel: "medium",
   };
 }

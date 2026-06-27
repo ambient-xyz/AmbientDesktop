@@ -315,7 +315,8 @@ Work on Local Task {{ task.identifier }} in {{ workspace.path }}.
 
 Execution workspace contract:
 - Writable task workspace: {{ workspace.path }}
-- Create, modify, delete, stage, and commit task files only inside the writable task workspace. Use paths relative to that workspace whenever possible.
+- Create, modify, and delete task files only inside the writable task workspace. Use paths relative to that workspace whenever possible.
+- Do not stage or commit files automatically; leave Git commits to explicit user action.
 - If board source context mentions the owning project root or another sibling worktree, resolve the corresponding file inside the writable task workspace before editing.
 - Do not request outside-workspace file or shell permissions to mutate the owning project root. Report a concrete blocker if the card cannot be completed from the prepared workspace.
 

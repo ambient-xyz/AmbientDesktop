@@ -19,7 +19,7 @@ const appendHistory = process.env.AMBIENT_SUBAGENT_DESKTOP_DOGFOOD_HISTORY_APPEN
 const untrackedRuntimeModelPath = join(scratchRoot, "manual-untracked-model.gguf");
 const untrackedRuntimePort = 44222;
 const DEFAULT_DOGFOOD_PROVIDER = "ambient";
-const DEFAULT_DOGFOOD_MODEL = "moonshotai/kimi-k2.7-code";
+const DEFAULT_DOGFOOD_MODEL = "example/model-id";
 
 let exitCode = 0;
 let untrackedRuntimeProcess;

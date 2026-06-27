@@ -6,7 +6,7 @@ import {
   AgentRuntimeThreadWakeContinuationController,
   type ThreadWakeContinuationSendInput,
 } from "./agentRuntimeThreadWakeContinuationController";
-import type { ThreadWakeContinuation } from "../projectStore/threadWakeRepository";
+import type { ThreadWakeContinuation } from "./agentRuntimeProjectStoreFacade";
 
 describe("AgentRuntimeThreadWakeContinuationController", () => {
   it("emits refreshed thread summaries when a wake is scheduled and delivered", async () => {
@@ -27,7 +27,7 @@ describe("AgentRuntimeThreadWakeContinuationController", () => {
     const send = vi.fn(async () => undefined);
     const store = {
       getThread: vi.fn(() => thread(wakePending ? wake : undefined)),
-      getThreadWakeContinuation: vi.fn(() => wakePending ? wake : undefined),
+      getThreadWakeContinuation: vi.fn(() => (wakePending ? wake : undefined)),
       listPendingThreadWakeContinuations: vi.fn(() => []),
       scheduleThreadWakeContinuation: vi.fn(() => {
         wakePending = true;
@@ -71,11 +71,13 @@ describe("AgentRuntimeThreadWakeContinuationController", () => {
     timerCallbacks.at(-1)?.();
     await vi.waitFor(() => expect(store.markThreadWakeContinuationDelivered).toHaveBeenCalledWith(wake.id));
 
-    expect(send).toHaveBeenCalledWith(expect.objectContaining({
-      threadId: wake.threadId,
-      delivery: "follow-up",
-      continuationSource: "thread-wake",
-    }));
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        threadId: wake.threadId,
+        delivery: "follow-up",
+        continuationSource: "thread-wake",
+      }),
+    );
     expect(threadUpdateEvents(events).at(-1)?.thread.scheduledCheckIn).toBeUndefined();
   });
 
@@ -196,15 +198,17 @@ describe("AgentRuntimeThreadWakeContinuationController", () => {
 
     expect(send).not.toHaveBeenCalled();
     expect(store.markThreadWakeContinuationDelivered).not.toHaveBeenCalled();
-    expect(addMessage).toHaveBeenCalledWith(expect.objectContaining({
-      role: "tool",
-      content: expect.stringContaining("Thread wake wake-1 skipped."),
-      metadata: expect.objectContaining({
-        runtime: "ambient-thread-wake",
-        event: "wake-dropped",
-        wakeStatus: "superseded",
+    expect(addMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: "tool",
+        content: expect.stringContaining("Thread wake wake-1 skipped."),
+        metadata: expect.objectContaining({
+          runtime: "ambient-thread-wake",
+          event: "wake-dropped",
+          wakeStatus: "superseded",
+        }),
       }),
-    }));
+    );
     expect(events.some((event) => event.type === "message-created")).toBe(true);
   });
 });

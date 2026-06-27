@@ -11,7 +11,7 @@ import {
   materializeTextOutput,
   materializedTextNotice,
   type MaterializedTextOutput,
-} from "../tool-runtime/toolOutputArtifacts";
+} from "./agentRuntimeToolRuntimeFacade";
 
 export const DEFAULT_PROVIDER_CONTEXT_TEXT_PREVIEW_CHARS = 8_192;
 export const DEFAULT_PROVIDER_CONTEXT_OFFLOAD_TEXT_CHARS = 16_384;

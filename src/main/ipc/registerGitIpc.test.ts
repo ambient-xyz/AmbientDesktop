@@ -430,7 +430,7 @@ describe("registerGitDiscardFileIpc", () => {
     expect([...handlers.keys()]).toEqual([...gitDiscardFileIpcChannels]);
   });
 
-  it("records a pre-git-action checkpoint before discarding the file and reading the git review", async () => {
+  it("discards the file without checkpointing before reading the git review", async () => {
     const context = sampleGitCheckpointWorkspaceActionContext();
     const review = sampleGitReview();
     const input: GitFileActionInput = { path: "src/main/index.ts" };
@@ -439,38 +439,18 @@ describe("registerGitDiscardFileIpc", () => {
     await expect(invoke("git:discard-file", input)).resolves.toEqual(review);
 
     expect(deps.activeGitContextForProjectHost).toHaveBeenCalledOnce();
-    expect(deps.createAndRecordPreGitActionCheckpoint).toHaveBeenCalledWith(
-      "Before discarding a file.",
-      context.thread,
-      context.targetStore,
-    );
     expect(deps.discardGitFile).toHaveBeenCalledWith(context.workspacePath, input);
     expect(deps.readGitReviewForProjectHost).toHaveBeenCalledWith(context.host, context.threadId);
-    expect(deps.createAndRecordPreGitActionCheckpoint.mock.invocationCallOrder[0]).toBeLessThan(
-      deps.discardGitFile.mock.invocationCallOrder[0],
-    );
     expect(deps.discardGitFile.mock.invocationCallOrder[0]).toBeLessThan(
       deps.readGitReviewForProjectHost.mock.invocationCallOrder[0],
     );
   });
 
-  it("records the checkpoint before rejecting invalid file action input", async () => {
+  it("rejects invalid file action input before discarding", async () => {
     const { deps, invoke } = registerDiscardFileWithFakes();
 
     await expect(invoke("git:discard-file", { path: "" })).rejects.toThrow();
 
-    expect(deps.createAndRecordPreGitActionCheckpoint).toHaveBeenCalledOnce();
-    expect(deps.discardGitFile).not.toHaveBeenCalled();
-    expect(deps.readGitReviewForProjectHost).not.toHaveBeenCalled();
-  });
-
-  it("does not discard the file or read the git review when checkpointing fails", async () => {
-    const error = new Error("checkpoint failed");
-    const { deps, invoke } = registerDiscardFileWithFakes({ checkpointError: error });
-
-    await expect(invoke("git:discard-file", { path: "src/main/index.ts" })).rejects.toThrow(error);
-
-    expect(deps.createAndRecordPreGitActionCheckpoint).toHaveBeenCalledOnce();
     expect(deps.discardGitFile).not.toHaveBeenCalled();
     expect(deps.readGitReviewForProjectHost).not.toHaveBeenCalled();
   });
@@ -481,7 +461,6 @@ describe("registerGitDiscardFileIpc", () => {
 
     await expect(invoke("git:discard-file", { path: "src/main/index.ts" })).rejects.toThrow(error);
 
-    expect(deps.createAndRecordPreGitActionCheckpoint).toHaveBeenCalledOnce();
     expect(deps.discardGitFile).toHaveBeenCalledOnce();
     expect(deps.readGitReviewForProjectHost).not.toHaveBeenCalled();
   });
@@ -537,7 +516,7 @@ describe("registerGitCreateBranchIpc", () => {
     expect([...handlers.keys()]).toEqual([...gitCreateBranchIpcChannels]);
   });
 
-  it("records a pre-git-action checkpoint before creating the branch and reading the git review", async () => {
+  it("creates the branch without checkpointing before reading the git review", async () => {
     const context = sampleGitCheckpointWorkspaceActionContext();
     const review = sampleGitReview();
     const input: GitBranchInput = { name: "feature/extract-ipc", checkout: true };
@@ -546,38 +525,18 @@ describe("registerGitCreateBranchIpc", () => {
     await expect(invoke("git:create-branch", input)).resolves.toEqual(review);
 
     expect(deps.activeGitContextForProjectHost).toHaveBeenCalledOnce();
-    expect(deps.createAndRecordPreGitActionCheckpoint).toHaveBeenCalledWith(
-      "Before creating or switching a branch.",
-      context.thread,
-      context.targetStore,
-    );
     expect(deps.createGitBranch).toHaveBeenCalledWith(context.workspacePath, input);
     expect(deps.readGitReviewForProjectHost).toHaveBeenCalledWith(context.host, context.threadId);
-    expect(deps.createAndRecordPreGitActionCheckpoint.mock.invocationCallOrder[0]).toBeLessThan(
-      deps.createGitBranch.mock.invocationCallOrder[0],
-    );
     expect(deps.createGitBranch.mock.invocationCallOrder[0]).toBeLessThan(
       deps.readGitReviewForProjectHost.mock.invocationCallOrder[0],
     );
   });
 
-  it("records the checkpoint before rejecting invalid branch input", async () => {
+  it("rejects invalid branch input before creating the branch", async () => {
     const { deps, invoke } = registerCreateBranchWithFakes();
 
     await expect(invoke("git:create-branch", { name: "" })).rejects.toThrow();
 
-    expect(deps.createAndRecordPreGitActionCheckpoint).toHaveBeenCalledOnce();
-    expect(deps.createGitBranch).not.toHaveBeenCalled();
-    expect(deps.readGitReviewForProjectHost).not.toHaveBeenCalled();
-  });
-
-  it("does not create the branch or read the git review when checkpointing fails", async () => {
-    const error = new Error("checkpoint failed");
-    const { deps, invoke } = registerCreateBranchWithFakes({ checkpointError: error });
-
-    await expect(invoke("git:create-branch", { name: "feature/extract-ipc" })).rejects.toThrow(error);
-
-    expect(deps.createAndRecordPreGitActionCheckpoint).toHaveBeenCalledOnce();
     expect(deps.createGitBranch).not.toHaveBeenCalled();
     expect(deps.readGitReviewForProjectHost).not.toHaveBeenCalled();
   });
@@ -588,7 +547,6 @@ describe("registerGitCreateBranchIpc", () => {
 
     await expect(invoke("git:create-branch", { name: "feature/extract-ipc" })).rejects.toThrow(error);
 
-    expect(deps.createAndRecordPreGitActionCheckpoint).toHaveBeenCalledOnce();
     expect(deps.createGitBranch).toHaveBeenCalledOnce();
     expect(deps.readGitReviewForProjectHost).not.toHaveBeenCalled();
   });
@@ -610,7 +568,7 @@ describe("registerGitRunActionIpc", () => {
 
     expect(deps.activeGitContextForProjectHost).toHaveBeenCalledOnce();
     expect(deps.fetchGit).toHaveBeenCalledWith(context.workspacePath);
-    expect(deps.createAndRecordPreGitActionCheckpoint).not.toHaveBeenCalled();
+    expect(deps.createAndRecordManualCheckpoint).not.toHaveBeenCalled();
     expect(deps.pullGit).not.toHaveBeenCalled();
     expect(deps.pushGit).not.toHaveBeenCalled();
     expect(deps.restoreLatestGitCheckpoint).not.toHaveBeenCalled();
@@ -620,23 +578,38 @@ describe("registerGitRunActionIpc", () => {
     );
   });
 
-  it("records a pre-git-action checkpoint before pulling and reading the git review", async () => {
+  it("creates a manual checkpoint before reading the git review", async () => {
+    const context = sampleGitRunActionContext();
+    const review = sampleGitReview();
+    const { deps, invoke } = registerRunActionWithFakes({ context, review });
+
+    await expect(invoke("create-checkpoint")).resolves.toEqual(review);
+
+    expect(deps.createAndRecordManualCheckpoint).toHaveBeenCalledWith(
+      "Manual checkpoint.",
+      context.thread,
+      context.targetStore,
+    );
+    expect(deps.fetchGit).not.toHaveBeenCalled();
+    expect(deps.pullGit).not.toHaveBeenCalled();
+    expect(deps.pushGit).not.toHaveBeenCalled();
+    expect(deps.restoreLatestGitCheckpoint).not.toHaveBeenCalled();
+    expect(deps.readGitReviewForProjectHost).toHaveBeenCalledWith(context.host, context.threadId);
+    expect(deps.createAndRecordManualCheckpoint.mock.invocationCallOrder[0]).toBeLessThan(
+      deps.readGitReviewForProjectHost.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("pulls without checkpointing before reading the git review", async () => {
     const context = sampleGitRunActionContext();
     const review = sampleGitReview();
     const { deps, invoke } = registerRunActionWithFakes({ context, review });
 
     await expect(invoke("pull")).resolves.toEqual(review);
 
-    expect(deps.createAndRecordPreGitActionCheckpoint).toHaveBeenCalledWith(
-      "Before pulling from remote.",
-      context.thread,
-      context.targetStore,
-    );
+    expect(deps.createAndRecordManualCheckpoint).not.toHaveBeenCalled();
     expect(deps.pullGit).toHaveBeenCalledWith(context.workspacePath);
     expect(deps.readGitReviewForProjectHost).toHaveBeenCalledWith(context.host, context.threadId);
-    expect(deps.createAndRecordPreGitActionCheckpoint.mock.invocationCallOrder[0]).toBeLessThan(
-      deps.pullGit.mock.invocationCallOrder[0],
-    );
     expect(deps.pullGit.mock.invocationCallOrder[0]).toBeLessThan(
       deps.readGitReviewForProjectHost.mock.invocationCallOrder[0],
     );
@@ -650,7 +623,7 @@ describe("registerGitRunActionIpc", () => {
     await expect(invoke("push")).resolves.toEqual(review);
 
     expect(deps.pushGit).toHaveBeenCalledWith(context.workspacePath);
-    expect(deps.createAndRecordPreGitActionCheckpoint).not.toHaveBeenCalled();
+    expect(deps.createAndRecordManualCheckpoint).not.toHaveBeenCalled();
     expect(deps.fetchGit).not.toHaveBeenCalled();
     expect(deps.pullGit).not.toHaveBeenCalled();
     expect(deps.restoreLatestGitCheckpoint).not.toHaveBeenCalled();
@@ -673,7 +646,7 @@ describe("registerGitRunActionIpc", () => {
       threadId: context.threadId,
     });
     expect(deps.fetchGit).not.toHaveBeenCalled();
-    expect(deps.createAndRecordPreGitActionCheckpoint).not.toHaveBeenCalled();
+    expect(deps.createAndRecordManualCheckpoint).not.toHaveBeenCalled();
     expect(deps.pullGit).not.toHaveBeenCalled();
     expect(deps.pushGit).not.toHaveBeenCalled();
     expect(deps.readGitReviewForProjectHost).toHaveBeenCalledWith(context.host, context.threadId);
@@ -689,20 +662,20 @@ describe("registerGitRunActionIpc", () => {
 
     expect(deps.activeGitContextForProjectHost).toHaveBeenCalledOnce();
     expect(deps.fetchGit).not.toHaveBeenCalled();
-    expect(deps.createAndRecordPreGitActionCheckpoint).not.toHaveBeenCalled();
+    expect(deps.createAndRecordManualCheckpoint).not.toHaveBeenCalled();
     expect(deps.pullGit).not.toHaveBeenCalled();
     expect(deps.pushGit).not.toHaveBeenCalled();
     expect(deps.restoreLatestGitCheckpoint).not.toHaveBeenCalled();
     expect(deps.readGitReviewForProjectHost).not.toHaveBeenCalled();
   });
 
-  it("does not pull or read the git review when checkpointing before pull fails", async () => {
+  it("does not read the git review when manual checkpointing fails", async () => {
     const error = new Error("checkpoint failed");
     const { deps, invoke } = registerRunActionWithFakes({ checkpointError: error });
 
-    await expect(invoke("pull")).rejects.toThrow(error);
+    await expect(invoke("create-checkpoint")).rejects.toThrow(error);
 
-    expect(deps.createAndRecordPreGitActionCheckpoint).toHaveBeenCalledOnce();
+    expect(deps.createAndRecordManualCheckpoint).toHaveBeenCalledOnce();
     expect(deps.pullGit).not.toHaveBeenCalled();
     expect(deps.readGitReviewForProjectHost).not.toHaveBeenCalled();
   });
@@ -1072,12 +1045,10 @@ function registerUnstageAllFilesWithFakes({
 function registerDiscardFileWithFakes({
   context = sampleGitCheckpointWorkspaceActionContext(),
   review = sampleGitReview(),
-  checkpointError,
   discardGitFileError,
 }: {
   context?: TestGitCheckpointWorkspaceActionContext;
   review?: GitReviewSummary;
-  checkpointError?: Error;
   discardGitFileError?: Error;
 } = {}) {
   const handlers = new Map<string, IpcListener>();
@@ -1086,9 +1057,6 @@ function registerDiscardFileWithFakes({
       handlers.set(channel, listener);
     }),
     activeGitContextForProjectHost: vi.fn(() => context),
-    createAndRecordPreGitActionCheckpoint: vi.fn(async () => {
-      if (checkpointError) throw checkpointError;
-    }),
     discardGitFile: vi.fn(async () => {
       if (discardGitFileError) throw discardGitFileError;
     }),
@@ -1145,12 +1113,10 @@ function registerCommitWithFakes({
 function registerCreateBranchWithFakes({
   context = sampleGitCheckpointWorkspaceActionContext(),
   review = sampleGitReview(),
-  checkpointError,
   createGitBranchError,
 }: {
   context?: TestGitCheckpointWorkspaceActionContext;
   review?: GitReviewSummary;
-  checkpointError?: Error;
   createGitBranchError?: Error;
 } = {}) {
   const handlers = new Map<string, IpcListener>();
@@ -1159,9 +1125,6 @@ function registerCreateBranchWithFakes({
       handlers.set(channel, listener);
     }),
     activeGitContextForProjectHost: vi.fn(() => context),
-    createAndRecordPreGitActionCheckpoint: vi.fn(async () => {
-      if (checkpointError) throw checkpointError;
-    }),
     createGitBranch: vi.fn(async () => {
       if (createGitBranchError) throw createGitBranchError;
     }),
@@ -1207,7 +1170,7 @@ function registerRunActionWithFakes({
     fetchGit: vi.fn(async () => {
       if (fetchGitError) throw fetchGitError;
     }),
-    createAndRecordPreGitActionCheckpoint: vi.fn(async () => {
+    createAndRecordManualCheckpoint: vi.fn(async () => {
       if (checkpointError) throw checkpointError;
     }),
     pullGit: vi.fn(async () => {

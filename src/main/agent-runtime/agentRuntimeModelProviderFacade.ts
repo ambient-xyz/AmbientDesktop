@@ -1,1 +1,1 @@
-export { createDefaultModelRuntimeRegistry } from "../model-provider/modelProviderAgentRuntimeContract";
+export { createDefaultModelRuntimeRegistry, createModelRuntimeCatalog } from "../model-provider/modelProviderAgentRuntimeContract";

@@ -14,7 +14,7 @@ describe("Security grant-conditions Desktop dogfood wiring", () => {
     expect(packageJson.scripts["test:security-grant-conditions:desktop-dogfood"]).toContain("scripts/run-electron-dogfood.mjs");
     expect(packageJson.scripts["test:security-grant-conditions:desktop-dogfood"]).toContain("--scenario=security-grant-conditions");
     expect(packageJson.scripts["test:security-grant-conditions:desktop-dogfood"]).toContain("AMBIENT_PROVIDER=ambient");
-    expect(packageJson.scripts["test:security-grant-conditions:desktop-dogfood"]).toContain("moonshotai/kimi-k2.7-code");
+    expect(packageJson.scripts["test:security-grant-conditions:desktop-dogfood"]).toContain("example/model-id");
     expect(packageJson.scripts["test:security-grant-conditions:desktop-dogfood:unit"]).toContain(
       "scripts/security-grant-conditions-dogfood.test.mjs",
     );

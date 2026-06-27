@@ -1,7 +1,5 @@
 import type Database from "better-sqlite3";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
-import type { SubagentMailboxDeliveryStore } from "../subagents/subagentMailbox";
-import type { SubagentParentStopWaitBarrierStore } from "../subagents/subagentParentStopWaitBarrier";
 import { ProjectStoreActiveRunRecoveryRepository } from "./activeRunRecoveryRepository";
 import { ProjectStoreAutomationRepository } from "./automationRepository";
 import { ProjectStoreCallableWorkflowTaskLifecycleRepository } from "./callableWorkflowTaskLifecycleRepository";
@@ -20,6 +18,7 @@ import { ProjectStoreProjectBoardLinkedTaskRepository } from "./projectBoardLink
 import type { ProjectStoreProjectBoardRepositoryFactory } from "./projectBoardRepositoryFactory";
 import { ProjectStoreArtifactDraftRepository } from "./projectStoreArtifactDraftRepository";
 import { defaultOrchestrationProjectPath } from "./projectStoreFacadeHelpers";
+import type { SubagentMailboxDeliveryStore, SubagentParentStopWaitBarrierStore } from "./projectStoreSubagentsFacade";
 import { ProjectStoreSettingsRepository } from "./settingsRepository";
 import { ProjectStoreSubagentRepositoryFactory } from "./projectStoreSubagentRepositoryFactory";
 import { ProjectStoreThreadGoalRepository } from "./threadGoalRepository";

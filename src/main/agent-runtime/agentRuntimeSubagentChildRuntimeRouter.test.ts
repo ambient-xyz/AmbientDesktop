@@ -47,7 +47,7 @@ describe("AgentRuntimeSubagentChildRuntimeRouter", () => {
   });
 
   it("delegates non-local child starts to the default child runtime", async () => {
-    const run = subagentRun(resolveAmbientModelRuntimeProfile("moonshotai/kimi-k2.7-code"));
+    const run = subagentRun(resolveAmbientModelRuntimeProfile("example/model-id"));
     const defaultRuntime = defaultChildRuntime();
     defaultRuntime.startChildRun.mockReturnValue({
       started: true,

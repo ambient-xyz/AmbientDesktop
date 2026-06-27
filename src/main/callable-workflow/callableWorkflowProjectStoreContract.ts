@@ -1,5 +1,11 @@
+export { buildCallableWorkflowExecutionPlan } from "./callableWorkflowExecutionPlan";
 export type { CallableWorkflowExecutionPlan } from "./callableWorkflowExecutionPlan";
-export { buildCallableWorkflowRegistry, recordedWorkflowToolName } from "./callableWorkflowRegistry";
+export {
+  buildCallableWorkflowRegistry,
+  buildCallableWorkflowRunPlan,
+  parentPiVisibleCallableWorkflowTools,
+  recordedWorkflowToolName,
+} from "./callableWorkflowRegistry";
 export {
   analyzeCallableWorkflowTaskRestartState,
   buildCallableWorkflowCompilerHandoffPlan,

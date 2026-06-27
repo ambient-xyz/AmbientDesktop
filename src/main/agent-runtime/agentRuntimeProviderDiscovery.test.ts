@@ -8,8 +8,8 @@ import type {
   SttProviderValidationMetadata,
   VoiceProviderCandidate,
 } from "../../shared/localRuntimeTypes";
-import { ambientCliWorkspaceProviderMarkerPath } from "../ambient-cli/ambientCliPackages";
-import { secretReferenceFor } from "../security/securityAmbientCliContract";
+import { secretReferenceFor } from "./agentRuntimeSecurityFacade";
+import { ambientCliWorkspaceProviderMarkerPath } from "./agentRuntimeAmbientCliFacade";
 import {
   agentRuntimeProviderDiscoveryOptions,
   agentRuntimeProviderDiscoveryWorkspacePaths,

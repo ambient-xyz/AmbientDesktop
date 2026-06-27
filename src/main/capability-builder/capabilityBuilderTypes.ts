@@ -4,7 +4,7 @@ import type {
   CommandDevicePolicy,
   CommandDeviceSelection,
   CommandTimeoutProfile,
-} from "../tool-runtime/commandExecutionProfiles";
+} from "./capabilityBuilderToolRuntimeFacade";
 import type {
   VoiceOutputFormat,
   VoiceProviderCloningMetadata,

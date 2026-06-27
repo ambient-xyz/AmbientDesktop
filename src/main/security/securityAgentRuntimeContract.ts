@@ -6,4 +6,5 @@ export {
   safeGitCloneSource,
   validateGitSource,
 } from "./gitSourcePolicy";
-export { redactSensitiveText } from "./secretRedaction";
+export { secretReferenceFor } from "./secretReferenceStore";
+export { clearRegisteredSecretRedactionsForTests, redactSensitiveText, registerSecretRedaction } from "./secretRedaction";

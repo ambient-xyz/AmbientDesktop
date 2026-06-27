@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { commandTimeoutProfileNames } from "../tool-runtime/commandExecutionProfiles";
+import { commandTimeoutProfileNames } from "./ambientCliToolRuntimeFacade";
 
 export const cliPackageConfigPath = ".ambient/cli-packages/packages.json";
 export const cliPackageImportRoot = ".ambient/cli-packages/imported";

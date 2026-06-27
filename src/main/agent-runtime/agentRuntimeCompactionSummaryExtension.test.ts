@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { AMBIENT_GLM_5_2_FP8_MODEL } from "../../shared/ambientModels";
 import type { ChatMessage, ThreadSummary } from "../../shared/threadTypes";
-import { ambientModel } from "../ambient/ambientProviderModel";
+import { ambientModel } from "./agentRuntimeAmbientFacade";
 import { createAmbientCompactionSummaryExtension } from "./agentRuntimeCompactionSummaryExtension";
 
 const tempRoots: string[] = [];

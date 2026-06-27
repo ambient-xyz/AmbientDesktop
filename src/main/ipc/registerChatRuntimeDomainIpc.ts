@@ -93,12 +93,6 @@ export interface RegisterChatRuntimeDomainIpcDependencies<
   activeHost: Host | undefined;
   activeThreadId: string;
   activeThreadIdForHost(host: Host): string;
-  createAndRecordCheckpoint(
-    kind: "pre-run",
-    description: string,
-    thread: ThreadSummary,
-    store: Host["store"],
-  ): MaybePromise<unknown>;
   describeWorkspaceContextReferences(
     workspacePath: string,
     context: NonNullable<SendMessageIpcInput["context"]>,
@@ -124,7 +118,6 @@ export function registerChatRuntimeDomainIpc<Host extends ChatRuntimeDomainHost>
   activeHost,
   activeThreadId,
   activeThreadIdForHost,
-  createAndRecordCheckpoint,
   describeWorkspaceContextReferences,
   resolveCanonicalLocalFilePath,
   localPathVisibleToThread,
@@ -232,9 +225,6 @@ export function registerChatRuntimeDomainIpc<Host extends ChatRuntimeDomainHost>
             });
         emitProjectScopedEvent(host, { type: "thread-goal-updated", goal });
         emitProjectStateIfActive(host, stateThreadId);
-      }
-      if (input.delivery === undefined || input.delivery === "prompt") {
-        await createAndRecordCheckpoint("pre-run", "Before Ambient run.", thread, targetStore);
       }
       if (env.AMBIENT_E2E_CAPTURE_MESSAGES === "1") {
         emitDesktopEvent({ type: "e2e-message-captured", input: raw } satisfies DesktopEvent);

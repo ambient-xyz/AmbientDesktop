@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { safeStorage } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildRemoteSurfaceActivationPrompt } from "../../renderer/src/pluginUiModel";
-import { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
+import { BrowserCredentialStore, BrowserService } from "./pluginsBrowserDogfoodFacade";
 import { AgentRuntime } from "./pluginsAgentRuntimeDogfoodFacade";
 import { registerPluginMessagingActivationDogfoodCases } from "./pluginMessagingActivationDogfoodCases";
 import { registerPluginMessagingRemoteSurfaceDogfoodCases } from "./pluginMessagingRemoteSurfaceDogfoodCases";

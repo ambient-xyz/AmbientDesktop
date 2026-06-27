@@ -14,7 +14,7 @@ describe("Security browser-login prompt Desktop dogfood wiring", () => {
     expect(packageJson.scripts["test:security-browser-login-prompt:desktop-dogfood"]).toContain("scripts/run-electron-dogfood.mjs");
     expect(packageJson.scripts["test:security-browser-login-prompt:desktop-dogfood"]).toContain("--scenario=security-browser-login-prompt");
     expect(packageJson.scripts["test:security-browser-login-prompt:desktop-dogfood"]).toContain("AMBIENT_PROVIDER=ambient");
-    expect(packageJson.scripts["test:security-browser-login-prompt:desktop-dogfood"]).toContain("moonshotai/kimi-k2.7-code");
+    expect(packageJson.scripts["test:security-browser-login-prompt:desktop-dogfood"]).toContain("example/model-id");
     expect(packageJson.scripts["test:security-browser-login-prompt:desktop-dogfood"]).toContain("AMBIENT_BROWSER_LOGIN_PROMPT_ONLY=1");
     expect(packageJson.scripts["test:security-browser-login-prompt:desktop-dogfood:unit"]).toContain(
       "scripts/security-browser-login-prompt-dogfood.test.mjs",

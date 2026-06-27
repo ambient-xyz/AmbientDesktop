@@ -35,7 +35,7 @@ export const gitCreateBranchSchema = z.object({
   name: z.string().min(1).max(256),
   checkout: z.boolean().optional(),
 }) satisfies z.ZodType<GitBranchInput>;
-export const gitSimpleActionSchema = z.enum(["fetch", "pull", "push", "restore-latest-checkpoint"]) satisfies z.ZodType<GitSimpleAction>;
+export const gitSimpleActionSchema = z.enum(["create-checkpoint", "fetch", "pull", "push", "restore-latest-checkpoint"]) satisfies z.ZodType<GitSimpleAction>;
 
 export interface GitReviewContext<Host = unknown> {
   host: Host;
@@ -150,16 +150,9 @@ export interface RegisterGitUnstageAllFilesIpcDependencies<Context extends GitWo
   readGitReviewForProjectHost(host: Context["host"], threadId: string): MaybePromise<GitReviewSummary>;
 }
 
-export interface RegisterGitDiscardFileIpcDependencies<
-  Context extends GitCheckpointWorkspaceActionContext = GitCheckpointWorkspaceActionContext,
-> {
+export interface RegisterGitDiscardFileIpcDependencies<Context extends GitWorkspaceActionContext = GitWorkspaceActionContext> {
   handleIpc: HandleIpc;
   activeGitContextForProjectHost(): Context;
-  createAndRecordPreGitActionCheckpoint(
-    reason: string,
-    thread: Context["thread"],
-    targetStore: Context["targetStore"],
-  ): MaybePromise<unknown>;
   discardGitFile(workspacePath: string, input: GitFileActionInput): MaybePromise<void>;
   readGitReviewForProjectHost(host: Context["host"], threadId: string): MaybePromise<GitReviewSummary>;
 }
@@ -171,16 +164,9 @@ export interface RegisterGitCommitIpcDependencies<Context extends GitWorkspaceAc
   readGitReviewForProjectHost(host: Context["host"], threadId: string): MaybePromise<GitReviewSummary>;
 }
 
-export interface RegisterGitCreateBranchIpcDependencies<
-  Context extends GitCheckpointWorkspaceActionContext = GitCheckpointWorkspaceActionContext,
-> {
+export interface RegisterGitCreateBranchIpcDependencies<Context extends GitWorkspaceActionContext = GitWorkspaceActionContext> {
   handleIpc: HandleIpc;
   activeGitContextForProjectHost(): Context;
-  createAndRecordPreGitActionCheckpoint(
-    reason: string,
-    thread: Context["thread"],
-    targetStore: Context["targetStore"],
-  ): MaybePromise<unknown>;
   createGitBranch(workspacePath: string, input: GitBranchInput): MaybePromise<void>;
   readGitReviewForProjectHost(host: Context["host"], threadId: string): MaybePromise<GitReviewSummary>;
 }
@@ -189,7 +175,7 @@ export interface RegisterGitRunActionIpcDependencies<Context extends GitRunActio
   handleIpc: HandleIpc;
   activeGitContextForProjectHost(): Context;
   fetchGit(workspacePath: string): MaybePromise<void>;
-  createAndRecordPreGitActionCheckpoint(
+  createAndRecordManualCheckpoint(
     reason: string,
     thread: Context["thread"],
     targetStore: Context["targetStore"],
@@ -270,16 +256,14 @@ export function registerGitUnstageAllFilesIpc<Context extends GitWorkspaceAction
   });
 }
 
-export function registerGitDiscardFileIpc<Context extends GitCheckpointWorkspaceActionContext = GitCheckpointWorkspaceActionContext>({
+export function registerGitDiscardFileIpc<Context extends GitWorkspaceActionContext = GitWorkspaceActionContext>({
   handleIpc,
   activeGitContextForProjectHost,
-  createAndRecordPreGitActionCheckpoint,
   discardGitFile,
   readGitReviewForProjectHost,
 }: RegisterGitDiscardFileIpcDependencies<Context>): void {
   handleIpc("git:discard-file", async (_event, raw: GitFileActionInput) => {
     const context = activeGitContextForProjectHost();
-    await createAndRecordPreGitActionCheckpoint("Before discarding a file.", context.thread, context.targetStore);
     await discardGitFile(context.workspacePath, gitFileActionSchema.parse(raw));
     return readGitReviewForProjectHost(context.host, context.threadId);
   });
@@ -298,16 +282,14 @@ export function registerGitCommitIpc<Context extends GitWorkspaceActionContext =
   });
 }
 
-export function registerGitCreateBranchIpc<Context extends GitCheckpointWorkspaceActionContext = GitCheckpointWorkspaceActionContext>({
+export function registerGitCreateBranchIpc<Context extends GitWorkspaceActionContext = GitWorkspaceActionContext>({
   handleIpc,
   activeGitContextForProjectHost,
-  createAndRecordPreGitActionCheckpoint,
   createGitBranch,
   readGitReviewForProjectHost,
 }: RegisterGitCreateBranchIpcDependencies<Context>): void {
   handleIpc("git:create-branch", async (_event, raw: GitBranchInput) => {
     const context = activeGitContextForProjectHost();
-    await createAndRecordPreGitActionCheckpoint("Before creating or switching a branch.", context.thread, context.targetStore);
     await createGitBranch(context.workspacePath, gitCreateBranchSchema.parse(raw));
     return readGitReviewForProjectHost(context.host, context.threadId);
   });
@@ -317,7 +299,7 @@ export function registerGitRunActionIpc<Context extends GitRunActionContext = Gi
   handleIpc,
   activeGitContextForProjectHost,
   fetchGit,
-  createAndRecordPreGitActionCheckpoint,
+  createAndRecordManualCheckpoint,
   pullGit,
   pushGit,
   restoreLatestGitCheckpoint,
@@ -326,11 +308,11 @@ export function registerGitRunActionIpc<Context extends GitRunActionContext = Gi
   handleIpc("git:run-action", async (_event, raw: GitSimpleAction) => {
     const context = activeGitContextForProjectHost();
     const action = gitSimpleActionSchema.parse(raw);
-    if (action === "fetch") await fetchGit(context.workspacePath);
-    if (action === "pull") {
-      await createAndRecordPreGitActionCheckpoint("Before pulling from remote.", context.thread, context.targetStore);
-      await pullGit(context.workspacePath);
+    if (action === "create-checkpoint") {
+      await createAndRecordManualCheckpoint("Manual checkpoint.", context.thread, context.targetStore);
     }
+    if (action === "fetch") await fetchGit(context.workspacePath);
+    if (action === "pull") await pullGit(context.workspacePath);
     if (action === "push") await pushGit(context.workspacePath);
     if (action === "restore-latest-checkpoint") {
       await restoreLatestGitCheckpoint({

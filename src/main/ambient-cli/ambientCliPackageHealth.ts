@@ -5,8 +5,9 @@ import {
   type CommandDevicePolicy,
   type CommandDeviceSelection,
   type CommandTimeoutProfile,
-} from "../tool-runtime/commandExecutionProfiles";
-import { materializeTextOutput, type MaterializedTextOutput } from "../tool-runtime/toolRuntimeAmbientCliContract";
+  materializeTextOutput,
+  type MaterializedTextOutput,
+} from "./ambientCliToolRuntimeFacade";
 import { isPathInside } from "./ambientCliSessionFacade";
 
 const ambientCliPackageHealthCacheTtlMs = 20_000;

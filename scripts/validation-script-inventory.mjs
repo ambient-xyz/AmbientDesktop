@@ -7,10 +7,10 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 export const CURRENT_PROVIDER_GUIDANCE = Object.freeze({
   preferredLiveProvider: "ambient",
-  preferredLiveModel: "moonshotai/kimi-k2.7-code",
+  preferredLiveModel: "example/model-id",
   gmiCloudPolicy: "explicit request or approved failover only",
   summary:
-    "Provider-dependent validation should use AMBIENT_PROVIDER=ambient with AMBIENT_LIVE_MODEL=<model-id>; GMI Cloud entries are failover inventory, not default recommendations.",
+    "Provider-dependent validation should use AMBIENT_PROVIDER=ambient with AMBIENT_LIVE_MODEL=example/model-id; GMI Cloud entries are failover inventory, not default recommendations.",
 });
 
 export function buildValidationScriptInventory(packageJson, options = {}) {

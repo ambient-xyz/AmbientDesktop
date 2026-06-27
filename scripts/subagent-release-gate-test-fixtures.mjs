@@ -661,7 +661,7 @@ export function desktopDogfoodArtifact() {
     classification: "passed",
     generatedAt: "2026-06-05T00:55:00.000Z",
     provider: "gmi-cloud",
-    model: "moonshotai/kimi-k2.7-code",
+    model: "example/model-id",
     featureFlag: "ambient.subagents",
     headful: true,
     cdpPort: 49152,
@@ -955,7 +955,7 @@ export function harnessManifestArtifact(kind = "live_node_test") {
     },
     provider: {
       providerId: "ambient",
-      modelId: "moonshotai/kimi-k2.7-code",
+      modelId: "example/model-id",
       usingGmiFailover: false,
     },
     ...(electron

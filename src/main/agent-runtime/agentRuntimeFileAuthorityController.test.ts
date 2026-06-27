@@ -7,8 +7,8 @@ import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import type { PermissionRequest } from "../../shared/permissionTypes";
 import { getDefaultSubagentRoleProfile } from "../../shared/subagentRoles";
 import type { SubagentToolScopeResolution } from "../../shared/subagentToolScope";
-import { createLocalFolderAllowlistGrantInput } from "../permissions/localFolderAllowlistGrants";
 import { AgentRuntimeFileAuthorityController } from "./agentRuntimeFileAuthorityController";
+import { createLocalFolderAllowlistGrantInput } from "./agentRuntimePermissionsFacade";
 import { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 
 describe("AgentRuntimeFileAuthorityController", () => {

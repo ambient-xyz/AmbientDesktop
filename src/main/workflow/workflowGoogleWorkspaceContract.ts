@@ -1,6 +1,7 @@
 export {
   createWorkflowConnectorBridge,
   validateWorkflowConnectorDescriptor,
+  workspaceInventoryConnectorDescriptor,
 } from "./workflowConnectors";
 export type {
   WorkflowConnectorAccountDescriptor,
@@ -13,9 +14,5 @@ export type {
   WorkflowConnectorPaginationDescriptor,
   WorkflowConnectorRegistration,
 } from "./workflowConnectors";
-export type {
-  WorkflowConnectorAccessToken,
-  WorkflowConnectorProvider,
-  WorkflowConnectorTokenSet,
-} from "./workflowConnectorAuth";
+export type { WorkflowConnectorAccessToken, WorkflowConnectorProvider, WorkflowConnectorTokenSet } from "./workflowConnectorAuth";
 export type { WorkflowRuntimeEvent } from "./workflowAgentRuntime";

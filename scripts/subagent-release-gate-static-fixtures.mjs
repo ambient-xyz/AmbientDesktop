@@ -68,7 +68,7 @@ export function packageJson() {
         "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} node scripts/subagent-desktop-dogfood-repeat.mjs",
       "test:subagents:desktop-dogfood-repeat:unit": "pnpm exec vitest run scripts/subagent-desktop-dogfood-repeat.test.mjs",
       "test:subagents:scenario-dogfood":
-        "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} AMBIENT_LIVE_MODEL=${AMBIENT_LIVE_MODEL:-moonshotai/kimi-k2.7-code} AMBIENT_SUBAGENT_SCENARIO_DOGFOOD=1 node scripts/run-live-node-test.mjs -- vitest run src/main/subagents/subagentScenarioDogfood.live.test.ts",
+        "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} AMBIENT_LIVE_MODEL=${AMBIENT_LIVE_MODEL:-example/model-id} AMBIENT_SUBAGENT_SCENARIO_DOGFOOD=1 node scripts/run-live-node-test.mjs -- vitest run src/main/subagents/subagentScenarioDogfood.live.test.ts",
       "test:subagents:release-gate:live":
         "pnpm run test:callable-workflow-dogfood:proof && pnpm run test:callable-workflow-rehydration:proof && pnpm run test:subagents:lifecycle-edges:proof && pnpm run test:subagents:live-confidence -- --allow-blocked && pnpm run test:subagents:live-confidence:authority -- --allow-blocked && pnpm run test:subagents:live-confidence:workflow -- --allow-blocked && pnpm run test:subagents:live-confidence:workflow-broader -- --allow-blocked && pnpm run test:subagents:live-confidence:local-runtime -- --allow-blocked && pnpm run test:subagents:live-confidence:restart-repair -- --allow-blocked && pnpm run test:subagents:live-confidence:lifecycle-edges -- --allow-blocked && pnpm run test:subagents:live-confidence:desktop-dogfood -- --allow-blocked && pnpm run test:subagents:deterministic && node scripts/subagent-release-gate.mjs --require-live",
       "test:subagents:release-gate:graduation":

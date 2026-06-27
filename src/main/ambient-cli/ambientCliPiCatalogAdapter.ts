@@ -2,8 +2,8 @@ import { execFile } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { ambientRuntimeEnv } from "../setup/setupAmbientCliContract";
-import { hardenedGitEnv, normalizeGitRepositoryUrl, safeGitCloneSource } from "../security/securityAmbientCliContract";
+import { ambientRuntimeEnv } from "./ambientCliSetupFacade";
+import { hardenedGitEnv, normalizeGitRepositoryUrl, safeGitCloneSource } from "./ambientCliSecurityFacade";
 
 const execFileAsync = promisify(execFile);
 

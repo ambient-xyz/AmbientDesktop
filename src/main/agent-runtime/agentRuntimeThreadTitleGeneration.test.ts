@@ -33,7 +33,7 @@ describe("generateAgentRuntimeThreadTitleIfNeeded", () => {
     expect(options.generateTitle).toHaveBeenCalledWith({
       prompt: "Build a dashboard.",
       workspaceName: "Workspace",
-      model: "moonshotai/kimi-k2.7-code",
+      model: "example/model-id",
       retryPolicy: undefined,
     });
     expect(options.getThread).toHaveBeenCalledWith("thread-1");
@@ -100,7 +100,7 @@ function threadSummary(overrides: Partial<ThreadSummary> = {}): ThreadSummary {
   return {
     id: "thread-1",
     title: "New chat",
-    model: "moonshotai/kimi-k2.7-code",
+    model: "example/model-id",
     workspacePath: "/workspace",
     createdAt: "2026-06-21T00:00:00.000Z",
     updatedAt: "2026-06-21T00:00:00.000Z",

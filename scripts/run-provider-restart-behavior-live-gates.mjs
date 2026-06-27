@@ -47,7 +47,7 @@ const report = {
   startedAt,
   completedAt: new Date().toISOString(),
   provider: process.env.AMBIENT_PROVIDER || "ambient",
-  model: process.env.AMBIENT_LIVE_MODEL || process.env.AMBIENT_MODEL || "moonshotai/kimi-k2.7-code",
+  model: process.env.AMBIENT_LIVE_MODEL || process.env.AMBIENT_MODEL || "example/model-id",
   headful: true,
   gates: gateResults,
 };

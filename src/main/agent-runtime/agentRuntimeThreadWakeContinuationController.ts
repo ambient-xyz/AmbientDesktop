@@ -1,9 +1,6 @@
 import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
 import type { ChatMessage, RuntimeContinuationSource, ThreadSummary } from "../../shared/threadTypes";
-import type {
-  ScheduleThreadWakeContinuationInput,
-  ThreadWakeContinuation,
-} from "../projectStore/threadWakeRepository";
+import type { ScheduleThreadWakeContinuationInput, ThreadWakeContinuation } from "./agentRuntimeProjectStoreFacade";
 import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 
 export type ThreadWakeContinuationSendInput = SendMessageInput & {
@@ -92,15 +89,18 @@ export class AgentRuntimeThreadWakeContinuationController {
     this.clearTimer(wake.id);
     const dueMs = Date.parse(wake.dueAt);
     const delayMs = delayOverrideMs ?? Math.max(0, dueMs - this.now());
-    const handle = this.setTimeout(() => {
-      this.timers.delete(wake.id);
-      void this.deliverWakeIfIdle(wake).catch((error) => {
-        const message = error instanceof Error ? error.message : String(error);
-        this.options.store.markThreadWakeContinuationFailed(wake.id, message);
-        this.emitThreadUpdated(wake.threadId);
-        this.options.emit({ type: "error", message: `Thread wake continuation failed: ${message}`, threadId: wake.threadId });
-      });
-    }, Math.min(delayMs, MAX_TIMEOUT_DELAY_MS));
+    const handle = this.setTimeout(
+      () => {
+        this.timers.delete(wake.id);
+        void this.deliverWakeIfIdle(wake).catch((error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          this.options.store.markThreadWakeContinuationFailed(wake.id, message);
+          this.emitThreadUpdated(wake.threadId);
+          this.options.emit({ type: "error", message: `Thread wake continuation failed: ${message}`, threadId: wake.threadId });
+        });
+      },
+      Math.min(delayMs, MAX_TIMEOUT_DELAY_MS),
+    );
     this.timers.set(wake.id, handle);
   }
 
@@ -138,9 +138,7 @@ export class AgentRuntimeThreadWakeContinuationController {
     const prompt = threadWakeContinuationPrompt(wake, {
       thread,
       asyncBashSnapshotText: wake.jobId ? this.options.asyncBashSnapshotText?.(wake.threadId, wake.jobId) : undefined,
-      asyncLongContextSnapshotText: wake.jobId
-        ? this.options.asyncLongContextSnapshotText?.(wake.threadId, wake.jobId)
-        : undefined,
+      asyncLongContextSnapshotText: wake.jobId ? this.options.asyncLongContextSnapshotText?.(wake.threadId, wake.jobId) : undefined,
     });
     await this.options.send({
       threadId: wake.threadId,
@@ -181,7 +179,9 @@ export class AgentRuntimeThreadWakeContinuationController {
       `Status: ${wake.status}`,
       wake.operationKey ? `Operation: ${wake.operationKey}` : undefined,
       `Reason: ${reason}`,
-    ].filter((line): line is string => line !== undefined).join("\n");
+    ]
+      .filter((line): line is string => line !== undefined)
+      .join("\n");
     let message: ChatMessage | undefined;
     try {
       message = this.options.store.addMessage({
@@ -240,7 +240,9 @@ function threadWakeContinuationPrompt(
     wakeSnapshotText(wake, context, jobKind),
     "",
     wakeInstruction(jobKind),
-  ].filter((line): line is string => line !== undefined).join("\n");
+  ]
+    .filter((line): line is string => line !== undefined)
+    .join("\n");
 }
 
 type ThreadWakeJobKind = "bash" | "long_context" | "unknown";

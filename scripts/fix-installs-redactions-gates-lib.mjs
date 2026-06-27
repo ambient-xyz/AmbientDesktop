@@ -57,7 +57,7 @@ export function assertFixInstallsRedactionsProviderAllowed(input) {
     throw new Error(`fix-installs-redactions gates must use AMBIENT_PROVIDER=ambient, got ${providerId}.`);
   }
   if (degradedLiveModelPattern.test(modelId)) {
-    throw new Error(`fix-installs-redactions gates must not use degraded GLM 5.1 model ${modelId}.`);
+    throw new Error(`fix-installs-redactions gates must not use degraded Example Model model ${modelId}.`);
   }
   if (!modelId.trim()) {
     throw new Error("fix-installs-redactions gates require a non-empty Ambient live model id.");

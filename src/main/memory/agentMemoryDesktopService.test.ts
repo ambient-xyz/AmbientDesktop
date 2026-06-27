@@ -239,7 +239,7 @@ function thread(input: { id: string; memoryEnabled: boolean; kind?: ThreadSummar
     lastMessagePreview: "",
     permissionMode: "workspace",
     collaborationMode: "agent",
-    model: "moonshotai/kimi-k2.7-code",
+    model: "example/model-id",
     thinkingLevel: "xhigh",
     pinned: false,
     kind: input.kind ?? "chat",

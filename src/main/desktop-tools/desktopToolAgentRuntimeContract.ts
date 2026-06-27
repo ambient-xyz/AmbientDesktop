@@ -1,7 +1,4 @@
-export {
-  descriptorToolDefinition,
-  registerDesktopTool,
-} from "./desktopToolRegistration";
+export { descriptorToolDefinition, registerDesktopTool } from "./desktopToolRegistration";
 export type { DescriptorToolRegistration } from "./desktopToolRegistration";
 
 export {
@@ -16,6 +13,7 @@ export {
   modelStatusToolDescriptor,
   piToolFieldsFromDescriptor,
   pluginInstallToolDescriptor,
+  pluginMcpToolDescriptor,
   privilegedActionToolDescriptor,
   productContextToolDescriptor,
   productContextToolDescriptors,
@@ -24,7 +22,4 @@ export {
   visionToolDescriptor,
   webResearchToolDescriptor,
 } from "./desktopToolRegistry";
-export type {
-  DesktopToolDescriptor,
-  PiToolRegistrationFields,
-} from "./desktopToolRegistry";
+export type { DesktopToolDescriptor, PiToolRegistrationFields } from "./desktopToolRegistry";

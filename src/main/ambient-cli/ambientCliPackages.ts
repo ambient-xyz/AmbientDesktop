@@ -4,9 +4,9 @@ import { existsSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isPathInside } from "./ambientCliSessionFacade";
-import { materializeTextOutput } from "../tool-runtime/toolRuntimeAmbientCliContract";
-import { ambientRuntimeEnv, managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../setup/setupAmbientCliContract";
-import { buildSafeProcessEnv, hardenedGitEnv, safeGitCloneSource } from "../security/securityAmbientCliContract";
+import { executeProfiledCommand, materializeTextOutput } from "./ambientCliToolRuntimeFacade";
+import { ambientRuntimeEnv, managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "./ambientCliSetupFacade";
+import { buildSafeProcessEnv, hardenedGitEnv, safeGitCloneSource } from "./ambientCliSecurityFacade";
 import { createAmbientCliEnvBindingServices } from "./ambientCliEnvBindings";
 import { createAmbientCliPackageHealthServices } from "./ambientCliPackageHealth";
 import { createAmbientCliPackageSkillSummaryServices } from "./ambientCliPackageSkillSummaries";
@@ -16,7 +16,6 @@ import {
   isBundledAmbientCliInstallSource,
   type FirstPartyAmbientCliPackage,
 } from "./ambientCliPackageInstallSources";
-import { executeProfiledCommand } from "../tool-runtime/commandExecutionProfiles";
 import {
   cliDescriptorSchema,
   cliPackageConfigPath,

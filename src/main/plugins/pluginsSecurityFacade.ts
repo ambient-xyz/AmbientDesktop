@@ -1,1 +1,6 @@
-export { redactSensitiveText } from "../security/securityPluginsContract";
+export {
+  allowLocalDevUrlEgressFromEnv,
+  assertAllowedUrlEgressWithDns,
+  fetchWithUrlEgressPolicy,
+  redactSensitiveText,
+} from "../security/securityPluginsContract";

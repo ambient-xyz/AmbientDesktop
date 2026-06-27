@@ -15,7 +15,7 @@ import {
   type PiExtensionHostRunResult,
 } from "../agentRuntimePiFacade";
 import { managedInstallWorkspacePath, migrateWorkspaceManagedInstallPath } from "../agentRuntimeSetupFacade";
-import { hardenedGitEnv, normalizeGitRepositoryUrl, safeGitCloneSource } from "../../security/securityAgentRuntimeContract";
+import { hardenedGitEnv, normalizeGitRepositoryUrl, safeGitCloneSource } from "../agentRuntimeSecurityFacade";
 
 const execFileAsync = promisify(execFile);
 const sandboxConfigPath = ".ambient/pi-extension-sandboxes/packages.json";

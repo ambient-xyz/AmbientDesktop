@@ -12,7 +12,7 @@ const latestReportPath = join(resultsDir, "latest.json");
 const cdpCommandTimeoutMs = 20_000;
 const appWaitTimeoutMs = 90_000;
 const defaultDogfoodProvider = "ambient";
-const defaultDogfoodModel = "moonshotai/kimi-k2.7-code";
+const defaultDogfoodModel = "example/model-id";
 
 const args = parseArgs(process.argv.slice(2));
 const startedAt = new Date().toISOString();

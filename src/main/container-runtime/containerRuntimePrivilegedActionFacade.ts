@@ -3,6 +3,7 @@ export {
   credentialPlaceholder,
   DryRunPrivilegedActionAdapter,
   dryRunPrivilegedActionNativeRequest,
+  isPathInside,
   planPrivilegedAction,
   planPrivilegedActionAdapterExecution,
   withPrivilegedActionLogPath,

@@ -93,7 +93,7 @@ describe("App composer shell props", () => {
     props.onPermissionModeChange("full-access");
     props.onThinkingDisplayModeChange("full");
     props.onThinkingLevelChange("high");
-    props.onSelectComposerModel("moonshotai/kimi-k2.7-code");
+    props.onSelectComposerModel("example/model-id");
     props.onRunSymphonyOnce();
     props.onSaveSymphonyRecipe();
     props.onAddPlannerPlanToBoard(artifact);
@@ -103,7 +103,7 @@ describe("App composer shell props", () => {
     expect(openPlannerRevisionDialog).not.toHaveBeenCalled();
     expect(updateThreadSettings).toHaveBeenCalledWith({ collaborationMode: "planner" });
     expect(updateThreadSettings).toHaveBeenCalledWith({ thinkingLevel: "high" });
-    expect(updateThreadSettings).toHaveBeenCalledWith({ model: "moonshotai/kimi-k2.7-code" });
+    expect(updateThreadSettings).toHaveBeenCalledWith({ model: "example/model-id" });
     expect(requestThreadPermissionModeChange).toHaveBeenCalledWith("full-access");
     expect(updateThinkingDisplaySettings).toHaveBeenCalledWith({ mode: "full", showRunStatusCard: true });
     expect(submitSymphonyBuilderAction.mock.calls).toEqual([["run-once"], ["save-recipe"]]);
@@ -251,7 +251,7 @@ describe("App composer shell props", () => {
     props.onSelectLocalDeepResearchEffort("quick");
     props.onClearGoal();
     props.onOpenGitSummary();
-    props.onSelectComposerModel("moonshotai/kimi-k2.7-code");
+    props.onSelectComposerModel("example/model-id");
 
     expect(attachComposerFiles).toHaveBeenCalledTimes(1);
     expect(compactActiveThread).toHaveBeenCalledTimes(1);
@@ -265,7 +265,7 @@ describe("App composer shell props", () => {
     expect(setLocalDeepResearchBudgetOverride).toHaveBeenCalledWith({ effort: "quick" });
     expect(clearActiveGoal).toHaveBeenCalledTimes(1);
     expect(openGitSummaryPanel).toHaveBeenCalledTimes(1);
-    expect(updateThreadSettings).toHaveBeenCalledWith({ model: "moonshotai/kimi-k2.7-code" });
+    expect(updateThreadSettings).toHaveBeenCalledWith({ model: "example/model-id" });
   });
 });
 

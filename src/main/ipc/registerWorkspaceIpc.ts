@@ -169,7 +169,6 @@ export interface RegisterWorkspaceGitStatusIpcDependencies<
   getWorkspaceDiff(workspacePath: string): MaybePromise<WorkspaceDiff>;
   getWorkspaceGitStatus(workspacePath: string): MaybePromise<WorkspaceGitStatus>;
   switchWorkspaceBranch(workspacePath: string, branch: string): MaybePromise<WorkspaceGitStatus>;
-  createAndRecordPreGitActionCheckpoint(reason: string, thread: Context["thread"], targetStore: Context["targetStore"]): MaybePromise<unknown>;
 }
 
 const workspaceActionPathSchema = z.string().min(1).max(4096);
@@ -418,7 +417,6 @@ export function registerWorkspaceGitStatusIpc<Context extends WorkspaceGitStatus
   getWorkspaceDiff,
   getWorkspaceGitStatus,
   switchWorkspaceBranch,
-  createAndRecordPreGitActionCheckpoint,
 }: RegisterWorkspaceGitStatusIpcDependencies<Context>): void {
   handleIpc("workspace:diff", () => getWorkspaceDiff(activeGitContextForProjectHost().workspacePath));
 
@@ -427,10 +425,6 @@ export function registerWorkspaceGitStatusIpc<Context extends WorkspaceGitStatus
   handleIpc("workspace:switch-branch", async (_event, branch: string) => {
     const nextBranch = gitBranchSchema.parse(branch);
     const context = activeGitContextForProjectHost();
-    const status = await getWorkspaceGitStatus(context.workspacePath);
-    if (status.isGitRepository && status.dirtyCount > 0 && nextBranch !== status.branch) {
-      await createAndRecordPreGitActionCheckpoint("Before switching branches with local changes.", context.thread, context.targetStore);
-    }
     return switchWorkspaceBranch(context.workspacePath, nextBranch);
   });
 }

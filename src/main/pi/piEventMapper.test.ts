@@ -1753,7 +1753,7 @@ function subagentRun(overrides: Partial<SubagentRunSummary> = {}): SubagentRunSu
     modelRuntimeSnapshot: {
       providerId: "ambient",
       modelId: "glm-5.1",
-      modelLabel: "GLM 5.1",
+      modelLabel: "Example Model",
       source: "registry",
       capabilities: {},
       resolvedAt: "2026-06-05T00:00:00.000Z",

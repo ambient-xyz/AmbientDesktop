@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 import { z } from "zod";
-import { managedInstallWorkspacePath } from "../setup/setupAmbientCliContract";
-import { executeLambdaRlm } from "../tool-runtime/toolRuntimeAmbientCliContract";
+import { managedInstallWorkspacePath } from "./ambientCliSetupFacade";
+import { executeLambdaRlm } from "./ambientCliToolRuntimeFacade";
 import { isPathInside } from "./ambientCliSessionFacade";
 
 export const ambientCliSkillSummarySchemaVersion = "ambient-cli-skill-summary-v1";

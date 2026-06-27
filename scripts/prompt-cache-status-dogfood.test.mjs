@@ -14,7 +14,7 @@ describe("prompt cache status Desktop dogfood harness wiring", () => {
     expect(packageJson.scripts["test:prompt-cache-status:desktop-dogfood"]).toContain("scripts/run-electron-dogfood.mjs");
     expect(packageJson.scripts["test:prompt-cache-status:desktop-dogfood"]).toContain("--scenario=prompt-cache-status");
     expect(packageJson.scripts["test:prompt-cache-status:desktop-dogfood"]).toContain("AMBIENT_PROVIDER=ambient");
-    expect(packageJson.scripts["test:prompt-cache-status:desktop-dogfood"]).toContain("moonshotai/kimi-k2.7-code");
+    expect(packageJson.scripts["test:prompt-cache-status:desktop-dogfood"]).toContain("example/model-id");
     expect(packageJson.scripts["test:prompt-cache-status:desktop-dogfood:unit"]).toContain("scripts/prompt-cache-status-dogfood.test.mjs");
     expect(supervisor).toContain("scripts/prompt-cache-status-dogfood.mjs");
     expect(supervisor).toContain("test-results/prompt-cache-status/latest.json");

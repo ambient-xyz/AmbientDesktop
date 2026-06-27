@@ -1,698 +1,46 @@
 import {
   AlertCircle,
-  Archive,
-  Bell,
   BookOpenText,
-  Bot,
-  Brain,
-  CalendarPlus,
-  CalendarClock,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Check,
-  CheckCircle2,
   ClipboardPaste,
-  Clock,
-  Code2,
-  Command,
-  Copy,
   Download,
   ExternalLink,
-  Film,
-  FileCode2,
-  FileImage,
-  FileText,
-  Folder,
-  FolderPlus,
-  FolderOpen,
-  GitBranch,
-  Home,
-  Info,
-  Kanban,
   KeyRound,
-  ListFilter,
   LoaderCircle,
-  MessageCircle,
-  Maximize2,
-  Minimize2,
-  Mic,
-  Monitor,
-  Moon,
-  Music,
-  PanelLeft,
-  PanelRight,
-  Paperclip,
-  Pause,
-  Package,
-  Pencil,
-  Pin,
-  Play,
-  Plug,
-  Plus,
   RefreshCw,
-  RotateCcw,
-  Search,
-  Send,
-  Settings,
   Shield,
-  SquarePen,
-  Square,
-  Star,
-  Sun,
-  Target,
-  Terminal,
   Trash2,
   X,
   Zap,
-  type LucideIcon,
 } from "lucide-react";
-import { Background, BaseEdge, Controls, EdgeLabelRenderer, getBezierPath, Handle, Position, ReactFlow, ReactFlowProvider, useReactFlow, type EdgeProps } from "@xyflow/react";
-import {
-  FormEvent,
-  ClipboardEvent as ReactClipboardEvent,
-  CSSProperties,
-  DragEvent as ReactDragEvent,
-  FocusEvent as ReactFocusEvent,
-  forwardRef,
-  KeyboardEvent as ReactKeyboardEvent,
-  memo,
-  MouseEvent as ReactMouseEvent,
-  ReactNode,
-  RefObject,
-  startTransition,
-  useEffect,
-  useImperativeHandle,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { flushSync } from "react-dom";
-import {
-  projectBoardActionState,
-  projectBoardActiveCardDetail,
-  projectBoardActiveCardOverviewModel,
-  projectBoardAddCardsSourceScope,
-  projectBoardCardCanSplit,
-  projectBoardCardCanMarkReady,
-  projectBoardCardClaimBlocksLocalTicketization,
-  projectBoardCardClaimActionState,
-  projectBoardCardClaimLabel,
-  projectBoardCardClaimTitle,
-  projectBoardCardCanEditDependencies,
-  projectBoardCardIsDraftInboxCandidate,
-  projectBoardCardEditCanSave,
-  projectBoardCardEditDraft,
-  projectBoardCardEditHasChanges,
-  projectBoardCardEditInput,
-  projectBoardCardEditWithClarificationAnswerInput,
-  projectBoardCanonicalCardProjection,
-  projectBoardCardVisualTone,
-  projectBoardCharterReviewActionState,
-  projectBoardClarificationAnswerInput,
-  projectBoardCandidateClarificationItems,
-  projectBoardPlanningWarningActionTitle,
-  projectBoardPlanningWarningsForCard,
-  projectBoardSynthesisRunProofScopeWarnings,
-  projectBoardSynthesisRunPromptBudgetAudit,
-  projectBoardSynthesisRunPromptBudgetMetrics,
-  projectBoardCardSourceBasis,
-  projectBoardCardsForSourceGroup,
-  projectBoardBoardTabShowsDraftCallout,
-  projectBoardBoardTabShowsExecutionPanels,
-  projectBoardBoardTabStatusLabel,
-  projectBoardColumns,
-  projectBoardCollaborationReadiness,
-  projectBoardComplexityEstimate,
-  projectBoardCandidateStatusForDraftColumn,
-  projectBoardCreateReadyTasksState,
-  projectBoardDependencyEditOptions,
-  projectBoardDependencyChangeImpactPreview,
-  projectBoardCardDependencyBadges,
-  projectBoardDependencyHealth,
-  projectBoardDependencyRows,
-  projectBoardBoardDecisionImpactRail,
-  projectBoardDecisionImpactPreview,
-  projectBoardDecisionQueue,
-  projectBoardDeliverableIntegrationQueue,
-  projectBoardDraftInboxCreateReadyPreview,
-  projectBoardDraftInboxFilterOptions,
-  projectBoardDraftColumns,
-  projectBoardDraftColumnMoveState,
-  projectBoardPiUpdateReviewQueue,
-  projectBoardEmptyMessage,
-  projectBoardEventGroups,
-  projectBoardEventHasSupersededCardReview,
-  projectBoardEventKindLabel,
-  projectBoardEventSummary,
-  projectBoardHistoryCollaborationAudit,
-  projectBoardHistoryImpactAudit,
-  projectBoardHistoryRecoveryQueue,
-  projectBoardLiveSessionPreviewModel,
-  projectBoardOverviewModel,
-  projectBoardExecutionControlModel,
-  projectBoardExecutionOverview,
-  projectBoardExecutionReadinessRail,
-  projectBoardExecutionPmReview,
-  projectBoardWorkflowImpactPreview,
-  projectBoardPhaseGroups,
-  projectBoardPendingClarificationDecisions,
-  projectBoardPendingClarificationQuestions,
-  projectBoardPlanningSnapshotTicketizationState,
-  projectBoardPrimaryBlockingCard,
-  projectBoardProofDecisionModel,
-  projectBoardProofEvidenceModel,
-  projectBoardProofFollowUpImpactModel,
-  projectBoardProofInspectionNavigationModel,
-  projectBoardProofCoverageForBoard,
-  projectBoardProofReviewQueueSummary,
-  projectBoardPmReviewReportUiModel,
-  projectBoardProjectionReview,
-  projectBoardProjectionReviewResolutionState,
-  projectBoardResetImpact,
-  projectBoardTaskActionEvidenceFromProof,
-  projectBoardSourceFilterItems,
-  projectBoardSourceChangeDetail,
-  projectBoardSourceChangeFilterItems,
-  projectBoardSourceChangeSummary,
-  projectBoardSourceGroups,
-  projectBoardSourceGroupsForChangeFilter,
-  projectBoardSourceGroupsForFilter,
-  projectBoardSourceGroupCanElaborate,
-  projectBoardSourceGroupIncludedSourceIds,
-  projectBoardSourceImpactPreview,
-  projectBoardSourceInclusion,
-  projectBoardSourceKindText,
-  projectBoardSourceObservationLabel,
-  projectBoardStatusLabel,
-  projectBoardSupersededCardReview,
-  projectBoardSuppressedForWorkflowRecordingThread,
-  projectBoardSynthesisRunControlState,
-  projectBoardTabs,
-  projectBoardTestSummaryForBoard,
-  projectBoardThreadPlanActionState,
-  projectBoardUiMockReviewPanelModel,
-  projectBoardUiMockReviewBadges,
-  projectBoardKickoffDefaultProviderErrorMessage,
-  projectBoardKickoffDefaultAnswer,
-  projectBoardUnattachedLocalTasks,
-  defaultProjectBoardTab,
-  type ProjectBoardCardEditDraft,
-  type ProjectBoardCardClaimAction,
-  type ProjectBoardComplexityEstimate,
-  type ProjectBoardDecisionQueueAuditFilterId,
-  type ProjectBoardDecisionQueueRow,
-  type ProjectBoardPlanningWarning,
-  type ProjectBoardSourceGroup,
-  type ProjectBoardSourceChangeFilterKind,
-  type ProjectBoardSourceFilterKind,
-  type ProjectBoardSupersededCardReview,
-  type ProjectBoardSupersededCardReviewKind,
-  type ProjectBoardTabId,
-  type ProjectBoardDecisionImpactPreview,
-  type ProjectBoardDraftInboxCreateReadyPreview,
-  type ProjectBoardDraftInboxFilterId,
-  type ProjectBoardDraftInboxFilterOption,
-  type ProjectBoardHistoryRecoveryAction,
-  type ProjectBoardHistoryRecoveryActionId,
-  type ProjectBoardHistoryRecoveryRun,
-  type ProjectBoardLiveSessionActivityLine,
-  type ProjectBoardPiUpdateReviewQueue,
-} from "./projectBoardUiModel";
-import {
-  moveWebResearchProvider,
-  resetWebResearchRole,
-  setWebResearchBrowserFallback,
-  setWebResearchProviderEnabled,
-  webResearchProviderHealthBadge,
-  webResearchProviderSetupAction,
-  webResearchProvidersForRole,
-  webResearchStackWithDefaults,
-} from "./searchWebSettingsModel";
-import {
-  latestReadyVoiceAutoplayTarget,
-  messageVoiceStripModel,
-  nextVoiceAutoplayDecision,
-  voiceSettingsAuditRows,
-  voiceThreadStatusModel,
-  voiceSettingsProviderModel,
-  voiceProviderForCapabilityId,
-  voiceProviderLabelMap,
-  voiceStateMatchesSelectedProvider,
-} from "./voiceUiModel";
-import {
-  projectBoardKickoffAnswerState,
-  projectBoardRunBlocksPlanning,
-  projectBoardRunIsKickoffDefaults,
-} from "../../shared/projectBoardSynthesisGate";
-import {
-  queuedSpeechFollowUpCount,
-  sttDraftMetadataForSubmit,
-  sttInsertTranscriptIntoDraft,
-  sttProviderForCapabilityId,
-  sttProviderCacheChanges,
-  sttQueuedCountLabel,
-  sttRuntimeQueuedCount,
-  sttSettingsProviderModel,
-  sttDiagnosticsModel,
-  sttSetupResultModel,
-  sttTranscriptReadyAction,
-  type SttDraftMetadataState,
-} from "./sttUiModel";
-import {
-  miniCpmVisionSetupActions,
-  miniCpmVisionSetupResultModel,
-} from "./miniCpmVisionUiModel";
+import { RefObject, useState } from "react";
+import type { DesktopUpdateState, ProviderStatus } from "../../shared/desktopTypes";
+import type {
+  PermissionMode,
+  PermissionPromptResponseMode,
+  PermissionRequest,
+  PrivilegedCredentialRequest,
+  SecureInputRequest,
+} from "../../shared/permissionTypes";
 import {
   localDeepResearchInstallProgressModel,
   localDeepResearchSetupActions,
   localDeepResearchSetupResultModel,
-  type LocalDeepResearchDiagnosticItem,
   type LocalDeepResearchSetupAction,
-  type LocalDeepResearchSetupResult,
 } from "./localDeepResearchUiModel";
 import {
-  shortcutFromKeyboardEvent,
-  sttShortcutLabel,
-  sttShortcutMatchesEvent,
-  sttShortcutReleaseMatchesEvent,
-} from "./sttShortcut";
-import { advanceTrailingSilence, listSttMicrophoneDevices, startSttMicrophoneRecorder, type SttMicrophoneRecorder } from "./sttMicrophoneRecorder";
-import type { SttMicrophoneDevice, SttMicrophoneLevel, SttTrailingSilenceState } from "./sttMicrophoneRecorder";
-import { parseMarkdownBlocks } from "./markdownBlockParser";
-import { richMarkdownTableIconLabel, type RichMarkdownIconLabel } from "./richMarkdownIcons";
-import { canRefreshOfficePreview, isPreparedLocalTaskWorkspace } from "./workspaceUiModel";
-import {
-  desktopEventMatchesProject,
-  workspaceProjectAliasesForState,
-  type WorkspaceProjectAliases,
-} from "./workspaceEventMatching";
-import {
-  miniCpmVisualAnalyzeInputForBrowserScreenshot,
-  miniCpmVisualAnalyzeInputForContextAttachment,
-  miniCpmVisualAnalyzeInputForWorkspaceFile,
-  miniCpmVisualMediaKindFromPath,
-} from "./miniCpmVisualActionUiModel";
-import { miniCpmVisionDiagnosticsForFailure } from "../../shared/miniCpmVisionDiagnostics";
-import { miniCpmRemoteEndpointReviewChecklistText } from "../../shared/miniCpmRemoteEndpointSecurity";
-import type { AutomationFolderSummary, AutomationScheduleExceptionSummary, AutomationScheduleSummary, AutomationThreadSummary } from "../../shared/automationTypes";
-import type { BrowserCapabilityState, BrowserCredentialSummary, BrowserPickResult, BrowserProfileMode, BrowserRuntimeKind, BrowserScreenshotResult, BrowserUserActionState, SaveBrowserCredentialInput } from "../../shared/browserTypes";
-import type { DesktopEvent, DesktopState, DesktopUpdateState, MenuCommand, ProviderCatalogSettingsCard, ProviderStatus, SendMessageComposerIntent, ThemePreference, ThinkingDisplayMode } from "../../shared/desktopTypes";
-import type { DiagnosticExportResult } from "../../shared/diagnosticTypes";
-import type { LocalDeepResearchInstallProgress, LocalDeepResearchRunHistoryEntry, LocalDeepResearchRunHistoryResult, MessageVoiceState, MiniCpmVisionAnalysisResult, MiniCpmVisionAnalyzeInput, MiniCpmVisionDiagnosticItem, MiniCpmVisionSetupAction, MiniCpmVisionSetupResult, SttMessageMetadata, SttProviderCandidate, SttProviderSetupResult, SttTestAudioResult, SttTranscriptionState, VoiceArtifactRetentionSummary, VoiceOnboardingHostFacts, VoiceProviderCandidate, VoiceProviderVoiceCandidate } from "../../shared/localRuntimeTypes";
-import type { AmbientPermissionGrant, CreateAmbientPermissionGrantInput, PermissionAuditEntry, PermissionGrantScopeKind, PermissionMode, PermissionPromptResponseMode, PermissionRequest, PrivilegedCredentialRequest, SecureInputRequest } from "../../shared/permissionTypes";
-import type { AnswerPlannerDecisionQuestionInput, PlannerDecisionQuestion, PlannerPlanArtifact, PlannerPlanWorkflowState } from "../../shared/plannerTypes";
-import type { AmbientGeneratedCapabilitySummary, AmbientMcpContainerRuntimeManagedInstallProgress, AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilityInstallProgress, AmbientMcpInstalledServerSummary, AmbientMcpInstallPreview, AmbientMcpServerSearchResult, AmbientPluginAuthAccountSummary, AmbientPluginAuthStartResult, AmbientPluginCapabilityDiagnostics, AmbientPluginRegistry, AmbientPluginRuntime, AmbientPluginSourceKind, CapabilityBuilderHistoryEntry, CapabilityBuilderHistoryResult, CodexHostedMarketplaceReport, CodexMarketplaceSourceSummary, CodexPluginCatalog, CodexPluginCompatibilityTier, CodexPluginMcpInspectionCatalog, CodexPluginSummary, FirstPartyGoogleIntegrationState, ManagedDevServerSummary, PiExtensionSandboxCatalog, PiExtensionSandboxInstallPreview, PiExtensionSandboxPackageSummary, PiPackageCatalog, PiPackageInstallScope, PiPackageResourceKind, PiPrivilegedCatalog, PiPrivilegedInstallSummary, PiPrivilegedSecurityScan, PluginMcpRuntimeSnapshot } from "../../shared/pluginTypes";
-import type { AddProjectBoardCardRunFeedbackInput, ApplyProjectBoardDecisionImpactFeedbackInput, ApplyProjectBoardSourceImpactFeedbackInput, AttachProjectBoardLocalTaskMode, CopyProjectBoardSessionToThreadInput, CreateReadyProjectBoardTasksInput, DeferProjectBoardSynthesisSectionsInput, ProjectBoardAddCardsObjectiveProvenance, ProjectBoardCard, ProjectBoardCardCandidateStatus, ProjectBoardCardRunFeedbackSource, ProjectBoardEvent, ProjectBoardExecutionArtifact, ProjectBoardGitProjectionResolution, ProjectBoardGitSyncStatus, ProjectBoardProofDecisionAction, ProjectBoardQuestion, ProjectBoardSource, ProjectBoardSourceChangeState, ProjectBoardSourceKind, ProjectBoardSplitDecisionAction, ProjectBoardSummary, ProjectBoardSynthesisProposal, ProjectBoardSynthesisProposalCardReviewStatus, ProjectBoardSynthesisRun, ProjectBoardSynthesisRunProgressiveRecord, ProjectSummary, RecomputeProjectBoardProofCoverageInput, RefineProjectBoardSynthesisInput, RefreshProjectBoardDecisionDraftsInput, RefreshProjectBoardSourceDraftsInput, RegenerateProjectBoardDecisionDraftsInput, RegenerateProjectBoardSourceDraftsInput, RerunProjectBoardProofInput, ResolveProjectBoardCardPiUpdateInput, ResolveProjectBoardDeliverableIntegrationInput, RetryProjectBoardSynthesisInput, SplitProjectBoardCardInput, SuggestProjectBoardClarificationDefaultsInput, SuggestProjectBoardKickoffDefaultsInput, SuggestProjectBoardProofInput, UpdateProjectBoardCardInput, UpdateProjectBoardSourceInput } from "../../shared/projectBoardTypes";
-import type { TerminalSession } from "../../shared/terminalTypes";
-import type { ChatMessage, CollaborationMode, ContextUsageSnapshot, ExportChatResult, MessageDelivery, RunStatus, RuntimeActivity, ThinkingLevel, ThreadGoal, ThreadSummary, ToolLargeOutputPreview, ToolLongformInputPreview } from "../../shared/threadTypes";
-import type { OrchestrationAutoDispatchStatus, OrchestrationBoard, OrchestrationPrepareResult, OrchestrationRun, OrchestrationTask, RepairOrchestrationWorkflowAction, ResolveOrchestrationWorkflowImpactAction, UpdateOrchestrationWorkflowRawInput, UpdateOrchestrationWorkflowSettingsInput, WorkflowAgentFolderSummary, WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompileAuditSummary, WorkflowCompileProgress, WorkflowConnectorDataRetention, WorkflowConnectorManifestGrant, WorkflowDashboard, WorkflowDiscoveryAccessRequest, WorkflowDiscoveryProgress, WorkflowExplorationProgress, WorkflowExplorationTraceSummary, WorkflowGraphNode, WorkflowLabRun, WorkflowModelCallRecord, WorkflowPluginCapabilityGrant, WorkflowRecordingEditContext, WorkflowRecordingLibraryEntry, WorkflowRecordingReviewDraftUpdate, WorkflowRecordingState, WorkflowRecoveryAction, WorkflowRevisionSummary, WorkflowRunDetail, WorkflowRunEvent, WorkflowRunLimitOverrides, WorkflowRunSummary, WorkflowUserInputResponse, WorkflowVersionSummary } from "../../shared/workflowTypes";
-import type { FileTreeEntry, GitReviewFile, GitReviewSummary, GitSimpleAction, WorkspaceContextReference, WorkspaceFileContent, WorkspaceFileTree, WorkspaceGitStatus, WorkspaceOpenTarget, WorkspaceSearchResult, WorkspaceSearchScope } from "../../shared/workspaceTypes";
-import {
-  projectBoardProofCoverageDrift,
-  projectBoardProofCoverageRecheck,
-  projectBoardLatestProofCoverageRecheckEvent,
-} from "../../shared/projectBoardProofImpact";
-import {
-  DEFAULT_PROJECT_BOARD_SYNTHESIS_STALE_MS,
-  projectBoardSynthesisOutputCapRecovery,
-  projectBoardSynthesisPartialStatus,
-  projectBoardSynthesisSectionStatuses,
-  projectBoardSynthesisStaleRecovery,
-  sectionStatusLabel,
-  type ProjectBoardSectionStatusView,
-} from "../../shared/projectBoardSynthesisRecovery";
-import { AMBIENT_MODEL_OPTIONS, ambientModelLabel } from "../../shared/ambientModels";
-import { resolveMessageDelivery } from "../../shared/messageDelivery";
-import {
-  sttMessageArtifactEntries,
-  sttMessageMetadataFromTranscription,
-  sttMessageMetadataFromUnknown,
-} from "../../shared/sttMessageMetadata";
-import { isRunStatusRunning, RUN_ABORT_ARM_DELAY_MS } from "../../shared/runStatus";
-import {
-  workflowAmbientCliCallSummaries,
-  workflowAmbientCliCapabilityRows,
-  workflowConnectorCallSummaries,
-  workflowRunEventDetailLabels,
-  workflowRunEventSummaryCards,
-  workflowStepSummaries,
-} from "./workflowUiModel";
-import {
-  workflowDiagramInitialViewportNodeIds,
-  workflowGraphDraftOverlayModel,
-  workflowGraphEventCards,
-  workflowLatestDiscoveryGraphChange,
-  workflowLatestRuntimeGraphNodeId,
-  workflowGraphToReactFlow,
-  workflowGraphWithRunEvents,
-  type WorkflowAgentDiagramEdge,
-  type WorkflowAgentDiagramNode,
-  type WorkflowGraphChangeFocus,
-  type WorkflowGraphDraftOverlay,
-  type WorkflowGraphEventCard,
-} from "./workflowAgentGraphUiModel";
-import { findWorkflowGraphNodeReviewActionTarget } from "./workflowGraphNodeReviewRouting";
-import { workflowGraphNodeReviewModel, type WorkflowGraphNodeReviewAction } from "./workflowGraphNodeReviewUiModel";
-import {
-  workflowReviewActionLabel,
-  workflowReviewActionTitle,
-  workflowScheduleCreationModel,
-  workflowScheduleExceptionLedgerItems,
-  workflowScheduleGrantReadinessModel,
-  workflowReviewWorkspaceModel,
-  workflowScheduleRunHistoryItems,
-  workflowThreadScheduleState,
-  type WorkflowDiscoveryContextReviewModel,
-  type WorkflowReviewEvidenceItem,
-  type WorkflowReviewSection,
-  type WorkflowSchedulePanelId,
-  type WorkflowScheduleEditScopeId,
-  type WorkflowThreadScheduleItem,
-  type WorkflowThreadScheduleGrantAction,
-} from "./workflowReviewUiModel";
-import { workflowRevisionCards } from "./workflowRevisionUiModel";
-import { workflowExplorationGateModel } from "./workflowExplorationGateUiModel";
-import { workflowExplorationProgressCard, workflowExplorationTraceCards } from "./workflowExplorationUiModel";
-import { workflowExplorationPreflightModel, type WorkflowExplorationPreflightModel } from "./workflowExplorationPreflightUiModel";
-import {
-  normalizeWorkflowExplorationBudgets,
-  workflowExplorationBudgetWithField,
-  workflowExplorationElapsedBudgetOptions,
-  workflowExplorationRunInput,
-} from "./workflowExplorationBudgetUiModel";
-import { workflowCompileActivityModel, type WorkflowCompileActivityAction } from "./workflowCompileActivityUiModel";
-import { workflowSourceHighlightModel, workflowSourceMappingRows } from "./workflowSourceHighlightUiModel";
-import { workflowArtifactThreadRoute } from "./workflowThreadFirstUiModel";
-import { workflowThreadTranscriptCards, type WorkflowThreadTranscriptCard } from "./workflowThreadTranscriptUiModel";
-import { workflowThreadComposerModel } from "./workflowThreadComposerUiModel";
-import { workflowThreadSessionUiModel } from "./workflowThreadSessionUiModel";
-import {
-  workflowRecorderLegacyCompilerEnabled,
-  workflowRecorderEditWithAmbientModel,
-  workflowRecorderInjectedPlaybookChip,
-  workflowRecorderLibrarySidebarRows,
-  workflowRecorderReviewDraftUpdateFromEditorFields,
-  workflowRecorderReviewEditorFieldsFromDraft,
-  workflowRecorderReviewModel,
-  workflowRecorderStartActionState,
-  workflowRecorderSurfaceModel,
-  type WorkflowRecorderReviewEditorFields,
-} from "./workflowRecorderUiModel";
-import { workflowPersistentStatusModel, type WorkflowPersistentStatusModel, type WorkflowPersistentStatusTarget } from "./workflowPersistentStatusUiModel";
-import { workflowRuntimeInputCards, type WorkflowRuntimeInputCard } from "./workflowRuntimeInputUiModel";
-import { workflowRunOutputCards, type WorkflowRunOutputCard } from "./workflowRunOutputUiModel";
-import { normalizeWorkflowRunsPanelId, workflowRunsPanelTabs, type WorkflowRunsPanelId } from "./workflowRunsPanelUiModel";
-import {
-  workflowDecisionRecoveryAction,
-  workflowGraphRecoveryDecisionCard,
-  workflowRuntimeInputDecisionCard,
-  workflowTotalRuntimePauseDecisionCard,
-  type WorkflowRuntimeDecisionAction,
-} from "./workflowRuntimeDecisionUiModel";
-import { workflowDiagramFollowToggle, workflowDiagramShouldAutoFit, workflowDiagramShouldFollowActiveNode } from "./workflowDiagramViewportUiModel";
-import {
-  normalizeWorkflowBuildPanelId,
-  workflowArtifactPanelIdForBuildPanel,
-  workflowBuildPanelIdForArtifactPanel,
-  workflowBuildPanelTabs,
-  type WorkflowArtifactPanelId,
-  type WorkflowBuildPanelId,
-} from "./workflowArtifactPanelUiModel";
-import { workflowVersionHistoryModel } from "./workflowVersionHistoryUiModel";
-import {
-  DEFAULT_WORKFLOW_FOREGROUND_IDLE_TIMEOUT_MS,
-  DEFAULT_WORKFLOW_FOREGROUND_TOTAL_LIMIT_MODE,
-  DEFAULT_WORKFLOW_SCHEDULE_TOTAL_LIMIT_MODE,
-  workflowExtendTotalRunLimitOverrides,
-  workflowRemoveTotalRunLimitOverrides,
-  workflowRunIdleTimeoutOptions,
-  workflowRunLimitOverridesForSettings,
-  workflowRunLimitSummary,
-  workflowTotalRuntimePauseModel,
-  type WorkflowRunTotalLimitMode,
-} from "./workflowRunLimitsUiModel";
-import type { WorkflowExplorationBudgets } from "../../shared/workflowExplorationBudgets";
-import { workflowDiscoveryAnswerText } from "../../shared/workflowDiscovery";
-import {
-  appendLocalTaskBlocker,
-  localTaskCreateActionState,
-  localTaskBlockerLabels,
-  localTaskBlockerOptions,
-  localTaskEditActionState,
-  latestRunForTask,
-  parseLocalTaskLabels,
-  parseLocalTaskPriority,
-  removeLocalTaskBlocker,
-  sanitizeLocalTaskPriorityInput,
-  scheduleNextRunLabel,
-  schedulePresetLabel,
-  stepLocalTaskPriority,
-  taskTriggerLabels,
-  triggerPreviewLabel,
-  workflowArtifactRevisionRequest,
-  workflowCompileActionState,
-  workflowConnectorAccountOptions,
-  workflowConnectorConsentSummary,
-  decodeWorkflowSourceDrafts,
-  encodeWorkflowSourceDrafts,
-  workflowModelCallReviewSummary,
-  workflowSourceEditDiffSummary,
-  workflowSourceDraftStorageKey,
-  type AutomationSchedulePreset,
-  type AutomationTriggerMode,
-} from "./automationUiModel";
-import {
-  filterGitBranches,
-  gitCommitActionState,
-  gitCreateBranchActionState,
-  gitPullRequestActionState,
-  gitPullRequestReadiness,
-  gitStatusDetail,
-  gitWorkModeSummary,
-} from "./gitUiModel";
-import { isScrolledToBottom, scrollToBottom } from "./scrolling";
-import { applyDocumentAppearance } from "./appearance";
-import {
-  clampSidebarWidth,
-  DEFAULT_SIDEBAR_WIDTH,
-  MAX_SIDEBAR_WIDTH,
-  MIN_SIDEBAR_WIDTH,
-  parseStoredSidebarWidth,
-  SIDEBAR_WIDTH_STORAGE_KEY,
-} from "./sidebarLayout";
-import {
-  buildCapabilityBuilderPrompt,
-  buildFirstRunCapabilityOnboardingPrompt,
-  buildProviderCatalogCardOnboardingPrompt,
-  buildRemoteSurfaceActivationPrompt,
-  buildVoiceProviderCapabilityPrompt,
-  buildCapabilityBuilderHistoryPreviewPrompt,
-  buildCapabilityBuilderHistoryRepairPlanPrompt,
-  buildCapabilityBuilderHistoryReregisterPrompt,
-  buildGeneratedCapabilityRemovalPlanPrompt,
-  buildGeneratedCapabilityUpdatePlanPrompt,
-  buildGeneratedCapabilityValidationPrompt,
-  capabilityBuilderHistoryPreviewActionState,
-  capabilityBuilderHistoryRepairPlanActionState,
-  capabilityBuilderHistoryReregisterActionState,
-  capabilityBuilderHistorySourceActionState,
-  capabilityDiagnosticsActionState,
-  codexImportActionState,
-  codexMarketplaceAddActionState,
-  codexMarketplaceRemoveActionState,
-  defaultCapabilityBuilderLauncherDraft,
-  filterAmbientCapabilities,
-  filterAmbientPluginsBySource,
-  formatAmbientAvailability,
-  formatAmbientCapabilityKind,
-  formatAmbientPluginSourceKind,
-  formatAmbientRuntimeSupport,
-  formatPluginMcpLaunchCommand,
-  formatPluginMcpRuntimeEvent,
-  generatedCapabilityRemovalPlanActionState,
-  generatedCapabilitySummaryFromHistoryEntry,
-  generatedCapabilitySourceActionState,
-  generatedCapabilityUpdatePlanActionState,
-  generatedCapabilityValidationActionState,
-  googleWorkspaceAccountRows,
-  googleWorkspaceActionState,
-  googleWorkspaceConnectorLabel,
-  googleWorkspaceStatusItems,
-  googleWorkspaceValidationButtonView,
-  googleWorkspaceValidationFeedbackForAccount,
-  groupCodexImportCandidates,
-  mcpContainerRuntimeDetailRows,
-  mcpContainerRuntimeDiagnosticsActionState,
-  mcpContainerRuntimeInstallActionViews,
-  mcpContainerRuntimePrimaryActionLabel,
-  mcpContainerRuntimeSetupResumeRows,
-  mcpContainerRuntimeShouldOpenStartupPanel,
-  mcpContainerRuntimeStatusLabel,
-  mcpContainerRuntimeTone,
-  mcpDefaultCapabilityInstallActionState,
-  mcpDefaultCapabilityRuntimeHandoffCandidate,
-  mcpInstalledServerStatusLabel,
-  mcpServerInstallActionState,
-  mcpServerSearchResultSubtitle,
-  mcpServerUninstallActionState,
-  mcpToolReviewAcceptActionState,
-  piExtensionSandboxUninstallActionState,
-  type AmbientPluginRuntimeFilter,
-  type AmbientPluginSourceFilter,
-  type CapabilityBuilderLauncherDraft,
-  type GoogleWorkspaceValidationFeedback,
-  piPackageEnableActionState,
-  piPackageInstallActionState,
-  piPackageUninstallActionState,
-  piPrivilegedDisableActionState,
-  piPrivilegedUninstallActionState,
-  pluginAuthCompleteActionState,
-  pluginDetailsActionState,
-  providerCatalogSettingsCardsForArea,
-  providerCatalogSettingsCardView,
-  workflowPluginRequirementRows,
-} from "./pluginUiModel";
-import {
-  welcomeCoreSetupSections,
-  welcomeOnboardingPageKindForMessages,
-  welcomeOnboardingPageShouldOpenAtTop,
-  type WelcomeSetupSection,
-} from "./welcomeSetupUiModel";
-import { welcomeOnboardingPageKindFromMetadata, type WelcomeOnboardingPageKind } from "../../shared/welcomeOnboarding";
-import { googleWorkspaceGrantReview } from "./googleWorkspaceGrantUiModel";
-import { permissionGrantRegistryModel, permissionGrantRevocationImpact, workflowPermissionGrantRegistryModel } from "./permissionGrantRegistryUiModel";
-import {
-  artifactMediaKindFromPath,
-  collectArtifactPathHints,
-  mediaPreviewUnavailableMessage,
-  parseToolMessage,
-  resolveInlineArtifactPath,
-  toolLargeOutputPreviewViewModel,
-  toolLongformInputPreviewDisplaySummary,
-  toolMessagingConversationDirectorySetupCardViewModel,
-  toolMessagingRemoteSurfaceActivationCardViewModel,
-  type ArtifactMediaKind,
-  type ArtifactPathHints,
-  type ToolEditPreviewData,
-  type ToolInstallRoutePreviewData,
-  type ToolMessagingConversationDirectorySetupPreviewData,
-  type ToolMessagingRemoteSurfaceActivationPreviewData,
-  type ToolSttPreviewData,
-  type ToolTelegramSessionSetupPreviewData,
-  type ToolVoicePreviewData,
-} from "./toolMessageUiModel";
-import {
-  parseCollaborationSlashCommand,
-  parseSecretSlashCommand,
-  plannerCanRefineWithAdditionalFeedback,
-  plannerDecisionAnswerStatusLabel,
-  plannerDecisionAnswerText,
-  plannerDecisionQuestionsComplete,
-  plannerDurableRevisionPrompt,
-  plannerImplementationGoalMode,
-  plannerImplementationPrompt,
-  plannerNextDecisionQuestion,
-  plannerRefinementPrompt,
-  plannerRequiredDecisionQuestionsAnswered,
-  plannerShouldAutoFinalizeAfterAnswer,
-  plannerSortedOptions,
-  plannerWorkflowStateLabel,
-} from "./plannerModeUiModel";
-import {
-  messageContentWithoutDiagnostic,
-  messageDiagnosticCardModel,
-} from "./messageDiagnosticUiModel";
-import { mergeRunActivityLine, normalizeRunActivityLineText } from "./runActivityUiModel";
-import {
-  shouldClearTransientErrorForActiveScope,
-  type TransientErrorScope,
-} from "./transientErrorUiModel";
-import {
-  isThinkingMessageForDisplay,
-  shouldShowRunStatusCard,
-  thinkingDisplayModeLabel,
-  transientThinkingActivityLinesForDisplay,
-  visibleMessagesForThinkingDisplay,
-  visibleRunActivityLinesForThinkingDisplay,
-} from "./thinkingDisplayUiModel";
-import "./styles.css";
-import {
-  thinkingDisplayOptions,
   ApiKeyStatus,
-  LinkContextMenuState,
-  UtilityPanel,
-  SettingsFocusRequest,
-  ArtifactPreviewRequest,
-  GitPanelTabRequest,
-  GitConfirmation,
-  VoiceProviderCacheStatus,
-  VoiceProviderCacheActivity,
-  VoiceCatalogRefreshState,
-  SttProviderCacheStatus,
-  SttProviderCacheActivity,
-  SttProviderSetupUiState,
-  MiniCpmVisionSetupUiState,
-  LocalDeepResearchSetupUiState,
-  LocalDeepResearchRunHistoryUiState,
-  SttMicTestUiState,
-  InfoTooltip,
-  ProviderCatalogSettingsCards,
-  LocalDeepResearchDiagnosticsList,
-  formatDurationMs,
-  formatBytes,
-  InlineArtifactMedia,
-  RichText,
-  externalLinkMenuLabel,
-  workspaceAbsoluteArtifactPath,
-  isAbsoluteFilePath,
-  isHtmlArtifactPath,
-  stripLinkLineSuffix,
-  preferredWorkspaceOpenTarget,
-  ambientBrowserRuntimeForUrl,
   desktopUpdateStatusText,
-  HTML_PREVIEW_AUTO_PAUSE_MS,
-  formatHtmlPreviewAutoPauseLabel,
-  contextAttachmentKey,
-  clampNumber,
-  contextUsagePresentation,
-  PermissionFullAccessReceiptList,
-  RightPanel,
-  GitConfirmationDialog,
-  DiffOutput,
   formatPanelFileSize,
-  LazyHtmlPreview,
-  OpenTargetIcon,
-  formatTimelineTime,
+  LocalDeepResearchDiagnosticsList,
+  LocalDeepResearchSetupUiState,
   truncateUiText,
-  formatTaskState,
 } from "./RightPanel";
-import {
-  activePaneTooltip,
-  automationHelpText,
-  automationIndicatorKind,
-  type AutomationPane,
-  AutomationsWorkspace,
-  chatExportStatusMessage,
-  formatDelay,
-  formatOrchestrationRunStatus,
-  formatRunDuration,
-  ProofEvidencePathLink,
-  ProofOfWorkPreview,
-  RunTimeline,
-  type ThreadIndicatorKind,
-  useRunningClock,
-  workflowRecorderSurface
-} from "./AutomationsWorkspace";
-import {
-  ProjectBoardWorkspace,
-} from "./ProjectBoardWorkspace";
+import "./styles.css";
 
-
+export { CommandPalette, type CommandPaletteItem } from "./AppCommandPalette";
 
 export const apiKeyUrlLabel = "app.ambient.xyz/keys";
-
 
 export type AmbientCliSecretDialogState = {
   packageId?: string;
@@ -706,14 +54,6 @@ export type AmbientCliSecretDialogState = {
   status?: ApiKeyStatus;
   busy: boolean;
 };
-
-export type CommandPaletteItem = {
-  id: string;
-  label: string;
-  detail: string;
-  run: () => void | Promise<void>;
-};
-
 
 export function DesktopUpdateNotice({
   update,
@@ -749,7 +89,11 @@ export function DesktopUpdateNotice({
   return (
     <div className="desktop-update-anchor">
       <button type="button" className="desktop-update-pill" onClick={onToggle} aria-expanded={open}>
-        {update.status === "downloading" || update.status === "installing" ? <LoaderCircle size={14} className="spin" /> : <Download size={14} />}
+        {update.status === "downloading" || update.status === "installing" ? (
+          <LoaderCircle size={14} className="spin" />
+        ) : (
+          <Download size={14} />
+        )}
         <span>{pillLabel}</span>
       </button>
       {open && (
@@ -805,84 +149,6 @@ export function DesktopUpdateNotice({
   );
 }
 
-
-export function CommandPalette({
-  query,
-  commands,
-  onQueryChange,
-  onRun,
-  onClose,
-}: {
-  query: string;
-  commands: CommandPaletteItem[];
-  onQueryChange: (query: string) => void;
-  onRun: (command: CommandPaletteItem) => void;
-  onClose: () => void;
-}) {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const filteredCommands = commands.filter((command) =>
-    `${command.label} ${command.detail}`.toLowerCase().includes(query.trim().toLowerCase()),
-  );
-  const selectedCommand = filteredCommands[Math.min(selectedIndex, filteredCommands.length - 1)];
-
-  useEffect(() => {
-    setSelectedIndex(0);
-  }, [query]);
-
-  return (
-    <div className="modal-backdrop command-backdrop" onMouseDown={onClose}>
-      <section className="command-palette" role="dialog" aria-modal="true" aria-label="Command palette" onMouseDown={(event) => event.stopPropagation()}>
-        <div className="command-input-row">
-          <Command size={17} />
-          <input
-            value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "ArrowDown") {
-                event.preventDefault();
-                setSelectedIndex((index) => Math.min(index + 1, Math.max(filteredCommands.length - 1, 0)));
-              }
-              if (event.key === "ArrowUp") {
-                event.preventDefault();
-                setSelectedIndex((index) => Math.max(index - 1, 0));
-              }
-              if (event.key === "Enter" && selectedCommand) {
-                event.preventDefault();
-                onRun(selectedCommand);
-              }
-              if (event.key === "Escape") {
-                event.preventDefault();
-                onClose();
-              }
-            }}
-            placeholder="Command"
-            autoFocus
-          />
-        </div>
-        <div className="command-list">
-          {filteredCommands.length > 0 ? (
-            filteredCommands.map((command, index) => (
-              <button
-                type="button"
-                className={`command-row ${index === selectedIndex ? "selected" : ""}`}
-                key={command.id}
-                onMouseEnter={() => setSelectedIndex(index)}
-                onClick={() => onRun(command)}
-              >
-                <strong>{command.label}</strong>
-                <span>{command.detail}</span>
-              </button>
-            ))
-          ) : (
-            <p>No matches.</p>
-          )}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-
 export function LocalDeepResearchFollowupDialog({
   setup,
   q8Override,
@@ -910,7 +176,13 @@ export function LocalDeepResearchFollowupDialog({
     : "Scrapling is ready for isolated page reads. Ambient can now add Local Deep Research using LiteResearcher, the current web research provider order, and the shared llama.cpp runtime.";
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
-      <section className="mcp-runtime-dialog tone-info" role="dialog" aria-modal="true" aria-labelledby="local-deep-research-followup-title" onMouseDown={(event) => event.stopPropagation()}>
+      <section
+        className="mcp-runtime-dialog tone-info"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="local-deep-research-followup-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <header className="permission-dialog-header">
           <span className="dialog-icon">
             <BookOpenText size={20} />
@@ -923,7 +195,9 @@ export function LocalDeepResearchFollowupDialog({
         <div className="mcp-runtime-dialog-scroll">
           <div className="mcp-runtime-dialog-status">
             <strong>
-              {setup.status === "running" ? "Checking Local Deep Research" : model?.statusLabel ?? setup.message ?? "Local Deep Research setup"}
+              {setup.status === "running"
+                ? "Checking Local Deep Research"
+                : (model?.statusLabel ?? setup.message ?? "Local Deep Research setup")}
             </strong>
             <span>
               {setup.result
@@ -932,10 +206,17 @@ export function LocalDeepResearchFollowupDialog({
             </span>
           </div>
           {setup.message && setup.status === "error" && <p className="panel-status error">{setup.message}</p>}
-          {progress && <p className={`panel-status ${progress.tone === "error" ? "error" : progress.tone === "success" ? "success" : "info"}`}>{progress.title}{progress.detail ? ` ${progress.detail}` : ""}</p>}
+          {progress && (
+            <p className={`panel-status ${progress.tone === "error" ? "error" : progress.tone === "success" ? "success" : "info"}`}>
+              {progress.title}
+              {progress.detail ? ` ${progress.detail}` : ""}
+            </p>
+          )}
           {model && (
             <div className="plugin-note-list">
-              {model.detailLabels.slice(0, 10).map((label) => <span key={label}>{label}</span>)}
+              {model.detailLabels.slice(0, 10).map((label) => (
+                <span key={label}>{label}</span>
+              ))}
             </div>
           )}
           <label className="setting-toggle">
@@ -956,18 +237,21 @@ export function LocalDeepResearchFollowupDialog({
           <button type="button" className="secondary-button" onClick={onOpenSettings}>
             Open Search & Web settings
           </button>
-          {actions.filter((action) => action !== primaryAction).slice(0, 2).map((action) => (
-            <button
-              type="button"
-              className="secondary-button"
-              key={action.action}
-              disabled={setup.status === "running"}
-              title={action.title}
-              onClick={() => onSetup(action.action)}
-            >
-              {action.label}
-            </button>
-          ))}
+          {actions
+            .filter((action) => action !== primaryAction)
+            .slice(0, 2)
+            .map((action) => (
+              <button
+                type="button"
+                className="secondary-button"
+                key={action.action}
+                disabled={setup.status === "running"}
+                title={action.title}
+                onClick={() => onSetup(action.action)}
+              >
+                {action.label}
+              </button>
+            ))}
           {primaryAction && (
             <button
               type="button"
@@ -984,7 +268,6 @@ export function LocalDeepResearchFollowupDialog({
     </div>
   );
 }
-
 
 export function PermissionDialog({
   request,
@@ -1050,7 +333,6 @@ export function PermissionDialog({
   );
 }
 
-
 export function PermissionFullAccessNote({ enabled, onRequestFullAccess }: { enabled: boolean; onRequestFullAccess: () => void }) {
   return (
     <div className="permission-full-access-note">
@@ -1073,13 +355,24 @@ export function PermissionFullAccessNote({ enabled, onRequestFullAccess }: { ena
   );
 }
 
-
-export function PrivilegedCredentialDialog({ request, onRespond }: { request: PrivilegedCredentialRequest; onRespond: (credential?: string) => void }) {
+export function PrivilegedCredentialDialog({
+  request,
+  onRespond,
+}: {
+  request: PrivilegedCredentialRequest;
+  onRespond: (credential?: string) => void;
+}) {
   const [credential, setCredential] = useState("");
   const trimmed = credential.trim();
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={() => onRespond(undefined)}>
-      <section className="permission-dialog" role="dialog" aria-modal="true" aria-labelledby="privileged-credential-title" onMouseDown={(event) => event.stopPropagation()}>
+      <section
+        className="permission-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="privileged-credential-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <header className="permission-dialog-header">
           <span className="dialog-icon danger">
             <Shield size={20} />
@@ -1106,7 +399,9 @@ export function PrivilegedCredentialDialog({ request, onRespond }: { request: Pr
             }}
           />
         </label>
-        <div className="api-key-status info">The credential is used once in memory and is not visible to Pi, logs, descriptors, or artifacts.</div>
+        <div className="api-key-status info">
+          The credential is used once in memory and is not visible to Pi, logs, descriptors, or artifacts.
+        </div>
         <div className="permission-actions">
           <button type="button" className="secondary-button" onClick={() => onRespond(undefined)}>
             Cancel
@@ -1120,13 +415,18 @@ export function PrivilegedCredentialDialog({ request, onRespond }: { request: Pr
   );
 }
 
-
 export function SecureInputDialog({ request, onRespond }: { request: SecureInputRequest; onRespond: (value?: string) => void }) {
   const [value, setValue] = useState("");
   const trimmed = value.trim();
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={() => onRespond(undefined)}>
-      <section className="permission-dialog" role="dialog" aria-modal="true" aria-labelledby="secure-input-title" onMouseDown={(event) => event.stopPropagation()}>
+      <section
+        className="permission-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="secure-input-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <header className="permission-dialog-header">
           <span className="dialog-icon">
             <Shield size={20} />
@@ -1137,7 +437,9 @@ export function SecureInputDialog({ request, onRespond }: { request: SecureInput
           </div>
         </header>
         <div className="permission-detail">
-          <span>{request.providerId ? `${request.providerId}${request.profileId ? ` · ${request.profileId}` : ""}` : request.inputKind}</span>
+          <span>
+            {request.providerId ? `${request.providerId}${request.profileId ? ` · ${request.profileId}` : ""}` : request.inputKind}
+          </span>
           <pre>{request.detail}</pre>
         </div>
         <label className="api-key-field">
@@ -1155,7 +457,9 @@ export function SecureInputDialog({ request, onRespond }: { request: SecureInput
             }}
           />
         </label>
-        <div className="api-key-status info">The value is used once in memory and is not visible to Pi, logs, descriptors, or artifacts.</div>
+        <div className="api-key-status info">
+          The value is used once in memory and is not visible to Pi, logs, descriptors, or artifacts.
+        </div>
         <div className="permission-actions">
           <button type="button" className="secondary-button" onClick={() => onRespond(undefined)}>
             Cancel
@@ -1168,7 +472,6 @@ export function SecureInputDialog({ request, onRespond }: { request: SecureInput
     </div>
   );
 }
-
 
 export function ApiKeyDialog({
   provider,
@@ -1205,7 +508,13 @@ export function ApiKeyDialog({
   const providerLabel = provider.providerLabel ?? "Ambient";
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
-      <section className="api-dialog" role="dialog" aria-modal="true" aria-labelledby="api-dialog-title" onMouseDown={(event) => event.stopPropagation()}>
+      <section
+        className="api-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="api-dialog-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <header className="api-dialog-header">
           <span className="dialog-icon">
             <KeyRound size={20} />
@@ -1280,7 +589,13 @@ export function ApiKeyDialog({
             <button type="button" className="secondary-button" onClick={onClose}>
               Close
             </button>
-            <button type="button" className="primary-button" data-ui-required-action="api-key-save" onClick={canUseClipboard ? onUseClipboard : onSave} disabled={busy || (!value.trim() && !canUseClipboard)}>
+            <button
+              type="button"
+              className="primary-button"
+              data-ui-required-action="api-key-save"
+              onClick={canUseClipboard ? onUseClipboard : onSave}
+              disabled={busy || (!value.trim() && !canUseClipboard)}
+            >
               {canUseClipboard ? "Use clipboard" : "Save"}
             </button>
           </div>
@@ -1289,7 +604,6 @@ export function ApiKeyDialog({
     </div>
   );
 }
-
 
 export function AmbientCliSecretDialog({
   dialog,
@@ -1309,14 +623,26 @@ export function AmbientCliSecretDialog({
   const isMcpSecret = Boolean(dialog.mcpServerId || dialog.mcpCandidateId || dialog.mcpCandidateRef);
   return (
     <div className="modal-backdrop" onMouseDown={onClose}>
-      <section className="api-dialog" role="dialog" aria-modal="true" aria-labelledby="ambient-cli-secret-dialog-title" onMouseDown={(event) => event.stopPropagation()}>
+      <section
+        className="api-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ambient-cli-secret-dialog-title"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <header className="api-dialog-header">
           <span className="dialog-icon">
             <KeyRound size={20} />
           </span>
           <div>
             <h2 id="ambient-cli-secret-dialog-title">{isMcpSecret ? "Add MCP Secret" : "Add CLI Secret"}</h2>
-            <p>{isMcpSecret ? "Save a secret for an MCP server without sending it through chat." : dialog.builderSourcePath ? "Save a secret for a generated capability draft without sending it through chat." : "Save a secret for an installed Ambient CLI package without sending it through chat."}</p>
+            <p>
+              {isMcpSecret
+                ? "Save a secret for an MCP server without sending it through chat."
+                : dialog.builderSourcePath
+                  ? "Save a secret for a generated capability draft without sending it through chat."
+                  : "Save a secret for an installed Ambient CLI package without sending it through chat."}
+            </p>
           </div>
         </header>
 
@@ -1396,7 +722,6 @@ export function AmbientCliSecretDialog({
     </div>
   );
 }
-
 
 export function shouldShowUpdateNotice(update: DesktopUpdateState): boolean {
   if (!update.enabled) return false;

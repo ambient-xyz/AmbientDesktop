@@ -1,10 +1,12 @@
 import {
+  ambientCliWorkspaceProviderMarkerPath as ambientCliWorkspaceProviderMarkerPathFromAmbientCli,
   describeAmbientCliPackage as describeAmbientCliPackageFromAmbientCli,
   discoverAmbientCliEmbeddingProviders as discoverAmbientCliEmbeddingProvidersFromAmbientCli,
   discoverAmbientCliPackages as discoverAmbientCliPackagesFromAmbientCli,
   discoverAmbientCliSttProviders as discoverAmbientCliSttProvidersFromAmbientCli,
   discoverAmbientCliVoiceProviders as discoverAmbientCliVoiceProvidersFromAmbientCli,
   ensureFirstPartyAmbientCliPackages as ensureFirstPartyAmbientCliPackagesFromAmbientCli,
+  hasAmbientCliWorkspaceProviderDiscoverySignal as hasAmbientCliWorkspaceProviderDiscoverySignalFromAmbientCli,
   hydrateAmbientCliPackageSummaries as hydrateAmbientCliPackageSummariesFromAmbientCli,
   installAmbientCliPackagePiCatalogSource as installAmbientCliPackagePiCatalogSourceFromAmbientCli,
   installAmbientCliPackageSource as installAmbientCliPackageSourceFromAmbientCli,
@@ -38,6 +40,8 @@ import type {
   UninstallAmbientCliPackageInput as UninstallAmbientCliPackageInputFromAmbientCli,
 } from "../ambient-cli/ambientCliAgentRuntimeContract";
 
+export const ambientCliWorkspaceProviderMarkerPath =
+  ambientCliWorkspaceProviderMarkerPathFromAmbientCli;
 export const describeAmbientCliPackage = describeAmbientCliPackageFromAmbientCli;
 export const discoverAmbientCliEmbeddingProviders =
   discoverAmbientCliEmbeddingProvidersFromAmbientCli;
@@ -48,6 +52,8 @@ export const discoverAmbientCliVoiceProviders =
   discoverAmbientCliVoiceProvidersFromAmbientCli;
 export const ensureFirstPartyAmbientCliPackages =
   ensureFirstPartyAmbientCliPackagesFromAmbientCli;
+export const hasAmbientCliWorkspaceProviderDiscoverySignal =
+  hasAmbientCliWorkspaceProviderDiscoverySignalFromAmbientCli;
 export const hydrateAmbientCliPackageSummaries =
   hydrateAmbientCliPackageSummariesFromAmbientCli;
 export const installAmbientCliPackagePiCatalogSource =

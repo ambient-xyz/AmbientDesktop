@@ -3,7 +3,7 @@ import { opendir, readdir, stat } from "node:fs/promises";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { isPathInside } from "./capabilityBuilderSessionFacade";
 import type { ToolLargeOutputPreview, ToolLargeOutputPreviewItem } from "../../shared/threadTypes";
-import { materializeTextOutput, type MaterializedTextOutput } from "../tool-runtime/toolOutputArtifacts";
+import { materializeTextOutput, type MaterializedTextOutput } from "./capabilityBuilderToolRuntimeFacade";
 import type { CapabilityBuilderPreviewInput, CapabilityBuilderPreviewResult, CapabilityBuilderSourceRef } from "./capabilityBuilder";
 
 const builderListDefaultMaxEntries = 200;

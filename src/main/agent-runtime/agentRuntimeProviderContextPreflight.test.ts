@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { materializeTextOutput, materializedTextNotice } from "../tool-runtime/toolOutputArtifacts";
+import { materializeTextOutput, materializedTextNotice } from "./agentRuntimeToolRuntimeFacade";
 
 import {
   createProviderCallContextPreflightExtension,

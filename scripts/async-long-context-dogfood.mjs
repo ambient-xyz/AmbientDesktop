@@ -13,7 +13,7 @@ const repoRoot = process.cwd();
 const resultsDir = join(repoRoot, "test-results", "async-long-context-dogfood");
 const latestArtifactPath = join(resultsDir, "latest.json");
 const DEFAULT_DOGFOOD_PROVIDER = "ambient";
-const DEFAULT_DOGFOOD_MODEL = "moonshotai/kimi-k2.7-code";
+const DEFAULT_DOGFOOD_MODEL = "example/model-id";
 const cdpCommandTimeoutMs = 10_000;
 const gutenbergFiles = [
   {

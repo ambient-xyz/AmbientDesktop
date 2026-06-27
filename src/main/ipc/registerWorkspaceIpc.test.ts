@@ -505,40 +505,35 @@ describe("registerWorkspaceGitStatusIpc", () => {
     expect(deps.getWorkspaceGitStatus).toHaveBeenCalledWith(context.workspacePath);
   });
 
-  it("creates a checkpoint before switching dirty repositories to another branch", async () => {
+  it("switches dirty repositories without creating a checkpoint", async () => {
     const status = sampleWorkspaceGitStatus({ branch: "main", dirtyCount: 2 });
     const switchedStatus = sampleWorkspaceGitStatus({ branch: "feature", dirtyCount: 0 });
     const { context, deps, invoke } = registerWorkspaceGitStatusWithFakes({ status, switchedStatus });
 
     await expect(invoke("workspace:switch-branch", "feature")).resolves.toEqual(switchedStatus);
 
-    expect(deps.getWorkspaceGitStatus).toHaveBeenCalledWith(context.workspacePath);
-    expect(deps.createAndRecordPreGitActionCheckpoint).toHaveBeenCalledWith(
-      "Before switching branches with local changes.",
-      context.thread,
-      context.targetStore,
-    );
+    expect(deps.getWorkspaceGitStatus).not.toHaveBeenCalled();
     expect(deps.switchWorkspaceBranch).toHaveBeenCalledWith(context.workspacePath, "feature");
   });
 
-  it("switches branches without a checkpoint when there are no dirty files", async () => {
+  it("switches clean repositories without creating a checkpoint", async () => {
     const status = sampleWorkspaceGitStatus({ branch: "main", dirtyCount: 0 });
     const switchedStatus = sampleWorkspaceGitStatus({ branch: "feature", dirtyCount: 0 });
     const { deps, invoke } = registerWorkspaceGitStatusWithFakes({ status, switchedStatus });
 
     await expect(invoke("workspace:switch-branch", "feature")).resolves.toEqual(switchedStatus);
 
-    expect(deps.createAndRecordPreGitActionCheckpoint).not.toHaveBeenCalled();
+    expect(deps.getWorkspaceGitStatus).not.toHaveBeenCalled();
     expect(deps.switchWorkspaceBranch).toHaveBeenCalledWith("/tmp/workspace", "feature");
   });
 
-  it("does not checkpoint when switching to the current branch", async () => {
+  it("switches to the requested branch without pre-checkpointing", async () => {
     const status = sampleWorkspaceGitStatus({ branch: "main", dirtyCount: 3 });
     const { deps, invoke } = registerWorkspaceGitStatusWithFakes({ status });
 
     await expect(invoke("workspace:switch-branch", "main")).resolves.toEqual(status);
 
-    expect(deps.createAndRecordPreGitActionCheckpoint).not.toHaveBeenCalled();
+    expect(deps.getWorkspaceGitStatus).not.toHaveBeenCalled();
     expect(deps.switchWorkspaceBranch).toHaveBeenCalledWith("/tmp/workspace", "main");
   });
 
@@ -866,7 +861,6 @@ function registerWorkspaceGitStatusWithFakes({
     getWorkspaceDiff: vi.fn(async () => diff),
     getWorkspaceGitStatus: vi.fn(async () => status),
     switchWorkspaceBranch: vi.fn(async () => switchedStatus),
-    createAndRecordPreGitActionCheckpoint: vi.fn(async () => undefined),
   } satisfies RegisterWorkspaceGitStatusIpcDependencies<WorkspaceGitStatusContext<{ id: string }, { id: string; workspacePath: string }>>;
   registerWorkspaceGitStatusIpc(deps);
 

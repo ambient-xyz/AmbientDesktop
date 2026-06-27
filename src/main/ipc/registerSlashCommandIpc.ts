@@ -13,12 +13,12 @@ import type {
   WorkflowRecordingLibraryDescription,
   WorkflowRecordingLibraryEntry,
 } from "../../shared/workflowTypes";
-import type { ProjectRuntimeHost as ProjectRuntimeHostContract } from "../project-runtime/projectRuntimeHost";
 import { buildCallableWorkflowRegistry } from "./ipcCallableWorkflowFacade";
 import {
   searchAmbientCliCapabilities,
   type AmbientCliCapabilitySearchInput,
 } from "./ipcAmbientCliFacade";
+import type { ProjectRuntimeHost as ProjectRuntimeHostContract } from "./ipcProjectRuntimeFacade";
 import {
   buildSlashCommandSearchResponse,
   describeSlashCommandCatalogEntry,

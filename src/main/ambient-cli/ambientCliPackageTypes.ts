@@ -4,8 +4,12 @@ import type {
   VoiceProviderCloningMetadata,
   VoiceProviderDiscoveryMetadata,
 } from "../../shared/localRuntimeTypes";
-import type { CommandDevicePolicy, CommandDeviceSelection, CommandTimeoutProfile } from "../tool-runtime/commandExecutionProfiles";
-import type { MaterializedTextOutput } from "../tool-runtime/toolRuntimeAmbientCliContract";
+import type {
+  CommandDevicePolicy,
+  CommandDeviceSelection,
+  CommandTimeoutProfile,
+  MaterializedTextOutput,
+} from "./ambientCliToolRuntimeFacade";
 import type { AmbientCliPiCatalogResolution } from "./ambientCliPiCatalogAdapter";
 import { ambientCliSkillSummarySchemaVersion } from "./ambientCliPackageSkillSummaries";
 

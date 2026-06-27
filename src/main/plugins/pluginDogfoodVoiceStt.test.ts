@@ -6,7 +6,7 @@ import { promisify } from "node:util";
 import { safeStorage } from "electron";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
-import { BrowserCredentialStore, BrowserService } from "../browser/browserAgentRuntimeContract";
+import { BrowserCredentialStore, BrowserService } from "./pluginsBrowserDogfoodFacade";
 import { setupQwen3AsrProvider } from "../stt/sttProviderInstaller";
 import { ProjectStore } from "./pluginsProjectStoreFacade";
 import { ensureFirstPartyAmbientCliPackages } from "./pluginsAmbientCliFacade";
