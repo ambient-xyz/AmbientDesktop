@@ -766,14 +766,14 @@ async function readDogfoodProviderCredentialEnv() {
       process.env.GMI_API_KEY,
     ], [
       process.env.GMI_CLOUD_API_KEY_FILE,
-      join(repoRoot, "gmicloud-api-key.txt"),
-      join(dirname(repoRoot), "gmicloud-api-key.txt"),
-      join(homedir(), "gmicloud-api-key.txt"),
-      join(dirname(repoRoot), "ambientCoder", "gmicloud-api-key.txt"),
-      join(homedir(), "ambientCoder", "gmicloud-api-key.txt"),
-      join(homedir(), "Documents", "ambientCoder", "gmicloud-api-key.txt"),
-      join(homedir(), "Documents", "New project 3", "gmicloud-api-key.txt"),
-      "/Users/example/Documents/ambientCoder/gmicloud-api-key.txt",
+      join(repoRoot, "ignored provider key files"),
+      join(dirname(repoRoot), "ignored provider key files"),
+      join(homedir(), "ignored provider key files"),
+      join(dirname(repoRoot), "ambientCoder", "ignored provider key files"),
+      join(homedir(), "ambientCoder", "ignored provider key files"),
+      join(homedir(), "Documents", "ambientCoder", "ignored provider key files"),
+      join(homedir(), "Documents", "New project 3", "ignored provider key files"),
+      "/Users/example/Documents/ambientCoder/ignored provider key files",
     ]);
     return key ? { GMI_CLOUD_API_KEY: key, GMI_API_KEY: key } : {};
   }
@@ -785,17 +785,17 @@ async function readDogfoodProviderCredentialEnv() {
     process.env.AMBIENT_API_KEY_FILE,
     process.env.AMBIENT_AGENT_AMBIENT_API_KEY_FILE,
     join(repoRoot, "ambient_api_key_u.txt"),
-    join(repoRoot, "ambient_api_key.txt"),
+    join(repoRoot, "ignored provider key files"),
     join(dirname(repoRoot), "ambient_api_key_u.txt"),
-    join(dirname(repoRoot), "ambient_api_key.txt"),
+    join(dirname(repoRoot), "ignored provider key files"),
     join(homedir(), "ambient_api_key_u.txt"),
-    join(homedir(), "ambient_api_key.txt"),
+    join(homedir(), "ignored provider key files"),
     join(homedir(), "Documents", "ambientCoder", "ambient_api_key_u.txt"),
-    join(homedir(), "Documents", "ambientCoder", "ambient_api_key.txt"),
+    join(homedir(), "Documents", "ambientCoder", "ignored provider key files"),
     join(homedir(), "Documents", "New project 3", "ambient_api_key_u.txt"),
-    join(homedir(), "Documents", "New project 3", "ambient_api_key.txt"),
+    join(homedir(), "Documents", "New project 3", "ignored provider key files"),
     "/Users/example/Documents/ambientCoder/ambient_api_key_u.txt",
-    "/Users/example/Documents/ambientCoder/ambient_api_key.txt",
+    "/Users/example/Documents/ambientCoder/ignored provider key files",
   ]);
   return key ? { AMBIENT_API_KEY: key, AMBIENT_AGENT_AMBIENT_API_KEY: key } : {};
 }
@@ -818,9 +818,9 @@ async function readFirstCredential(envValues, fileCandidates) {
 
 function dogfoodProviderCredentialHelp() {
   if (dogfoodProviderKind() === "gmi-cloud") {
-    return "GMI_CLOUD_API_KEY, GMI_API_KEY, GMI_CLOUD_API_KEY_FILE, or local gmicloud-api-key.txt";
+    return "GMI_CLOUD_API_KEY, GMI_API_KEY, GMI_CLOUD_API_KEY_FILE, or local ignored provider key files";
   }
-  return "AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, AMBIENT_AGENT_AMBIENT_API_KEY_FILE, or local ambient_api_key.txt / ambient_api_key_u.txt";
+  return "AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, AMBIENT_AGENT_AMBIENT_API_KEY_FILE, or local ignored provider key files / ambient_api_key_u.txt";
 }
 
 function cleanChildEnv(env) {

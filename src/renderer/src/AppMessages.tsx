@@ -51,6 +51,7 @@ export {
   sttMetadataSummary,
 } from "./AppMessageAdjunctPanels";
 export {
+  assistantVisibleTextIsStreaming,
   conciseStreamingActivityText,
   contextReferencesFromMetadata,
   countTextMatches,

@@ -1,4 +1,4 @@
-import { Plug, Plus, Shield, Zap } from "lucide-react";
+import { Plug, Plus, Shield, X, Zap } from "lucide-react";
 import type { AmbientMcpContainerRuntimeLifecycleAction, AmbientMcpContainerRuntimeLifecyclePreview, AmbientMcpContainerRuntimeLifecycleProgress, AmbientMcpContainerRuntimeLifecycleResult, AmbientMcpContainerRuntimeManagedInstallProgress, AmbientMcpContainerRuntimeStatus, AmbientMcpDefaultCapabilityInstallInput, AmbientMcpDefaultCapabilityInstallProgress } from "../../shared/pluginTypes";
 import {
   mcpContainerRuntimeDetailRows,
@@ -97,6 +97,9 @@ export function McpContainerRuntimeDialog({
               Ambient uses Docker or Podman through ToolHive to isolate MCP plugins and browser-backed web research tools from your user account, files, browser data, and secrets.
             </p>
           </div>
+          <button type="button" className="dialog-close-button" onClick={onClose} aria-label="Close MCP runtime setup">
+            <X size={18} aria-hidden="true" />
+          </button>
         </header>
         <div className="mcp-runtime-dialog-scroll">
           <div className="mcp-runtime-dialog-status">

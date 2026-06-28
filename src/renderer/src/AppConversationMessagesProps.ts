@@ -27,6 +27,7 @@ import type { useAppWorkflowRuntimeState } from "./AppWorkflowRuntimeState";
 import type { createAppWorkspaceNavigationControls } from "./AppWorkspaceNavigationControls";
 import type { useAppWorkspaceShellState } from "./AppWorkspaceShellState";
 import type { UtilityPanel } from "./RightPanel";
+import { runtimeActivityStripVisible } from "./AppRunActivity";
 import { visibleRuntimeStatusIndicatorsForThread } from "./runtimeStatusIndicatorUiModel";
 import { desktopStateWithPrependedThreadMessages, THREAD_MESSAGE_PAGE_LOAD_LIMIT } from "./threadMessagePagination";
 
@@ -179,6 +180,7 @@ export interface AppConversationMessagesPropsForAppInput {
   composerRetryActions: Pick<AppComposerRetryActions, "retryFailedPrompt">;
   conversationDisplayModel: Pick<
     AppConversationDisplayModel,
+    | "assistantVisibleTextStreaming"
     | "artifactPathHints"
     | "latestRecoveryPrompt"
     | "plannerArtifactByMessageId"
@@ -392,7 +394,7 @@ export function createAppConversationMessagesPropsForApp({
     onOpenBrowserForUserAction: browserActionControls.openBrowserForUserAction,
     transientThinkingActivityLines: conversationDisplayModel.transientThinkingActivityLines,
     visibleRunActivityLines: conversationDisplayModel.visibleRunActivityLines,
-    runStatusCardVisible: workflowRecordingReviewControls.runStatusCardVisible,
+    runStatusCardVisible: workflowRecordingReviewControls.runStatusCardVisible && !conversationDisplayModel.assistantVisibleTextStreaming,
     messageTailVisible: coreLifecycleControls.messageTailVisible,
     showScrollToBottom: coreLifecycleControls.showScrollToBottom,
     onJumpToLatestMessage: coreLifecycleControls.jumpToLatestMessage,
@@ -400,7 +402,11 @@ export function createAppConversationMessagesPropsForApp({
     error: shellUiState.error,
     onDismissError: shellUiState.clearError,
     activeWorkspaceIsPreparedLocalTask: projectBoardControls.activeWorkspaceIsPreparedLocalTask,
-    activeActivity: activeThreadModel.activeActivity,
+    activeActivity: runtimeActivityStripVisible(activeThreadModel.activeActivity, {
+      assistantVisibleTextStreaming: conversationDisplayModel.assistantVisibleTextStreaming,
+    })
+      ? activeThreadModel.activeActivity
+      : undefined,
     state,
     setState,
   });

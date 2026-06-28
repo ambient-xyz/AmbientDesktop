@@ -1030,6 +1030,14 @@ export function mcpDefaultCapabilityRuntimeHandoffCandidate(
 export function mcpContainerRuntimeShouldOpenStartupPanel(status: AmbientMcpContainerRuntimeStatus | undefined): boolean {
   if (!status) return false;
   if (status.setup.shouldPrompt) return true;
+  if (
+    status.status === "installed-not-running" ||
+    status.status === "blocked-by-permissions" ||
+    status.status === "blocked-by-policy" ||
+    (status.status === "unsupported" && status.nextAction === "repair-toolhive")
+  ) {
+    return true;
+  }
   return Boolean(mcpDefaultCapabilityRuntimeHandoffCandidate(status));
 }
 

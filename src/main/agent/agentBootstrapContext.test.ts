@@ -33,7 +33,7 @@ describe("agent bootstrap context", () => {
     try {
       await mkdir(join(workspace, "src"));
       await writeFile(join(workspace, "Agents.md"), "# Agent notes\n", "utf8");
-      await writeFile(join(workspace, "ambient_api_key.txt"), "supersecret\n", "utf8");
+      await writeFile(join(workspace, "ignored provider key files"), "supersecret\n", "utf8");
       await writeFile(join(workspace, ".env"), "AMBIENT_API_KEY=supersecret\n", "utf8");
       await writeFile(
         join(workspace, "package.json"),
@@ -70,7 +70,7 @@ describe("agent bootstrap context", () => {
       expect(result.text).toContain("sensitive-path-ref:v1:");
       expect(result.text).toContain("aliases are not filesystem paths");
       expect(result.text).not.toContain("supersecret");
-      expect(result.text).not.toContain("ambient_api_key.txt");
+      expect(result.text).not.toContain("ignored provider key files");
       expect(result.text).not.toContain(".env");
       expect(result.omittedSecretLikeEntries).toBeGreaterThanOrEqual(3);
     } finally {
@@ -113,7 +113,7 @@ describe("agent bootstrap context", () => {
   });
 
   it("detects secret-like paths", () => {
-    expect(isSecretLikePath("ambient_api_key.txt")).toBe(true);
+    expect(isSecretLikePath("ignored provider key files")).toBe(true);
     expect(isSecretLikePath(".env")).toBe(true);
     expect(isSecretLikePath("config/secrets.json")).toBe(true);
     expect(isSecretLikePath("credentials.json")).toBe(true);
@@ -123,7 +123,7 @@ describe("agent bootstrap context", () => {
   it("keeps ordinary changed paths visible while aliasing secret-like changed paths", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "ambient-bootstrap-git-paths-"));
     try {
-      await writeFile(join(workspace, "ambient_api_key.txt"), "placeholder\n", "utf8");
+      await writeFile(join(workspace, "ignored provider key files"), "placeholder\n", "utf8");
       const result = await buildAgentBootstrapContext({
         workspacePath: workspace,
         permissionMode: "workspace",
@@ -138,7 +138,7 @@ describe("agent bootstrap context", () => {
               ok: true,
               stdout: [
                 " M src/index.ts",
-                "?? ambient_api_key.txt",
+                "?? ignored provider key files",
               ].join("\n"),
             };
           }
@@ -149,7 +149,7 @@ describe("agent bootstrap context", () => {
       expect(result.text).toContain("src/index.ts");
       expect(result.text).toContain("sensitive-path-ref:v1:");
       expect(result.text).toContain("sensitive path alias; not a filesystem path");
-      expect(result.text).not.toContain("ambient_api_key.txt");
+      expect(result.text).not.toContain("ignored provider key files");
       const aliases = result.text?.match(/sensitive-path-ref:v1:[a-f0-9]{16}/g) ?? [];
       expect(aliases.length).toBeGreaterThanOrEqual(2);
       expect(new Set(aliases).size).toBe(1);

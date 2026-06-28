@@ -603,8 +603,8 @@ function readAmbientApiKey(env) {
   const fileCandidates = [
     env.AMBIENT_API_KEY_FILE,
     env.AMBIENT_AGENT_AMBIENT_API_KEY_FILE,
-    join(process.cwd(), "ambient_api_key.txt"),
-    join(process.cwd(), "..", "ambientCoder", "ambient_api_key.txt"),
+    join(process.cwd(), "ignored provider key files"),
+    join(process.cwd(), "..", "ambientCoder", "ignored provider key files"),
   ].filter(Boolean);
   for (const file of fileCandidates) {
     try {

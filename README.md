@@ -45,6 +45,11 @@ pnpm install
 pnpm run dev
 ```
 
+
+```bash
+AMBIENT_PROVIDER=ambient AMBIENT_LIVE_MODEL=example/model-id pnpm run dev
+```
+
 Build packaged artifacts on the target platform:
 
 ```bash

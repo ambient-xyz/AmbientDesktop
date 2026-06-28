@@ -182,7 +182,7 @@ try {
   const apiKey = await readAmbientApiKey();
   if (!apiKey) {
     throw new Error(
-      "Set AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, or place ambient_api_key.txt near the repo.",
+      "Set AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, or place ignored provider key files near the repo.",
     );
   }
   const focusedModeCount = [
@@ -2147,12 +2147,12 @@ async function readAmbientApiKey() {
   if (envKey?.trim()) return envKey.trim();
   const candidates = [
     process.env.AMBIENT_API_KEY_FILE,
-    join(repoRoot, "ambient_api_key.txt"),
-    join(dirname(repoRoot), "ambient_api_key.txt"),
-    join(dirname(dirname(repoRoot)), "ambient_api_key.txt"),
-    join(homedir(), "ambient_api_key.txt"),
-    "/Users/example/Documents/ambientCoder/ambient_api_key.txt",
-    "/Users/example/Documents/New project 3/ambient_api_key.txt",
+    join(repoRoot, "ignored provider key files"),
+    join(dirname(repoRoot), "ignored provider key files"),
+    join(dirname(dirname(repoRoot)), "ignored provider key files"),
+    join(homedir(), "ignored provider key files"),
+    "/Users/example/Documents/ambientCoder/ignored provider key files",
+    "/Users/example/Documents/New project 3/ignored provider key files",
   ].filter(Boolean);
   for (const candidate of candidates) {
     if (!existsSync(candidate)) continue;

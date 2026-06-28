@@ -191,6 +191,9 @@ export function LocalDeepResearchFollowupDialog({
             <h2 id="local-deep-research-followup-title">{title}</h2>
             <p>{description}</p>
           </div>
+          <button type="button" className="dialog-close-button" onClick={onClose} aria-label="Close Local Deep Research setup">
+            <X size={18} aria-hidden="true" />
+          </button>
         </header>
         <div className="mcp-runtime-dialog-scroll">
           <div className="mcp-runtime-dialog-status">

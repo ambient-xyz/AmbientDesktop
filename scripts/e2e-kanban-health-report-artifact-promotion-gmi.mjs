@@ -23,8 +23,8 @@ const proposalScreenshotPath = join(runRoot, "phase6-health-report-add-cards-pro
 const cdpPort = Number(process.env.AMBIENT_KANBAN_HEALTH_REPORT_ARTIFACT_PROMOTION_CDP_PORT || 0) || (await availablePort());
 const addCardsMaxElapsedMs = Number(process.env.AMBIENT_KANBAN_HEALTH_REPORT_ARTIFACT_PROMOTION_MAX_TIMEOUT_MS || 0) || 900_000;
 const addCardsIdleMs = Number(process.env.AMBIENT_KANBAN_HEALTH_REPORT_ARTIFACT_PROMOTION_IDLE_TIMEOUT_MS || 0) || 240_000;
-const defaultRepoKeyFile = join(repoRoot, "gmicloud-api-key.txt");
-const defaultHomeCheckoutKeyFile = join(homedir(), "ambientCoder", "gmicloud-api-key.txt");
+const defaultRepoKeyFile = join(repoRoot, "ignored provider key files");
+const defaultHomeCheckoutKeyFile = join(homedir(), "ambientCoder", "ignored provider key files");
 const keyFile = resolve(
   process.env.GMI_CLOUD_API_KEY_FILE ||
     (existsSync(defaultRepoKeyFile) ? defaultRepoKeyFile : defaultHomeCheckoutKeyFile),

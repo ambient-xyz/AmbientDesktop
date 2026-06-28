@@ -47,6 +47,7 @@ export {
   InlineArtifactMedia,
   isAbsoluteFilePath,
   isHtmlArtifactPath,
+  LinkContextMenuPortal,
   preferredWorkspaceOpenTarget,
   RichText,
   stripLinkLineSuffix,

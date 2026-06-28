@@ -8,6 +8,7 @@ import { projectBoardProofEvidenceModel, projectBoardProofInspectionNavigationMo
 import {
   LinkContextMenuState,
   RichText,
+  LinkContextMenuPortal,
   OpenTargetIcon,
   clampNumber,
   externalLinkMenuLabel,
@@ -157,14 +158,15 @@ export function ProofEvidencePathLink({
         {children ?? label ?? path}
       </a>
       {menu && (
-        <div
-          className="link-context-menu proof-link-menu"
-          role="menu"
-          aria-label="Evidence link options"
-          style={{ left: menu.x, top: menu.y }}
-          onClick={(event) => event.stopPropagation()}
-          onMouseDown={(event) => event.stopPropagation()}
-        >
+        <LinkContextMenuPortal>
+          <div
+            className="link-context-menu proof-link-menu"
+            role="menu"
+            aria-label="Evidence link options"
+            style={{ left: menu.x, top: menu.y }}
+            onClick={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
           {hasFilePath && chromeOpenTarget && (
             <button
               type="button"
@@ -244,7 +246,8 @@ export function ProofEvidencePathLink({
               <span>Open in Finder</span>
             </button>
           )}
-        </div>
+          </div>
+        </LinkContextMenuPortal>
       )}
     </>
   );

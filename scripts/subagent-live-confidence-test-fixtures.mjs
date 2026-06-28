@@ -330,7 +330,7 @@ function workflowUiBroaderDogfoodMatrixArtifact() {
           providerLabel: "GMI Cloud",
           workspaceMode: "shared-snapshot-temp-copy",
           credentialConfigured: true,
-          credentialSources: ["file:gmicloud-api-key.txt"],
+          credentialSources: ["file:ignored provider key files"],
           googleWorkspace: {
             status: "configured",
             binarySource: "gws-hardening-snapshot",

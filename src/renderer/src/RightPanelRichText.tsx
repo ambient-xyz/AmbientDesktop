@@ -37,6 +37,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { MouseEvent as ReactMouseEvent, ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { BrowserRuntimeKind } from "../../shared/browserTypes"; import type { WorkspaceFileContent, WorkspaceOpenTarget } from "../../shared/workspaceTypes";
 import { parseMarkdownBlocks } from "./markdownBlockParser";
 import { richMarkdownTableIconLabel, type RichMarkdownIconLabel } from "./richMarkdownIcons";
@@ -56,6 +57,11 @@ export type LinkContextMenuState = {
   artifactPath?: string;
   localPath?: string;
 };
+
+export function LinkContextMenuPortal({ children }: { children: ReactNode }) {
+  if (typeof document === "undefined") return null;
+  return createPortal(children, document.body);
+}
 
 const INLINE_MARKDOWN_TOKEN_PATTERN = /(!\[[^\]]*]\((?:[^()]|\([^)]*\))+\)|\[[^\]]+\]\((?:[^()]|\([^)]*\))+\)|`[^`]+`|\*\*[^*]+\*\*)/g;
 const LINKED_TEXT_PATTERN = /(file:\/\/\/[^\s<>"']+|https?:\/\/[^\s<>"']+|(?:~\/|\/(?:Users|Volumes|tmp|private\/tmp|var\/folders)\/)(?:(?:(?![\n\r<>"'`]).)*?\.(?:docx?|xlsx?|pptx?|rtf|odt|pdf|png|jpe?g|gif|webp|svg|mp3|wav|m4a|mp4|mov|txt|md|markdown|html?)(?::\d+(?::\d+)?)?|[^\s<>"'`]+))/gi;
@@ -377,14 +383,15 @@ export function RichText({
         </button>
       )}
       {linkMenu && (
-        <div
-          className="link-context-menu"
-          role="menu"
-          aria-label="Link options"
-          style={{ left: linkMenu.x, top: linkMenu.y }}
-          onClick={(event) => event.stopPropagation()}
-          onMouseDown={(event) => event.stopPropagation()}
-        >
+        <LinkContextMenuPortal>
+          <div
+            className="link-context-menu"
+            role="menu"
+            aria-label="Link options"
+            style={{ left: linkMenu.x, top: linkMenu.y }}
+            onClick={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
+          >
           {linkMenu.artifactPath && onPreviewPath && (
             <button
               type="button"
@@ -522,7 +529,8 @@ export function RichText({
               <span>Copy link</span>
             </button>
           )}
-        </div>
+          </div>
+        </LinkContextMenuPortal>
       )}
     </div>
   );

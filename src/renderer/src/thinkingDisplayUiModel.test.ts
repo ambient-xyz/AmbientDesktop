@@ -105,6 +105,16 @@ describe("thinkingDisplayUiModel", () => {
     expect(transientThinkingActivityLinesForDisplay({ lines, messages, mode: "transient", running: true, runStatus: "tool" })).toEqual([]);
     expect(
       transientThinkingActivityLinesForDisplay({
+        assistantVisibleTextStreaming: true,
+        lines,
+        messages,
+        mode: "transient",
+        running: true,
+        runStatus: "streaming",
+      }),
+    ).toEqual([]);
+    expect(
+      transientThinkingActivityLinesForDisplay({
         lines,
         messages: messages.map((item) => item.id === "think-2" ? { ...item, metadata: { ...item.metadata, status: "done" } } : item),
         mode: "transient",

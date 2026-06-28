@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import type { DesktopEvent } from "../../shared/desktopTypes";
 import type { PermissionGrantActionKind, PermissionGrantTargetKind, PermissionRequest } from "../../shared/permissionTypes";
+import type { ContainerRuntimeInstallAction, ContainerRuntimeInstallPlan } from "../container-runtime/containerRuntimeInstallLauncher";
 import type {
   AmbientMcpContainerRuntimeStatus,
   AmbientMcpDefaultCapabilityInstallInput,
@@ -77,6 +78,7 @@ export interface DesktopMcpInstallServiceDependencies {
   emitPluginCatalogUpdated(workspacePath?: string): void;
   getAppVersion(): string;
   getUserDataPath(): string;
+  openContainerRuntimeApplication(applicationNames: string[]): Promise<boolean>;
   permissionGrantTargetHash(actionKind: PermissionGrantActionKind, targetKind: PermissionGrantTargetKind, identity: string): string;
   requestPermissionWithGrantRegistry(
     request: Omit<PermissionRequest, "id">,
@@ -175,12 +177,17 @@ function ambientMcpInstallPreview(preview: McpRegistryInstallPreview): AmbientMc
   };
 }
 
-function ambientMcpContainerRuntimeStatus(
+export function ambientMcpContainerRuntimeStatus(
   result: ContainerRuntimeProbeResult,
   setup: ContainerRuntimeSetupPromptState,
   defaultCapabilities: McpDefaultCapabilitySummary[],
 ): AmbientMcpContainerRuntimeStatus {
   const installPlan = buildContainerRuntimeInstallPlanFromProbe(result);
+  const runtimeReady = result.status === "ready";
+  const postInstallQueue = runtimeReady ? result.postInstallQueue.filter((item) => {
+    const capability = defaultCapabilities.find((candidate) => candidate.capabilityId === item.capabilityId);
+    return capability?.nextAction === "approve-default-capability" || capability?.nextAction === "install-default-capability";
+  }) : [];
   return {
     schemaVersion: result.schemaVersion,
     status: result.status,
@@ -223,17 +230,18 @@ function ambientMcpContainerRuntimeStatus(
         }
       : {}),
     setup,
-    postInstallQueue: result.postInstallQueue,
-    defaultCapabilities,
+    postInstallQueue,
+    defaultCapabilities: runtimeReady ? defaultCapabilities : [],
     ...(installPlan ? { installPlan } : {}),
   };
 }
 
 let mcpContainerRuntimeStatusProbeInFlight: Promise<AmbientMcpContainerRuntimeStatus> | undefined;
 
-async function probeAmbientMcpContainerRuntimeStatus(): Promise<AmbientMcpContainerRuntimeStatus> {
+async function probeAmbientMcpContainerRuntimeStatus(options: { autoLaunchStoppedRuntime?: boolean } = {}): Promise<AmbientMcpContainerRuntimeStatus> {
+  if (options.autoLaunchStoppedRuntime) return probeAmbientMcpContainerRuntimeStatusUncached(options);
   if (mcpContainerRuntimeStatusProbeInFlight) return mcpContainerRuntimeStatusProbeInFlight;
-  const probe = probeAmbientMcpContainerRuntimeStatusUncached();
+  const probe = probeAmbientMcpContainerRuntimeStatusUncached(options);
   mcpContainerRuntimeStatusProbeInFlight = probe;
   try {
     return await probe;
@@ -242,9 +250,10 @@ async function probeAmbientMcpContainerRuntimeStatus(): Promise<AmbientMcpContai
   }
 }
 
-async function probeAmbientMcpContainerRuntimeStatusUncached(): Promise<AmbientMcpContainerRuntimeStatus> {
+async function probeAmbientMcpContainerRuntimeStatusUncached(options: { autoLaunchStoppedRuntime?: boolean } = {}): Promise<AmbientMcpContainerRuntimeStatus> {
   const { toolHive, catalog } = createMcpInstallCatalog();
-  const result = await probeContainerRuntime({ toolHive });
+  let result = await probeContainerRuntime({ toolHive });
+  if (options.autoLaunchStoppedRuntime) result = await maybeAutoLaunchStoppedContainerRuntime({ result, toolHive });
   const setupState = await recordContainerRuntimeProbeState(mcpContainerRuntimeSetupStatePath(), result, {
     appVersion: packageJson.version,
   });
@@ -264,6 +273,47 @@ async function probeAmbientMcpContainerRuntimeStatusUncached(): Promise<AmbientM
     appVersion: packageJson.version,
   });
   return ambientMcpContainerRuntimeStatus(result, containerRuntimeSetupPromptState(result, setupState), defaultCapabilities);
+}
+
+export async function maybeAutoLaunchStoppedContainerRuntime(input: {
+  result: ContainerRuntimeProbeResult;
+  toolHive: ToolHiveRuntimeService;
+}): Promise<ContainerRuntimeProbeResult> {
+  const launch = containerRuntimeStartupAutoLaunchAction(input.result);
+  if (!launch) return input.result;
+  const { action } = launch;
+
+  try {
+    const opened = await services().openContainerRuntimeApplication(action.applicationNames ?? []);
+    if (!opened) return input.result;
+    console.log(`[mcp-container-runtime] startup auto-launch opened action=${action.id} runtime=${action.runtime}`);
+  } catch (error) {
+    console.warn(`[mcp-container-runtime] startup auto-launch failed: ${error instanceof Error ? error.message : String(error)}`);
+    return input.result;
+  }
+
+  const reprobed = await probeContainerRuntime({ toolHive: input.toolHive });
+  return {
+    ...reprobed,
+    message: reprobed.status === "ready"
+      ? `${reprobed.message} Ambient opened ${action.label} during startup because the runtime was installed but not running.`
+      : `${reprobed.message} Ambient opened ${action.label} during startup; if it remains unavailable, use the restart recovery controls.`,
+  };
+}
+
+export function containerRuntimeStartupAutoLaunchAction(result: ContainerRuntimeProbeResult): { plan: ContainerRuntimeInstallPlan; action: ContainerRuntimeInstallAction } | undefined {
+  const plan = buildContainerRuntimeInstallPlanFromProbe(result);
+  const action = plan?.primaryAction;
+  if (
+    result.status !== "installed-not-running" ||
+    result.nextAction !== "start-runtime" ||
+    !plan ||
+    action?.kind !== "open-runtime" ||
+    !action.applicationNames?.length
+  ) {
+    return undefined;
+  }
+  return { plan, action };
 }
 
 async function adoptExistingDefaultCapabilityInstallState(input: {
@@ -293,7 +343,7 @@ async function adoptExistingDefaultCapabilityInstallState(input: {
 }
 
 async function reconcileMcpContainerRuntimeOnStartup(): Promise<void> {
-  const status = await probeAmbientMcpContainerRuntimeStatus();
+  const status = await probeAmbientMcpContainerRuntimeStatus({ autoLaunchStoppedRuntime: true });
   console.log(
     `[mcp-container-runtime] startup reconciliation status=${status.status} decision=${status.setup.userDecision} prompt=${status.setup.shouldPrompt ? "yes" : "no"} version=${status.setup.upgradeReconciledAppVersion ?? packageJson.version}`,
   );

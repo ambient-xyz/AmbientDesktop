@@ -59,6 +59,7 @@ describe("AppConversationDisplayModel", () => {
     expect(model.retryableMessageIds.has("user-2")).toBe(true);
     expect(model.latestRecoveryPrompt?.id).toBe("user-2");
     expect(model.streamingAssistantId).toBe("assistant-streaming");
+    expect(model.assistantVisibleTextStreaming).toBe(false);
     expect(model.plannerArtifactByMessageId.get("assistant-error")).toBe(artifact);
     expect(model.promptHistory).toEqual(["Retry this", "First prompt"]);
 
@@ -73,6 +74,27 @@ describe("AppConversationDisplayModel", () => {
       thinkingDisplayMode: "transient",
     });
     expect(toolPhaseModel.transientThinkingActivityLines).toEqual([]);
+  });
+
+  it("suppresses transient thinking while visible assistant text is streaming", () => {
+    const model = appConversationDisplayModel({
+      activeThreadId: "thread-1",
+      activeRunActivityLines: [
+        runActivityLine({ id: "thinking-line", kind: "thinking" }),
+      ],
+      messages: [
+        message({ id: "user-1", role: "user", content: "Question" }),
+        message({ id: "assistant-1", role: "assistant", content: "Partial answer", metadata: { status: "streaming" } }),
+      ],
+      plannerPlanArtifacts: [],
+      running: true,
+      runStatus: "streaming",
+      thinkingDisplayMode: "transient",
+    });
+
+    expect(model.assistantVisibleTextStreaming).toBe(true);
+    expect(model.transientThinkingActivityLines).toEqual([]);
+    expect(model.visibleChatMessages.map((item) => item.id)).toEqual(["user-1", "assistant-1"]);
   });
 
   it("keeps a submitted prompt visible until the persisted user message appears", () => {

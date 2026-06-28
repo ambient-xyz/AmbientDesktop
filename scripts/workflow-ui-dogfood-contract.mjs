@@ -372,7 +372,7 @@ export function workflowUiDogfoodCredentialStatus(input) {
     if (env.GMI_CLOUD_API_KEY) sources.push("env:GMI_CLOUD_API_KEY");
     if (env.GMI_API_KEY) sources.push("env:GMI_API_KEY");
     if (env.GMI_CLOUD_API_KEY_FILE) sources.push("env:GMI_CLOUD_API_KEY_FILE");
-    const candidate = join(cwd, "gmicloud-api-key.txt");
+    const candidate = join(cwd, "ignored provider key files");
     if (existsSync(candidate)) {
       defaultKeyFile = candidate;
       sources.push(`file:${basename(candidate)}`);
@@ -381,7 +381,7 @@ export function workflowUiDogfoodCredentialStatus(input) {
     if (env.AMBIENT_API_KEY) sources.push("env:AMBIENT_API_KEY");
     if (env.AMBIENT_AGENT_AMBIENT_API_KEY) sources.push("env:AMBIENT_AGENT_AMBIENT_API_KEY");
     if (env.AMBIENT_API_KEY_FILE) sources.push("env:AMBIENT_API_KEY_FILE");
-    const candidate = join(cwd, "ambient_api_key.txt");
+    const candidate = join(cwd, "ignored provider key files");
     if (existsSync(candidate)) {
       defaultKeyFile = candidate;
       sources.push(`file:${basename(candidate)}`);

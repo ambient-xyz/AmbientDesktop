@@ -426,6 +426,17 @@ export function formatRuntimeActivity(activity: RuntimeActivity): string {
   return `Compaction finished (${reason}).`;
 }
 
+export function runtimeActivityStripVisible(
+  activity: RuntimeActivity | undefined,
+  options: { assistantVisibleTextStreaming?: boolean } = {},
+): activity is RuntimeActivity {
+  if (!activity) return false;
+  if (activity.kind !== "stream") return true;
+  if (activity.status !== "running") return true;
+  if (options.assistantVisibleTextStreaming) return false;
+  return activity.outputChars > 0;
+}
+
 function compactionReasonLabel(reason: Extract<RuntimeActivity, { kind: "compaction" }>["reason"]): string {
   if (reason === "overflow") return "provider context overflow";
   if (reason === "threshold") return "context threshold";

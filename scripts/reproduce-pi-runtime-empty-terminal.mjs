@@ -102,11 +102,11 @@ async function readApiKey() {
   }
   const candidates = [
     process.env.AMBIENT_API_KEY_FILE,
-    join(repoRoot, "ambient_api_key.txt"),
-    join(dirname(repoRoot), "ambient_api_key.txt"),
-    "/Users/example/Documents/ambientCoder/ambient_api_key.txt",
-    "/Users/example/Documents/New project 3/ambient_api_key.txt",
-    join(homedir(), "ambient_api_key.txt"),
+    join(repoRoot, "ignored provider key files"),
+    join(dirname(repoRoot), "ignored provider key files"),
+    "/Users/example/Documents/ambientCoder/ignored provider key files",
+    "/Users/example/Documents/New project 3/ignored provider key files",
+    join(homedir(), "ignored provider key files"),
   ].filter(Boolean);
   for (const candidate of candidates) {
     const path = resolve(String(candidate));
@@ -114,7 +114,7 @@ async function readApiKey() {
     const value = (await readFile(path, "utf8")).trim();
     if (value) return value;
   }
-  throw new Error("Ambient API key missing. Set AMBIENT_API_KEY or provide ambient_api_key.txt.");
+  throw new Error("Ambient API key missing. Set AMBIENT_API_KEY or provide ignored provider key files.");
 }
 
 function normalizeBaseUrl(value) {

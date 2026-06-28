@@ -1156,13 +1156,13 @@ function ambientApiKeyFilePath() {
   if (process.env.AMBIENT_API_KEY_FILE) return process.env.AMBIENT_API_KEY_FILE;
   let current = repoRoot;
   for (let depth = 0; depth < 8; depth += 1) {
-    const candidate = join(current, "ambient_api_key.txt");
+    const candidate = join(current, "ignored provider key files");
     if (existsSync(candidate)) return candidate;
     const parent = dirname(current);
     if (parent === current) break;
     current = parent;
   }
-  return join(repoRoot, "ambient_api_key.txt");
+  return join(repoRoot, "ignored provider key files");
 }
 
 function dogfoodProviderId() {

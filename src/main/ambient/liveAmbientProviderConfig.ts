@@ -106,8 +106,8 @@ export function readLiveAmbientProviderApiKey(input: {
   const purpose = input.purpose ? ` for ${input.purpose}` : "";
   throw new Error(
     providerId === "gmi-cloud"
-      ? `Set GMI_CLOUD_API_KEY, GMI_API_KEY, GMI_CLOUD_API_KEY_FILE, or provide gmicloud-api-key.txt${purpose}.`
-      : `Set AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, or provide ambient_api_key.txt${purpose}.`,
+      ? `Set GMI_CLOUD_API_KEY, GMI_API_KEY, GMI_CLOUD_API_KEY_FILE, or provide ignored provider key files${purpose}.`
+      : `Set AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, or provide ignored provider key files${purpose}.`,
   );
 }
 
@@ -130,17 +130,17 @@ function readAmbientApiKey(env: NodeJS.ProcessEnv, cwd: string): string | undefi
     readKeyFile(env.AMBIENT_API_KEY_FILE) ||
     readKeyFileCandidates([
       join(cwd, "ambient_api_key_u.txt"),
-      join(cwd, "ambient_api_key.txt"),
+      join(cwd, "ignored provider key files"),
       join(dirname(cwd), "ambient_api_key_u.txt"),
-      join(dirname(cwd), "ambient_api_key.txt"),
+      join(dirname(cwd), "ignored provider key files"),
       join(dirname(cwd), "ambientCoder", "ambient_api_key_u.txt"),
-      join(dirname(cwd), "ambientCoder", "ambient_api_key.txt"),
+      join(dirname(cwd), "ambientCoder", "ignored provider key files"),
       join(dirname(dirname(cwd)), "ambient_api_key_u.txt"),
-      join(dirname(dirname(cwd)), "ambient_api_key.txt"),
+      join(dirname(dirname(cwd)), "ignored provider key files"),
       join(homedir(), "Documents", "ambientCoder", "ambient_api_key_u.txt"),
-      join(homedir(), "Documents", "ambientCoder", "ambient_api_key.txt"),
+      join(homedir(), "Documents", "ambientCoder", "ignored provider key files"),
       join(homedir(), "Documents", "New project 3", "ambient_api_key_u.txt"),
-      join(homedir(), "Documents", "New project 3", "ambient_api_key.txt"),
+      join(homedir(), "Documents", "New project 3", "ignored provider key files"),
     ])
   );
 }
@@ -151,11 +151,11 @@ function readGmiCloudApiKey(env: NodeJS.ProcessEnv, cwd: string): string | undef
     env.GMI_API_KEY?.trim() ||
     readKeyFile(env.GMI_CLOUD_API_KEY_FILE) ||
     readKeyFileCandidates([
-      join(cwd, "gmicloud-api-key.txt"),
-      join(dirname(cwd), "gmicloud-api-key.txt"),
-      join(dirname(cwd), "ambientCoder", "gmicloud-api-key.txt"),
-      join(homedir(), "Documents", "ambientCoder", "gmicloud-api-key.txt"),
-      join(homedir(), "Documents", "New project 3", "gmicloud-api-key.txt"),
+      join(cwd, "ignored provider key files"),
+      join(dirname(cwd), "ignored provider key files"),
+      join(dirname(cwd), "ambientCoder", "ignored provider key files"),
+      join(homedir(), "Documents", "ambientCoder", "ignored provider key files"),
+      join(homedir(), "Documents", "New project 3", "ignored provider key files"),
     ])
   );
 }

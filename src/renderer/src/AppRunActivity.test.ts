@@ -4,6 +4,7 @@ import {
   RUN_ACTIVITY_PLACEHOLDER,
   createRunActivityLineFromCounter,
   formatRuntimeActivity,
+  runtimeActivityStripVisible,
   runActivityThinkingDeltaUpdate,
   runRetryStatsFromActivity,
   shouldAppendRunActivityLine,
@@ -213,5 +214,59 @@ describe("summarizeRunActivity", () => {
         reason: "overflow",
       }),
     ).toBe("Compacting context (provider context overflow).");
+  });
+
+  it("hides low-value stream activity strips while preserving terminal and non-stream activity", () => {
+    expect(runtimeActivityStripVisible(undefined)).toBe(false);
+    expect(
+      runtimeActivityStripVisible({
+        threadId: "thread-id",
+        kind: "stream",
+        status: "running",
+        outputChars: 0,
+        thinkingChars: 500,
+      }),
+    ).toBe(false);
+    expect(
+      runtimeActivityStripVisible({
+        threadId: "thread-id",
+        kind: "stream",
+        status: "running",
+        outputChars: 12,
+      }, { assistantVisibleTextStreaming: true }),
+    ).toBe(false);
+    expect(
+      runtimeActivityStripVisible({
+        threadId: "thread-id",
+        kind: "stream",
+        status: "running",
+        outputChars: 12,
+      }),
+    ).toBe(true);
+    expect(
+      runtimeActivityStripVisible({
+        threadId: "thread-id",
+        kind: "stream",
+        status: "timeout",
+        outputChars: 0,
+      }, { assistantVisibleTextStreaming: true }),
+    ).toBe(true);
+    expect(
+      runtimeActivityStripVisible({
+        threadId: "thread-id",
+        kind: "stream",
+        status: "timeout",
+        outputChars: 0,
+      }),
+    ).toBe(true);
+    expect(
+      runtimeActivityStripVisible({
+        threadId: "thread-id",
+        kind: "tool",
+        status: "running",
+        toolName: "example_tool",
+        message: "Running a tool.",
+      }),
+    ).toBe(true);
   });
 });

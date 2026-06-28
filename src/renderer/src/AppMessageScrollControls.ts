@@ -39,11 +39,25 @@ export function shouldSettleMessageTailAfterVisibilityChange({
 export function shouldIgnoreProgrammaticMessagesScroll({
   element,
   programmaticScroll,
+  shouldTailMessages,
 }: {
   element: Pick<HTMLElement, "clientHeight" | "scrollHeight" | "scrollTop"> | null;
   programmaticScroll: boolean;
+  shouldTailMessages: boolean;
 }): boolean {
-  return programmaticScroll && nextMessageTailVisibility(element);
+  return programmaticScroll && (shouldTailMessages || nextMessageTailVisibility(element));
+}
+
+export function shouldFollowMessageTailOnContentChange({
+  forceTailMessages,
+  messageTailVisible,
+  shouldTailMessages,
+}: {
+  forceTailMessages: boolean;
+  messageTailVisible: boolean;
+  shouldTailMessages: boolean;
+}): boolean {
+  return (shouldTailMessages && messageTailVisible) || forceTailMessages;
 }
 
 export function shouldRequestMessageTail(threadId: string | undefined, activeThreadId: string | undefined): boolean {
@@ -93,8 +107,11 @@ export function useAppMessageScrollControls({
   const showScrollToBottomRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const shouldTailMessagesRef = useRef(true);
+  const forceTailMessagesRef = useRef(false);
   const programmaticMessagesScrollRef = useRef(false);
   const visibilityFrameRef = useRef<number | undefined>(undefined);
+  const contentChangeScrollCancelRef = useRef<(() => void) | undefined>(undefined);
+  const contentChangeFrameRef = useRef<number | undefined>(undefined);
   const messagesRevision = scrollControlsCollectionRevision(messages);
   const activeRunActivityLinesRevision = scrollControlsCollectionRevision(activeRunActivityLines);
   messageTailVisibleRef.current = messageTailVisible;
@@ -129,6 +146,8 @@ export function useAppMessageScrollControls({
   useLayoutEffect(
     () => () => {
       if (visibilityFrameRef.current !== undefined) window.cancelAnimationFrame(visibilityFrameRef.current);
+      if (contentChangeFrameRef.current !== undefined) window.cancelAnimationFrame(contentChangeFrameRef.current);
+      contentChangeScrollCancelRef.current?.();
     },
     [],
   );
@@ -138,6 +157,7 @@ export function useAppMessageScrollControls({
     const element = scrollRef.current;
     if (!element) return;
     shouldTailMessagesRef.current = false;
+    forceTailMessagesRef.current = false;
     setMessageTailIsVisible(false);
     programmaticMessagesScrollRef.current = true;
     element.scrollTop = 0;
@@ -152,8 +172,9 @@ export function useAppMessageScrollControls({
 
   useLayoutEffect(() => {
     if (welcomeOnboardingPageShouldOpenAtTop(welcomeOnboardingPageKind)) return;
-    if (!shouldTailMessagesRef.current) return;
-    if (!messageTailVisibleRef.current) return;
+    const forceTail = forceTailMessagesRef.current;
+    if (!shouldTailMessagesRef.current && !forceTail) return;
+    if (!messageTailVisibleRef.current && !forceTail) return;
     const element = scrollRef.current;
     if (!element) return;
     programmaticMessagesScrollRef.current = true;
@@ -161,6 +182,7 @@ export function useAppMessageScrollControls({
     const cancel = scheduleScrollToBottom(element, () => {
       programmaticMessagesScrollRef.current = false;
       shouldTailMessagesRef.current = nextMessageTailVisibility(element);
+      forceTailMessagesRef.current = shouldTailMessagesRef.current;
       setMessageTailIsVisible(shouldTailMessagesRef.current);
       setScrollToBottomVisible(false);
     });
@@ -169,6 +191,73 @@ export function useAppMessageScrollControls({
       programmaticMessagesScrollRef.current = false;
     };
   }, [messagesRevision, activeRunActivityLinesRevision, chatBrowserUserActionId, chatBrowserUserActionStatus, welcomeOnboardingPageKind]);
+
+  useLayoutEffect(() => {
+    if (welcomeOnboardingPageShouldOpenAtTop(welcomeOnboardingPageKind)) return;
+    const element = scrollRef.current;
+    if (!element) return;
+
+    const requestTailScrollForContentChange = () => {
+      if (
+        !shouldFollowMessageTailOnContentChange({
+          forceTailMessages: forceTailMessagesRef.current,
+          messageTailVisible: messageTailVisibleRef.current,
+          shouldTailMessages: shouldTailMessagesRef.current,
+        })
+      ) {
+        return;
+      }
+      if (contentChangeFrameRef.current !== undefined) return;
+      contentChangeFrameRef.current = window.requestAnimationFrame(() => {
+        contentChangeFrameRef.current = undefined;
+        if (
+          !shouldFollowMessageTailOnContentChange({
+            forceTailMessages: forceTailMessagesRef.current,
+            messageTailVisible: messageTailVisibleRef.current,
+            shouldTailMessages: shouldTailMessagesRef.current,
+          })
+        ) {
+          return;
+        }
+        programmaticMessagesScrollRef.current = true;
+        setScrollToBottomVisible(false);
+        contentChangeScrollCancelRef.current?.();
+        contentChangeScrollCancelRef.current = scheduleScrollToBottom(element, () => {
+          contentChangeScrollCancelRef.current = undefined;
+          programmaticMessagesScrollRef.current = false;
+          shouldTailMessagesRef.current = nextMessageTailVisibility(element);
+          forceTailMessagesRef.current = forceTailMessagesRef.current && shouldTailMessagesRef.current;
+          setMessageTailIsVisible(shouldTailMessagesRef.current);
+          setScrollToBottomVisible(false);
+        });
+      });
+    };
+
+    const resizeObserver = new ResizeObserver(requestTailScrollForContentChange);
+    resizeObserver.observe(element);
+    for (const child of Array.from(element.children)) {
+      if (child instanceof HTMLElement) resizeObserver.observe(child);
+    }
+    const mutationObserver = new MutationObserver(requestTailScrollForContentChange);
+    mutationObserver.observe(element, {
+      attributes: true,
+      characterData: true,
+      childList: true,
+      subtree: true,
+    });
+
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      if (contentChangeFrameRef.current !== undefined) {
+        window.cancelAnimationFrame(contentChangeFrameRef.current);
+        contentChangeFrameRef.current = undefined;
+      }
+      contentChangeScrollCancelRef.current?.();
+      contentChangeScrollCancelRef.current = undefined;
+      programmaticMessagesScrollRef.current = false;
+    };
+  }, [activeThreadId, welcomeOnboardingPageKind]);
 
   useLayoutEffect(() => {
     if (welcomeOnboardingPageShouldOpenAtTop(welcomeOnboardingPageKind)) return;
@@ -199,8 +288,17 @@ export function useAppMessageScrollControls({
   const handleMessagesScroll = useCallback(() => {
     const element = scrollRef.current;
     const nextShouldTailMessages = nextMessageTailVisibility(element);
-    if (shouldIgnoreProgrammaticMessagesScroll({ element, programmaticScroll: programmaticMessagesScrollRef.current })) return;
+    if (
+      shouldIgnoreProgrammaticMessagesScroll({
+        element,
+        programmaticScroll: programmaticMessagesScrollRef.current,
+        shouldTailMessages: shouldTailMessagesRef.current || forceTailMessagesRef.current,
+      })
+    ) {
+      return;
+    }
     if (programmaticMessagesScrollRef.current) programmaticMessagesScrollRef.current = false;
+    if (!nextShouldTailMessages) forceTailMessagesRef.current = false;
     setMessageTailIsVisible(nextShouldTailMessages);
     if (shouldTailMessagesRef.current && nextShouldTailMessages) {
       updateScrollToBottomVisibility(element);
@@ -214,11 +312,14 @@ export function useAppMessageScrollControls({
     const element = scrollRef.current;
     if (!element) return;
     shouldTailMessagesRef.current = true;
+    forceTailMessagesRef.current = true;
     programmaticMessagesScrollRef.current = true;
+    setMessageTailIsVisible(true);
     setScrollToBottomVisible(false);
     const cancel = scheduleScrollToBottom(element, () => {
       programmaticMessagesScrollRef.current = false;
       shouldTailMessagesRef.current = true;
+      forceTailMessagesRef.current = true;
       setMessageTailIsVisible(true);
       setScrollToBottomVisible(false);
     });
@@ -229,13 +330,16 @@ export function useAppMessageScrollControls({
     (threadId = activeThreadIdRef.current) => {
       if (!shouldRequestMessageTail(threadId, activeThreadIdRef.current)) return;
       shouldTailMessagesRef.current = true;
+      forceTailMessagesRef.current = true;
       const element = scrollRef.current;
       if (!element) return;
       programmaticMessagesScrollRef.current = true;
+      setMessageTailIsVisible(true);
       setScrollToBottomVisible(false);
       const cancel = scheduleScrollToBottom(element, () => {
         programmaticMessagesScrollRef.current = false;
         shouldTailMessagesRef.current = true;
+        forceTailMessagesRef.current = true;
         setMessageTailIsVisible(true);
         setScrollToBottomVisible(false);
       });

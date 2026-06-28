@@ -35,7 +35,7 @@ describe("liveAmbientProviderConfig", () => {
 
   it("finds the user-suffixed Ambient key file before the legacy local key filename", () => {
     writeFileSync(join(tempRoot, "ambient_api_key_u.txt"), "ambient-user-key\n", { mode: 0o600 });
-    writeFileSync(join(tempRoot, "ambient_api_key.txt"), "ambient-legacy-key\n", { mode: 0o600 });
+    writeFileSync(join(tempRoot, "ignored provider key files"), "ambient-legacy-key\n", { mode: 0o600 });
 
     expect(readLiveAmbientProviderApiKey({ env: {} as NodeJS.ProcessEnv, cwd: tempRoot })).toBe("ambient-user-key");
   });

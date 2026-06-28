@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ChatMessage } from "../../shared/threadTypes";
 import {
+  assistantVisibleTextIsStreaming,
   contextReferencesFromMetadata,
   countTextMatches,
   formatMessageWallClockTime,
@@ -139,6 +140,19 @@ describe("message helpers", () => {
     expect(messageIsStreaming(explicitStreaming, messages, true)).toBe(true);
     expect(messageIsStreamingForRender(latestBlank, true, "a2")).toBe(true);
     expect(messageIsStreamingForRender(latestBlank, false, "a2")).toBe(false);
+  });
+
+  it("detects actively streaming visible assistant text", () => {
+    const user = message({ id: "u1", role: "user", content: "Question" });
+    const blankStreaming = message({ id: "a1", role: "assistant", content: "", metadata: { status: "streaming" } });
+    const thinking = message({ id: "t1", role: "assistant", content: "Internal", metadata: { kind: "thinking", status: "streaming" } });
+    const textStreaming = message({ id: "a2", role: "assistant", content: "Partial answer", metadata: { status: "streaming" } });
+    const done = message({ id: "a3", role: "assistant", content: "Done", metadata: { status: "done" } });
+
+    expect(assistantVisibleTextIsStreaming([user, blankStreaming, thinking], true)).toBe(false);
+    expect(assistantVisibleTextIsStreaming([user, textStreaming], true)).toBe(true);
+    expect(assistantVisibleTextIsStreaming([user, textStreaming], false)).toBe(false);
+    expect(assistantVisibleTextIsStreaming([user, done], true)).toBe(false);
   });
 });
 

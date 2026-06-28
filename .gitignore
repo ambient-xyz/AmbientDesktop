@@ -15,9 +15,9 @@ reasoningTestResults/
 *.log
 runtime-smoke*.txt
 pong.html
-ambient_api_key.txt
+ignored provider key files
 ambient_api_key_u.txt
-gmicloud-api-key.txt
+ignored provider key files
 brave_api_key.txt
 google_api_key.txt
 elevenlabs_api_key.txt

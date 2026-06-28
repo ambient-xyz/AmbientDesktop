@@ -1148,6 +1148,7 @@ configureDesktopMcpInstallService({
   emitPluginCatalogUpdated,
   getAppVersion: () => packageJson.version,
   getUserDataPath: () => app.getPath("userData"),
+  openContainerRuntimeApplication,
   permissionGrantTargetHash,
   requestPermissionWithGrantRegistry: (request, input) =>
     requestPermissionWithGrantRegistry(request, input as Parameters<typeof requestPermissionWithGrantRegistry>[1]),

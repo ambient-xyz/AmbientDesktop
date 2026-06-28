@@ -4,6 +4,7 @@ import type { ThinkingDisplayMode } from "../../shared/desktopTypes";
 import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
 import type { ChatMessage, MessageDelivery, RunStatus } from "../../shared/threadTypes";
 import {
+  assistantVisibleTextIsStreaming,
   retryableFailedPromptIds,
   streamingAssistantMessageId,
   visibleMessages,
@@ -21,6 +22,7 @@ import {
 } from "./toolMessageUiModel";
 
 export type AppConversationDisplayModel = {
+  assistantVisibleTextStreaming: boolean;
   artifactPathHints: ArtifactPathHints;
   latestRecoveryPrompt?: ChatMessage;
   plannerArtifactByMessageId: Map<string, PlannerPlanArtifact>;
@@ -134,7 +136,9 @@ export function appConversationDisplayModel({
     messages: displayMessages,
     pendingSubmittedPrompts,
   });
+  const assistantVisibleTextStreaming = assistantVisibleTextIsStreaming(displayMessages, running);
   return {
+    assistantVisibleTextStreaming,
     artifactPathHints: collectArtifactPathHints(
       displayMessages,
       appConversationArtifactWorkspacePath({ activeWorkspacePath, workspacePath }),
@@ -145,6 +149,7 @@ export function appConversationDisplayModel({
     retryableMessageIds: retryableFailedPromptIds(displayMessages),
     streamingAssistantId: streamingAssistantMessageId(displayMessages, running),
     transientThinkingActivityLines: transientThinkingActivityLinesForDisplay({
+      assistantVisibleTextStreaming,
       lines: activeRunActivityLines,
       messages: displayMessages,
       mode: thinkingDisplayMode,
@@ -209,15 +214,20 @@ export function useAppConversationDisplayModel(input: {
     () => streamingAssistantMessageId(displayMessages, input.running),
     [displayMessages, input.running],
   );
+  const assistantVisibleTextStreaming = useMemo(
+    () => assistantVisibleTextIsStreaming(displayMessages, input.running),
+    [displayMessages, input.running],
+  );
   const transientThinkingActivityLines = useMemo(
     () => transientThinkingActivityLinesForDisplay({
+      assistantVisibleTextStreaming,
       lines: input.activeRunActivityLines,
       messages: displayMessages,
       mode: input.thinkingDisplayMode,
       running: input.running,
       runStatus: input.runStatus,
     }),
-    [input.activeRunActivityLines, displayMessages, input.thinkingDisplayMode, input.running, input.runStatus],
+    [assistantVisibleTextStreaming, input.activeRunActivityLines, displayMessages, input.thinkingDisplayMode, input.running, input.runStatus],
   );
   const visibleChatMessages = useMemo(
     () => visibleMessages(visibleDisplayMessages, input.running, input.thinkingDisplayMode),
@@ -229,6 +239,7 @@ export function useAppConversationDisplayModel(input: {
   );
   return useMemo(
     () => ({
+      assistantVisibleTextStreaming,
       artifactPathHints,
       latestRecoveryPrompt,
       plannerArtifactByMessageId,
@@ -240,6 +251,7 @@ export function useAppConversationDisplayModel(input: {
       visibleRunActivityLines,
     }),
     [
+      assistantVisibleTextStreaming,
       artifactPathHints,
       latestRecoveryPrompt,
       plannerArtifactByMessageId,

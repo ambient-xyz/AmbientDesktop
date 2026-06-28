@@ -15,7 +15,7 @@ const userData = join(runRoot, "userData");
 const reportPath = resolve(process.env.AMBIENT_KANBAN_PLANNING_SNAPSHOT_OUT || join(outputRoot, "latest.json"));
 const screenshotPath = join(runRoot, "phase3-planning-snapshot-ticketization.png");
 const cdpPort = Number(process.env.AMBIENT_KANBAN_PLANNING_SNAPSHOT_CDP_PORT || 0) || (await availablePort());
-const keyFile = resolve(process.env.GMI_CLOUD_API_KEY_FILE || join(repoRoot, "gmicloud-api-key.txt"));
+const keyFile = resolve(process.env.GMI_CLOUD_API_KEY_FILE || join(repoRoot, "ignored provider key files"));
 const defaultSnapshotWorkspace = join(homedir(), "Documents", "ambientCoderArchive");
 const sourceWorkspace =
   process.env.AMBIENT_KANBAN_PLANNING_SNAPSHOT_WORKSPACE ||

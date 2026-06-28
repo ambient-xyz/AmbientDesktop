@@ -108,6 +108,8 @@ export function AppConversationMessageList({ scrollRef, onMessagesScroll, ...mes
     activeIds: activeVirtualMessageIds,
   });
   const { orphanedSubagentClusters, renderSubagentParentCluster } = useAppConversationSubagentSurfaces(messageListProps);
+  const activityTailVisible =
+    (transientThinkingActivityLines.length > 0 && !workflowRecordingReviewRunning) || runStatusCardVisible;
 
   const renderConversationMessage = (message: ChatMessage) => (
     <AppConversationMessageRenderer
@@ -168,6 +170,7 @@ export function AppConversationMessageList({ scrollRef, onMessagesScroll, ...mes
               onOpenBrowser={() => onOpenBrowserForUserAction(activeChatBrowserUserAction)}
             />
           )}
+          {activityTailVisible && <div className="messages-tail-spacer" aria-hidden="true" />}
           {transientThinkingActivityLines.length > 0 && !workflowRecordingReviewRunning && (
             <TransientThinkingActivitySlot lines={transientThinkingActivityLines} status={runStatus} visible={messageTailVisible} />
           )}

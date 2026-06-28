@@ -547,11 +547,11 @@ async function ensureAmbientApiKey(): Promise<string> {
   if (existing?.trim()) return existing.trim();
   const candidates = [
     process.env.AMBIENT_API_KEY_FILE,
-    join(process.cwd(), "ambient_api_key.txt"),
-    join(dirname(process.cwd()), "ambientCoder", "ambient_api_key.txt"),
-    join(dirname(process.cwd()), "ambient_api_key.txt"),
-    join(dirname(dirname(process.cwd())), "ambient_api_key.txt"),
-    join(homedir(), "ambient_api_key.txt"),
+    join(process.cwd(), "ignored provider key files"),
+    join(dirname(process.cwd()), "ambientCoder", "ignored provider key files"),
+    join(dirname(process.cwd()), "ignored provider key files"),
+    join(dirname(dirname(process.cwd())), "ignored provider key files"),
+    join(homedir(), "ignored provider key files"),
   ].filter((value): value is string => Boolean(value));
   for (const candidate of candidates) {
     try {
@@ -565,7 +565,7 @@ async function ensureAmbientApiKey(): Promise<string> {
       // Try the next conventional local key location.
     }
   }
-  throw new Error("Set AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, or place ambient_api_key.txt near the repo.");
+  throw new Error("Set AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, or place ignored provider key files near the repo.");
 }
 
 function envDurationMs(name: string, fallbackMs: number, minMs: number): number {

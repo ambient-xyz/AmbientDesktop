@@ -6,11 +6,11 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const candidates = [
-  join(repoRoot, "gmicloud-api-key.txt"),
-  join(dirname(repoRoot), "gmicloud-api-key.txt"),
-  join(dirname(repoRoot), "ambientCoder", "gmicloud-api-key.txt"),
-  join(homedir(), "ambientCoder", "gmicloud-api-key.txt"),
-  join(homedir(), "Documents", "ambientCoder", "gmicloud-api-key.txt"),
+  join(repoRoot, "ignored provider key files"),
+  join(dirname(repoRoot), "ignored provider key files"),
+  join(dirname(repoRoot), "ambientCoder", "ignored provider key files"),
+  join(homedir(), "ambientCoder", "ignored provider key files"),
+  join(homedir(), "Documents", "ambientCoder", "ignored provider key files"),
 ];
 
 const match = candidates.find((candidate) => existsSync(candidate));

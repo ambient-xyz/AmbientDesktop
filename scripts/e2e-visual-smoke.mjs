@@ -67,7 +67,7 @@ const compareBaselines = process.argv.includes("--compare-baseline") || process.
 const usesGmiCloudProvider = process.env.AMBIENT_PROVIDER === "gmi-cloud" || process.env.AMBIENT_LLM_PROVIDER === "gmi-cloud";
 const ambientApiKey = await readAmbientApiKey();
 if (!ambientApiKey && !usesGmiCloudProvider) {
-  throw new Error("Set AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, or place ambient_api_key.txt near the repo before running visual Workflow Agent smoke.");
+  throw new Error("Set AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, or place ignored provider key files near the repo before running visual Workflow Agent smoke.");
 }
 const output = [];
 const crcTable = Array.from({ length: 256 }, (_, index) => {
@@ -1533,12 +1533,12 @@ async function readAmbientApiKey() {
   if (existing?.trim()) return existing.trim();
   const candidates = [
     process.env.AMBIENT_API_KEY_FILE,
-    join(process.cwd(), "ambient_api_key.txt"),
-    join(dirname(process.cwd()), "ambient_api_key.txt"),
-    join(dirname(dirname(process.cwd())), "ambient_api_key.txt"),
-    join(homedir(), "ambient_api_key.txt"),
-    "/Users/example/Documents/ambientCoder/ambient_api_key.txt",
-    "/Users/example/Documents/New project 3/ambient_api_key.txt",
+    join(process.cwd(), "ignored provider key files"),
+    join(dirname(process.cwd()), "ignored provider key files"),
+    join(dirname(dirname(process.cwd())), "ignored provider key files"),
+    join(homedir(), "ignored provider key files"),
+    "/Users/example/Documents/ambientCoder/ignored provider key files",
+    "/Users/example/Documents/New project 3/ignored provider key files",
   ].filter(Boolean);
   for (const candidate of candidates) {
     try {

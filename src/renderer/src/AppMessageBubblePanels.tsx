@@ -7,6 +7,7 @@ import type { WorkspaceOpenTarget } from "../../shared/workspaceTypes";
 import {
   clampNumber,
   isHtmlArtifactPath,
+  LinkContextMenuPortal,
   OpenTargetIcon,
   RichText,
   type LinkContextMenuState,
@@ -338,14 +339,15 @@ function DurablePlanContextMenu({
 }) {
   if (!menu.artifactPath) return null;
   return (
-    <div
-      className="link-context-menu"
-      role="menu"
-      aria-label="Durable plan options"
-      style={{ left: menu.x, top: menu.y }}
-      onClick={(event) => event.stopPropagation()}
-      onMouseDown={(event) => event.stopPropagation()}
-    >
+    <LinkContextMenuPortal>
+      <div
+        className="link-context-menu"
+        role="menu"
+        aria-label="Durable plan options"
+        style={{ left: menu.x, top: menu.y }}
+        onClick={(event) => event.stopPropagation()}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
       <button
         type="button"
         role="menuitem"
@@ -414,6 +416,7 @@ function DurablePlanContextMenu({
         <FolderOpen size={13} />
         <span>Reveal in Finder</span>
       </button>
-    </div>
+      </div>
+    </LinkContextMenuPortal>
   );
 }

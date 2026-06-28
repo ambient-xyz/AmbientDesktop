@@ -763,7 +763,7 @@ function deterministicMockPayload(testCase) {
 
 async function callLiveOpenAiCompatibleModel({ testCase, provider, timeoutMs }) {
   if (!provider.apiKey) {
-    throw new Error("Set GMI_CLOUD_API_KEY, GMI_API_KEY, GMI_CLOUD_API_KEY_FILE, or provide gmicloud-api-key.txt for live workflow model tolerance lab.");
+    throw new Error("Set GMI_CLOUD_API_KEY, GMI_API_KEY, GMI_CLOUD_API_KEY_FILE, or provide ignored provider key files for live workflow model tolerance lab.");
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(new Error(`workflow model tolerance request timed out after ${timeoutMs}ms`)), timeoutMs);
@@ -833,12 +833,12 @@ function readProviderCredential(providerId, env, cwd) {
     if (env.AMBIENT_API_KEY_FILE?.trim()) return readKeyFileCredential(env.AMBIENT_API_KEY_FILE, "env:AMBIENT_API_KEY_FILE");
     return readFirstKeyFileCredential(
       [
-        join(cwd, "ambient_api_key.txt"),
-        join(dirname(cwd), "ambient_api_key.txt"),
-        join(dirname(cwd), "ambientCoder", "ambient_api_key.txt"),
-        join(homedir(), "Documents", "ambientCoder", "ambient_api_key.txt"),
+        join(cwd, "ignored provider key files"),
+        join(dirname(cwd), "ignored provider key files"),
+        join(dirname(cwd), "ambientCoder", "ignored provider key files"),
+        join(homedir(), "Documents", "ambientCoder", "ignored provider key files"),
       ],
-      "ambient_api_key.txt",
+      "ignored provider key files",
     );
   }
   if (env.GMI_CLOUD_API_KEY?.trim()) return { apiKey: env.GMI_CLOUD_API_KEY.trim(), credentialSource: "env:GMI_CLOUD_API_KEY" };
@@ -846,13 +846,13 @@ function readProviderCredential(providerId, env, cwd) {
   if (env.GMI_CLOUD_API_KEY_FILE?.trim()) return readKeyFileCredential(env.GMI_CLOUD_API_KEY_FILE, "env:GMI_CLOUD_API_KEY_FILE");
   return readFirstKeyFileCredential(
     [
-      join(cwd, "gmicloud-api-key.txt"),
-      join(dirname(cwd), "gmicloud-api-key.txt"),
-      join(dirname(cwd), "ambientCoder", "gmicloud-api-key.txt"),
-      join(homedir(), "Documents", "ambientCoder", "gmicloud-api-key.txt"),
-      join(homedir(), "Documents", "New project 3", "gmicloud-api-key.txt"),
+      join(cwd, "ignored provider key files"),
+      join(dirname(cwd), "ignored provider key files"),
+      join(dirname(cwd), "ambientCoder", "ignored provider key files"),
+      join(homedir(), "Documents", "ambientCoder", "ignored provider key files"),
+      join(homedir(), "Documents", "New project 3", "ignored provider key files"),
     ],
-    "gmicloud-api-key.txt",
+    "ignored provider key files",
   );
 }
 

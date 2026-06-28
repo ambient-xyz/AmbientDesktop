@@ -8,7 +8,7 @@ evidence bundle that can be shared with provider engineers.
 
 Example:
   python3 scripts/ambient_long_tool_call_stream_fixture.py \
-    --api-key-file /path/to/ambient_api_key.txt \
+    --api-key-file /path/to/ignored provider key files \
     --requested-content-chars 24000
 """
 

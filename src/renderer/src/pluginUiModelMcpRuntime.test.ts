@@ -516,6 +516,24 @@ describe("plugin UI model MCP runtime", () => {
     expect(
       mcpContainerRuntimeShouldOpenStartupPanel({
         ...baseStatus,
+        status: "installed-not-running",
+        message: "Docker is installed but not running.",
+        nextAction: "start-runtime",
+        setup: { ...baseStatus.setup, shouldPrompt: false, promptSuppressed: false, reason: "runtime-not-missing" },
+      }),
+    ).toBe(true);
+    expect(
+      mcpContainerRuntimeShouldOpenStartupPanel({
+        ...baseStatus,
+        status: "blocked-by-policy",
+        message: "ToolHive could not use the installed runtime.",
+        nextAction: "open-settings",
+        setup: { ...baseStatus.setup, shouldPrompt: false, promptSuppressed: false, reason: "runtime-not-missing" },
+      }),
+    ).toBe(true);
+    expect(
+      mcpContainerRuntimeShouldOpenStartupPanel({
+        ...baseStatus,
         status: "ready",
         message: "Runtime ready.",
         nextAction: "none",

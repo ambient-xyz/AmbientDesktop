@@ -46,11 +46,11 @@ def read_api_key() -> str:
             return value
     candidates = [
         os.environ.get("AMBIENT_API_KEY_FILE", ""),
-        str(REPO_ROOT / "ambient_api_key.txt"),
-        str(REPO_ROOT.parent / "ambient_api_key.txt"),
-        "/Users/example/Documents/ambientCoder/ambient_api_key.txt",
-        "/Users/example/Documents/New project 3/ambient_api_key.txt",
-        str(pathlib.Path.home() / "ambient_api_key.txt"),
+        str(REPO_ROOT / "ignored provider key files"),
+        str(REPO_ROOT.parent / "ignored provider key files"),
+        "/Users/example/Documents/ambientCoder/ignored provider key files",
+        "/Users/example/Documents/New project 3/ignored provider key files",
+        str(pathlib.Path.home() / "ignored provider key files"),
     ]
     for raw in candidates:
         if not raw:
@@ -60,7 +60,7 @@ def read_api_key() -> str:
             value = path.read_text(encoding="utf-8").strip()
             if value:
                 return value
-    raise SystemExit("Ambient API key missing. Set AMBIENT_API_KEY or provide ambient_api_key.txt.")
+    raise SystemExit("Ambient API key missing. Set AMBIENT_API_KEY or provide ignored provider key files.")
 
 
 def text_from_content(content: Any) -> str:

@@ -4,6 +4,7 @@ import {
   nextMessageTailVisibility,
   nextScrollToBottomVisibility,
   scrollControlsCollectionRevision,
+  shouldFollowMessageTailOnContentChange,
   shouldIgnoreProgrammaticMessagesScroll,
   shouldSettleMessageTailAfterVisibilityChange,
   shouldRequestMessageTail,
@@ -65,18 +66,55 @@ describe("AppMessageScrollControls", () => {
       shouldIgnoreProgrammaticMessagesScroll({
         element: { scrollHeight: 1_000, scrollTop: 368, clientHeight: 600 },
         programmaticScroll: true,
+        shouldTailMessages: false,
       }),
     ).toBe(true);
     expect(
       shouldIgnoreProgrammaticMessagesScroll({
         element: { scrollHeight: 1_000, scrollTop: 300, clientHeight: 600 },
         programmaticScroll: true,
+        shouldTailMessages: false,
       }),
     ).toBe(false);
     expect(
       shouldIgnoreProgrammaticMessagesScroll({
         element: { scrollHeight: 1_000, scrollTop: 300, clientHeight: 600 },
         programmaticScroll: false,
+        shouldTailMessages: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps ignoring programmatic scroll events while tail following is requested", () => {
+    expect(
+      shouldIgnoreProgrammaticMessagesScroll({
+        element: { scrollHeight: 1_000, scrollTop: 300, clientHeight: 600 },
+        programmaticScroll: true,
+        shouldTailMessages: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("follows transcript content growth while the tail is active or explicitly forced", () => {
+    expect(
+      shouldFollowMessageTailOnContentChange({
+        forceTailMessages: false,
+        messageTailVisible: true,
+        shouldTailMessages: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldFollowMessageTailOnContentChange({
+        forceTailMessages: true,
+        messageTailVisible: false,
+        shouldTailMessages: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldFollowMessageTailOnContentChange({
+        forceTailMessages: false,
+        messageTailVisible: false,
+        shouldTailMessages: true,
       }),
     ).toBe(false);
   });

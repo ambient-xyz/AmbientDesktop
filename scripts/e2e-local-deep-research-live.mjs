@@ -69,30 +69,30 @@ function ensureAmbientCredentialEnv() {
   if (process.env.AMBIENT_API_KEY || process.env.AMBIENT_AGENT_AMBIENT_API_KEY || process.env.AMBIENT_API_KEY_FILE || process.env.AMBIENT_AGENT_AMBIENT_API_KEY_FILE) return;
   const candidates = [
     join(repoRoot, "ambient_api_key_u.txt"),
-    join(repoRoot, "ambient_api_key.txt"),
+    join(repoRoot, "ignored provider key files"),
     "/Users/example/Documents/ambientCoder/ambient_api_key_u.txt",
-    "/Users/example/Documents/ambientCoder/ambient_api_key.txt",
+    "/Users/example/Documents/ambientCoder/ignored provider key files",
   ];
   const keyFile = candidates.find((candidate) => existsSync(candidate));
   if (keyFile) {
     process.env.AMBIENT_API_KEY_FILE = keyFile;
     return;
   }
-  throw new Error("Configure AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, or the ignored ambient_api_key.txt file before running this live smoke.");
+  throw new Error("Configure AMBIENT_API_KEY, AMBIENT_AGENT_AMBIENT_API_KEY, AMBIENT_API_KEY_FILE, or the ignored ignored provider key files file before running this live smoke.");
 }
 
 function ensureGmiCredentialEnv() {
   if (process.env.GMI_CLOUD_API_KEY || process.env.GMI_API_KEY || process.env.GMI_CLOUD_API_KEY_FILE) return;
   const candidates = [
-    join(repoRoot, "gmicloud-api-key.txt"),
-    "/Users/example/Documents/ambientCoder/gmicloud-api-key.txt",
+    join(repoRoot, "ignored provider key files"),
+    "/Users/example/Documents/ambientCoder/ignored provider key files",
   ];
   const keyFile = candidates.find((candidate) => existsSync(candidate));
   if (keyFile) {
     process.env.GMI_CLOUD_API_KEY_FILE = keyFile;
     return;
   }
-  throw new Error("Configure GMI_CLOUD_API_KEY, GMI_API_KEY, GMI_CLOUD_API_KEY_FILE, or the ignored gmicloud-api-key.txt file before running this live smoke.");
+  throw new Error("Configure GMI_CLOUD_API_KEY, GMI_API_KEY, GMI_CLOUD_API_KEY_FILE, or the ignored ignored provider key files file before running this live smoke.");
 }
 
 async function launchApp() {

@@ -11,7 +11,7 @@ describe("meta harness trace artifacts", () => {
     const traceDir = join(root, "trace");
     await mkdir(workspace, { recursive: true });
     await writeFile(join(workspace, "README.md"), "before\n", "utf8");
-    await writeFile(join(workspace, "ambient_api_key.txt"), "do-not-read", "utf8");
+    await writeFile(join(workspace, "ignored provider key files"), "do-not-read", "utf8");
     const beforeWorkspace = await snapshotHarnessWorkspace(workspace);
     await writeFile(join(workspace, "README.md"), "after\n", "utf8");
     await writeFile(join(workspace, "src.txt"), "created\n", "utf8");

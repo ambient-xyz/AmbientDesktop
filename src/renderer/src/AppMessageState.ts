@@ -87,6 +87,17 @@ export function streamingAssistantMessageId(messages: ChatMessage[], running: bo
     ?.id;
 }
 
+export function assistantVisibleTextIsStreaming(messages: ChatMessage[], running: boolean): boolean {
+  if (!running) return false;
+  return messages.some(
+    (message) =>
+      message.role === "assistant" &&
+      !isThinkingMessage(message) &&
+      messageStatus(message) === "streaming" &&
+      Boolean(renderableMessageContent(message)),
+  );
+}
+
 export function isThinkingMessage(message: ChatMessage): boolean {
   return isThinkingMessageForDisplay(message);
 }

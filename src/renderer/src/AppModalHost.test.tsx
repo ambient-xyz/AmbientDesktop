@@ -29,6 +29,7 @@ describe("AppModalHost", () => {
     );
 
     expect(html).toContain("Add Local Deep Research");
+    expect(html).toContain("Close Local Deep Research setup");
   });
 });
 

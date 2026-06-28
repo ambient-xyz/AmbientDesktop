@@ -8827,13 +8827,21 @@ button {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
   padding: 26px max(24px, 6%) var(--conversation-scroll-bottom-clearance);
   scroll-padding-block: 26px var(--conversation-scroll-bottom-clearance);
+}
+
+.messages-tail-spacer {
+  flex: 1 1 clamp(18px, 16vh, 150px);
+  min-height: 18px;
 }
 
 .messages-virtual-list {
   position: relative;
   width: 100%;
+  flex: 0 0 auto;
   min-height: 100%;
 }
 
@@ -16393,6 +16401,27 @@ button.inline-media-preview {
   gap: 12px;
   align-items: flex-start;
   margin-bottom: 16px;
+}
+
+.dialog-close-button {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.dialog-close-button:hover,
+.dialog-close-button:focus-visible {
+  color: var(--text-primary);
+  border-color: var(--line-strong);
+  background: var(--surface-hover);
 }
 
 .dialog-icon {

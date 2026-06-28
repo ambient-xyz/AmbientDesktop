@@ -47,12 +47,14 @@ export function visibleRunActivityLinesForThinkingDisplay<T extends ThinkingDisp
 }
 
 export function transientThinkingActivityLinesForDisplay<T extends ThinkingDisplayRunActivityLine>(input: {
+  assistantVisibleTextStreaming?: boolean;
   lines: readonly T[];
   messages: readonly ChatMessage[];
   mode: ThinkingDisplayMode;
   running: boolean;
   runStatus: RunStatus;
 }): T[] {
+  if (input.assistantVisibleTextStreaming) return [];
   if (input.mode !== "transient" || !input.running || input.runStatus !== "streaming") return [];
   return input.lines.filter((line) => line.kind === "thinking");
 }

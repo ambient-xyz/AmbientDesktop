@@ -725,13 +725,13 @@ export function resolveGmiCloudKeyFileForChildEnv(input = {}) {
   const fileExists = input.existsSync ?? existsSync;
   if (env.GMI_CLOUD_API_KEY_FILE) return env.GMI_CLOUD_API_KEY_FILE;
   const candidates = [
-    join(root, "gmicloud-api-key.txt"),
-    join(dirname(root), "gmicloud-api-key.txt"),
-    join(dirname(root), "ambientCoder", "gmicloud-api-key.txt"),
-    join(home, "ambientCoder", "gmicloud-api-key.txt"),
-    join(home, "Documents", "ambientCoder", "gmicloud-api-key.txt"),
+    join(root, "ignored provider key files"),
+    join(dirname(root), "ignored provider key files"),
+    join(dirname(root), "ambientCoder", "ignored provider key files"),
+    join(home, "ambientCoder", "ignored provider key files"),
+    join(home, "Documents", "ambientCoder", "ignored provider key files"),
   ];
-  return candidates.find((candidate) => fileExists(candidate)) ?? join(root, "gmicloud-api-key.txt");
+  return candidates.find((candidate) => fileExists(candidate)) ?? join(root, "ignored provider key files");
 }
 
 function sumTaskUnits(tasks, field) {

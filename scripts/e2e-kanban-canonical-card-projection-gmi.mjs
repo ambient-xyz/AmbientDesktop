@@ -15,7 +15,7 @@ const userData = join(runRoot, "userData");
 const reportPath = resolve(process.env.AMBIENT_KANBAN_CANONICAL_PROJECTION_OUT || join(outputRoot, "latest.json"));
 const screenshotPath = join(runRoot, "phase1-canonical-projection-gates.png");
 const cdpPort = Number(process.env.AMBIENT_KANBAN_CANONICAL_PROJECTION_CDP_PORT || 0) || (await availablePort());
-const keyFile = resolve(process.env.GMI_CLOUD_API_KEY_FILE || join(repoRoot, "gmicloud-api-key.txt"));
+const keyFile = resolve(process.env.GMI_CLOUD_API_KEY_FILE || join(repoRoot, "ignored provider key files"));
 const defaultSnapshotWorkspace = join(homedir(), "Documents", "ambientCoderArchive");
 const sourceWorkspace =
   process.env.AMBIENT_KANBAN_CANONICAL_SNAPSHOT_WORKSPACE ||

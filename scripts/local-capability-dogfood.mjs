@@ -340,9 +340,9 @@ async function readAmbientApiKey() {
   if (existing?.trim()) return existing.trim();
   const candidates = [
     process.env.AMBIENT_API_KEY_FILE,
-    join(process.cwd(), "ambient_api_key.txt"),
-    join(dirname(process.cwd()), "ambient_api_key.txt"),
-    "/Users/example/Documents/ambientCoder/ambient_api_key.txt",
+    join(process.cwd(), "ignored provider key files"),
+    join(dirname(process.cwd()), "ignored provider key files"),
+    "/Users/example/Documents/ambientCoder/ignored provider key files",
   ].filter(Boolean);
   for (const candidate of candidates) {
     try {
