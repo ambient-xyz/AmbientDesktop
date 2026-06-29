@@ -59,6 +59,7 @@ function baseInput(): AppShellSurfacePropsForAppInput {
     contextAttachments: [],
     contextError: undefined,
     contextRecoveryBusy: false,
+    goalBudgetDialog: undefined,
     goalBusy: false,
     goalCompletionCelebrationId: undefined,
     goalMenuOpen: false,
@@ -222,11 +223,15 @@ function baseInput(): AppShellSurfacePropsForAppInput {
       switchBranch: noop,
     },
     goalActions: {
+      cancelGoalBudgetDialog: noop,
       clearActiveGoal: noop,
       editActiveGoalObjective: noop,
+      openGoalBudgetDialog: noop,
       pauseOrResumeActiveGoal: noop,
       setActiveGoalBudget: noop,
+      submitGoalBudgetDialog: async () => undefined,
       toggleGoalMode: noop,
+      updateGoalBudgetDialogValue: noop,
     },
     localDeepResearchModeControls: {
       onToggleLocalDeepResearchMode: noop,

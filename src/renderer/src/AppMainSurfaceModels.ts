@@ -17,6 +17,7 @@ import {
   useAppConversationDisplayModel,
   type AppConversationDisplayModel,
 } from "./AppConversationDisplayModel";
+import { hasVisibleAssistantReply } from "./thinkingDisplayUiModel";
 import type { createAppNavigationActionsForApp } from "./AppNavigationActions";
 import type { RunActivityLine } from "./AppRunActivity";
 import type { useAppRunActivityState } from "./AppRunActivityState";
@@ -171,6 +172,7 @@ export function useAppMainSurfaceThreadModelsForApp({
   });
   const workflowRecordingReviewControls = useAppWorkflowRecordingReviewControls({
     activeThread,
+    hasPriorAssistantReply: hasVisibleAssistantReply(state?.messages ?? []),
     running,
     runStatus: runActivityState.runStatus,
     thinkingDisplay: state?.settings.thinkingDisplay,

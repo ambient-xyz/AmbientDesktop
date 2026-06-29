@@ -45,7 +45,7 @@ export interface AgentRuntimeSubagentToolExtensionDependencies {
 
 export interface AgentRuntimeSubagentToolExtensionControllerOptions {
   store: AgentRuntimeSubagentToolExtensionStore;
-  features: Pick<AgentRuntimeFeatures, "localTextSubagents" | "symphonyLaunchContracts">;
+  features: Pick<AgentRuntimeFeatures, "modelRuntime" | "localTextSubagents" | "symphonyLaunchContracts">;
   activeRunIds: Pick<Map<string, string>, "get">;
   subagentActions: Pick<AgentRuntimeSubagentActionController, "createEventingStore">;
   subagentCapacity: Pick<AgentRuntimeSubagentCapacityController, "resolveCapacityLease">;
@@ -104,6 +104,7 @@ export class AgentRuntimeSubagentToolExtensionController {
 
   resolveModelRuntimeProfile(modelId?: string): AmbientModelRuntimeProfile {
     return (
+      this.options.features.modelRuntime?.resolveModelRuntimeProfile?.(modelId) ??
       this.options.features.localTextSubagents?.resolveModelRuntimeProfile?.(modelId) ??
       this.dependencies.modelRuntimeRegistry.resolveProfile(modelId)
     );

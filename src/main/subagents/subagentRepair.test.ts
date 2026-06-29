@@ -765,7 +765,7 @@ describe("subagentRepair", () => {
       expect.objectContaining({
         kind: "model_runtime_snapshot_mismatch",
         runId: "run-mismatched-model",
-        message: expect.stringContaining("lease modelId zai-org/GLM-5.2-FP8 does not match runtime modelId other/model"),
+        message: expect.stringContaining("lease modelId z-ai/glm-5.2 does not match runtime modelId other/model"),
       }),
       expect.objectContaining({ kind: "missing_prompt_snapshot", runId: "run-missing-prompt" }),
       expect.objectContaining({

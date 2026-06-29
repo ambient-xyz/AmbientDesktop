@@ -1,7 +1,10 @@
 import type { SendMessageInput } from "../../shared/desktopTypes";
 import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
 import type { MessageDelivery } from "../../shared/threadTypes";
-import { resolveAmbientModelRuntimeProfile } from "../../shared/ambientModels";
+import {
+  resolveAmbientModelRuntimeProfile,
+  type AmbientModelRuntimeProfile,
+} from "../../shared/ambientModels";
 import { resolveAgentRuntimeImageInputs } from "./agentRuntimeImageInputs";
 import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import { agentRuntimeUserMessageMetadata } from "./agentRuntimeUserMessageMetadata";
@@ -30,6 +33,7 @@ export interface AgentRuntimeActiveRunHandoffControllerOptions {
   store: Pick<ProjectStore, "addMessage" | "getThread" | "markThreadRead" | "updateThreadSettings">;
   getFeatureFlagSnapshot: () => AmbientFeatureFlagSnapshot;
   applyThreadModelSettings: (threadId: string) => Promise<unknown>;
+  resolveModelRuntimeProfile?: (modelId?: string) => AmbientModelRuntimeProfile;
   modelContentForSendInput: (input: SendMessageInput) => string;
   emit: (event: { type: "message-created"; message: ReturnType<ProjectStore["addMessage"]> } | { type: "thread-updated"; thread: ReturnType<ProjectStore["markThreadRead"]> }) => void;
 }
@@ -83,7 +87,7 @@ export class AgentRuntimeActiveRunHandoffController {
     const imageInputs = await resolveAgentRuntimeImageInputs({
       sendInput: input,
       workspacePath: thread.workspacePath,
-      modelProfile: resolveAmbientModelRuntimeProfile(thread.model),
+      modelProfile: this.options.resolveModelRuntimeProfile?.(thread.model) ?? resolveAmbientModelRuntimeProfile(thread.model),
     });
     const queuedMessage = this.options.store.addMessage({
       threadId: input.threadId,

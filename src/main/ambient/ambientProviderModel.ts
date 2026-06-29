@@ -1,16 +1,19 @@
 import type { Model } from "@mariozechner/pi-ai";
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 import {
-  ambientModelLabel,
   normalizeAmbientModelId,
   resolveAmbientModelReasoningCapability,
   resolveAmbientModelRuntimeProfile,
+  type AmbientModelRuntimeProfile,
 } from "../../shared/ambientModels";
 
-export function ambientModel(modelId: string, baseUrl: string): Model<"openai-completions"> {
+export function ambientModel(modelId: string, baseUrl: string, runtimeProfile?: AmbientModelRuntimeProfile): Model<"openai-completions"> {
   const normalizedModelId = normalizeAmbientModelId(modelId);
-  const profile = resolveAmbientModelRuntimeProfile(normalizedModelId);
-  const reasoningCapability = resolveAmbientModelReasoningCapability(normalizedModelId);
+  const profile =
+    runtimeProfile && normalizeAmbientModelId(runtimeProfile.modelId) === normalizedModelId
+      ? runtimeProfile
+      : resolveAmbientModelRuntimeProfile(normalizedModelId);
+  const reasoningCapability = profile.reasoningCapability ?? resolveAmbientModelReasoningCapability(normalizedModelId);
   const thinkingLevelMap =
     reasoningCapability.payloadStrategy === "zai-reasoning-effort" && reasoningCapability.effortByThinkingLevel
       ? { ...reasoningCapability.effortByThinkingLevel }
@@ -23,7 +26,7 @@ export function ambientModel(modelId: string, baseUrl: string): Model<"openai-co
         : {};
   return {
     id: normalizedModelId,
-    name: ambientModelLabel(normalizedModelId),
+    name: profile.label,
     api: "openai-completions",
     provider: "ambient",
     baseUrl,

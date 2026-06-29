@@ -116,7 +116,9 @@ type AppGitActionsForComposerShellProps = Pick<ReturnType<typeof createAppGitAct
 type AppGoalActionsForComposerShellProps = Pick<
   ReturnType<typeof createAppGoalActions>,
   "clearActiveGoal" | "editActiveGoalObjective" | "pauseOrResumeActiveGoal" | "setActiveGoalBudget" | "toggleGoalMode"
->;
+> & {
+  openGoalBudgetDialog: () => void;
+};
 type AppPermissionActionsForComposerShellProps = Pick<ReturnType<typeof createAppPermissionActions>, "requestThreadPermissionModeChange">;
 type AppPlannerActionsForComposerShellProps = Pick<
   ReturnType<typeof createAppPlannerActions>,
@@ -381,7 +383,7 @@ export function createAppComposerShellPropsForApp({
     retrySttComposerTranscription: providerRuntimeActions.retrySttComposerTranscription,
     runProjectBoardThreadPlanAction: projectBoardControls.runProjectBoardThreadPlanAction,
     sendPlannerDurableRevision: plannerActions.sendPlannerDurableRevision,
-    setActiveGoalBudget: goalActions.setActiveGoalBudget,
+    setActiveGoalBudget: goalActions.openGoalBudgetDialog,
     setChatExportStatus: workflowRuntimeState.setChatExportStatus,
     setGoalMenuOpen: workflowRuntimeState.setGoalMenuOpen,
     setLocalDeepResearchBudgetOverride: workflowRuntimeState.setLocalDeepResearchBudgetOverride,

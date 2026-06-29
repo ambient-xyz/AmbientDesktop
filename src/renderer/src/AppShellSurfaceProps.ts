@@ -62,7 +62,12 @@ type AppContextAttachmentActions = ReturnType<typeof createAppContextAttachmentA
 type AppCoreLifecycleControls = ReturnType<typeof useAppCoreLifecycleControls>;
 type AppCredentialDialogActions = ReturnType<typeof createAppCredentialDialogActions>;
 type AppGitActions = ReturnType<typeof createAppGitActions>;
-type AppGoalActions = ReturnType<typeof createAppGoalActions>;
+type AppGoalActions = ReturnType<typeof createAppGoalActions> & {
+  cancelGoalBudgetDialog: () => void;
+  openGoalBudgetDialog: () => void;
+  submitGoalBudgetDialog: () => Promise<void>;
+  updateGoalBudgetDialogValue: (value: string) => void;
+};
 type AppMessageVoiceActions = ReturnType<typeof createAppMessageVoiceActions>;
 type AppNavigationActions = ReturnType<typeof createAppNavigationActionsForApp>;
 type AppPermissionActions = ReturnType<typeof createAppPermissionActions>;
@@ -269,6 +274,11 @@ export function createAppShellSurfacePropsForApp({
       projectBoardActions: projectBoardControls.projectBoardActions,
       projectThreadActions: navigationActions.projectThreadActions,
       shellCommandActions,
+      goalBudgetActions: {
+        onCancelGoalBudget: goalActions.cancelGoalBudgetDialog,
+        onConfirmGoalBudget: goalActions.submitGoalBudgetDialog,
+        onGoalBudgetChange: goalActions.updateGoalBudgetDialogValue,
+      },
       submitPlannerRevisionDialog: plannerActions.submitPlannerRevisionDialog,
       submitSubagentApprovalDecisionDialog: subagentParentClusterActions.submitSubagentApprovalDecisionDialog,
       submitSubagentBarrierDecisionDialog: subagentParentClusterActions.submitSubagentBarrierDecisionDialog,

@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { AMBIENT_DEFAULT_MODEL, AMBIENT_GLM_5_1_FP8_MODEL, AMBIENT_GLM_5_2_FP8_MODEL } from "../../shared/ambientModels";
+import {
+  AMBIENT_DEFAULT_MODEL,
+  AMBIENT_GLM_5_1_FP8_MODEL,
+  AMBIENT_GLM_5_2_FP8_MODEL,
+  resolveAmbientModelRuntimeProfile,
+} from "../../shared/ambientModels";
 import { ambientModel, createAmbientProviderExtension } from "./ambientProviderModel";
 
 describe("ambientProviderModel", () => {
   it("builds the Ambient Pi model descriptor", () => {
     expect(ambientModel("glm-5.1", "https://ambient.example/v1")).toEqual({
       id: AMBIENT_GLM_5_2_FP8_MODEL,
-      name: "GLM-5.2 FP8",
+      name: "GLM 5.2",
       api: "openai-completions",
       provider: "ambient",
       baseUrl: "https://ambient.example/v1",
@@ -66,6 +71,27 @@ describe("ambientProviderModel", () => {
     expect(model.compat).not.toHaveProperty("supportsReasoningEffort");
     expect(model.compat).not.toHaveProperty("thinkingFormat");
     expect(model).not.toHaveProperty("thinkingLevelMap");
+  });
+
+  it("uses a runtime profile for discovered Ambient-compatible models", () => {
+    const model = ambientModel("moonshotai/kimi-k2.6", "https://ambient.example/v1", {
+      ...resolveAmbientModelRuntimeProfile(AMBIENT_DEFAULT_MODEL),
+      profileId: "ambient:moonshotai/kimi-k2.6",
+      modelId: "moonshotai/kimi-k2.6",
+      label: "Kimi K2.6",
+      supportsVision: true,
+    });
+
+    expect(model).toMatchObject({
+      id: "moonshotai/kimi-k2.6",
+      name: "Kimi K2.6",
+      compat: {
+        supportsReasoningEffort: false,
+      },
+      input: ["text", "image"],
+      contextWindow: 262144,
+      maxTokens: 262144,
+    });
   });
 
   it("advertises image input only for vision-capable Ambient models", () => {

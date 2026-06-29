@@ -201,10 +201,10 @@ describe("ProjectStore sub-agent foundation settings", () => {
         }),
       );
       expect(catalog.selectableMainModelOptions.map((option) => option.id)).toEqual(
-        expect.arrayContaining(["zai-org/GLM-5.2-FP8", "CUSTOM/Router Model v2"]),
+        expect.arrayContaining(["z-ai/glm-5.2", "CUSTOM/Router Model v2"]),
       );
       expect(catalog.selectableSubagentProfiles.map((profile) => profile.modelId)).toEqual(
-        expect.arrayContaining(["zai-org/GLM-5.2-FP8", "CUSTOM/Router Model v2"]),
+        expect.arrayContaining(["z-ai/glm-5.2", "CUSTOM/Router Model v2"]),
       );
     } finally {
       store.close();

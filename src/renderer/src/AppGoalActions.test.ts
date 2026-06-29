@@ -121,6 +121,28 @@ describe("App goal actions", () => {
     });
   });
 
+  it("sets a parsed goal budget from an explicit value without opening a prompt", async () => {
+    const setThreadGoal = vi.fn(async () => threadGoal({ goalId: "goal-1", tokenBudget: 2500 }));
+    const prompt = vi.fn(() => "100");
+    vi.stubGlobal("window", {
+      ambientDesktop: { setThreadGoal },
+      prompt,
+    });
+    const controller = createController({
+      state: desktopState({ activeThreadGoal: threadGoal({ goalId: "goal-1", tokenBudget: 100 }) }),
+    });
+
+    const applied = await controller.actions.setActiveGoalBudget("2,500");
+
+    expect(applied).toBe(true);
+    expect(prompt).not.toHaveBeenCalled();
+    expect(setThreadGoal).toHaveBeenCalledWith({
+      threadId: "thread-1",
+      tokenBudget: 2500,
+      expectedGoalId: "goal-1",
+    });
+  });
+
   it("reports invalid goal budgets without calling Desktop", async () => {
     const setThreadGoal = vi.fn();
     vi.stubGlobal("window", {

@@ -84,17 +84,25 @@ describe("app appearance preferences", () => {
   });
 
   it("normalizes invalid thinking display settings to transient", () => {
-    expect(normalizeThinkingDisplaySettings({ mode: "off" })).toEqual({ mode: "off", showRunStatusCard: false });
+    expect(normalizeThinkingDisplaySettings({ mode: "off" })).toEqual({ mode: "off", hideRunStatusCardAfterFirstMessage: true });
+    expect(normalizeThinkingDisplaySettings({ mode: "transient", hideRunStatusCardAfterFirstMessage: false })).toEqual({
+      mode: "transient",
+      hideRunStatusCardAfterFirstMessage: false,
+    });
     expect(normalizeThinkingDisplaySettings({ mode: "transient", showRunStatusCard: true })).toEqual({
       mode: "transient",
-      showRunStatusCard: true,
+      hideRunStatusCardAfterFirstMessage: false,
     });
-    expect(normalizeThinkingDisplaySettings({ mode: "full" })).toEqual({ mode: "full", showRunStatusCard: false });
-    expect(normalizeThinkingDisplaySettings({ mode: "verbose", showRunStatusCard: "yes" })).toEqual({
+    expect(normalizeThinkingDisplaySettings({ mode: "transient", showRunStatusCard: false })).toEqual({
       mode: "transient",
-      showRunStatusCard: false,
+      hideRunStatusCardAfterFirstMessage: true,
     });
-    expect(normalizeThinkingDisplaySettings(undefined)).toEqual({ mode: "transient", showRunStatusCard: false });
+    expect(normalizeThinkingDisplaySettings({ mode: "full" })).toEqual({ mode: "full", hideRunStatusCardAfterFirstMessage: true });
+    expect(normalizeThinkingDisplaySettings({ mode: "verbose", hideRunStatusCardAfterFirstMessage: "yes" })).toEqual({
+      mode: "transient",
+      hideRunStatusCardAfterFirstMessage: true,
+    });
+    expect(normalizeThinkingDisplaySettings(undefined)).toEqual({ mode: "transient", hideRunStatusCardAfterFirstMessage: true });
   });
 
   it("reads and writes thinking display preferences without dropping other preferences", async () => {
@@ -128,9 +136,9 @@ describe("app appearance preferences", () => {
       bargeIn: { stopTtsOnSpeech: false, queueWhileAgentRuns: true },
     });
 
-    expect(await readThinkingDisplaySettings(preferencesPath)).toEqual({ mode: "transient", showRunStatusCard: false });
+    expect(await readThinkingDisplaySettings(preferencesPath)).toEqual({ mode: "transient", hideRunStatusCardAfterFirstMessage: true });
 
-    await writeThinkingDisplaySettings(preferencesPath, { mode: "full", showRunStatusCard: true });
+    await writeThinkingDisplaySettings(preferencesPath, { mode: "full", hideRunStatusCardAfterFirstMessage: false });
 
     expect(await readThemePreference(preferencesPath)).toBe("dark");
     expect(await readMediaPlaybackSettings(preferencesPath)).toEqual({ generatedMediaAutoplay: true });
@@ -140,7 +148,7 @@ describe("app appearance preferences", () => {
       providerCapabilityId: "ambient-cli:qwen:tool:qwen3_asr_transcribe",
       spokenLanguage: "Spanish",
     });
-    expect(await readThinkingDisplaySettings(preferencesPath)).toEqual({ mode: "full", showRunStatusCard: true });
+    expect(await readThinkingDisplaySettings(preferencesPath)).toEqual({ mode: "full", hideRunStatusCardAfterFirstMessage: false });
   });
 
   it("reads and writes search routing preferences without dropping appearance or media preferences", async () => {

@@ -17,7 +17,7 @@ export const DEFAULT_MEDIA_PLAYBACK_SETTINGS: MediaPlaybackSettings = {
 };
 export const DEFAULT_THINKING_DISPLAY_SETTINGS: ThinkingDisplaySettings = {
   mode: "transient",
-  showRunStatusCard: true,
+  hideRunStatusCardAfterFirstMessage: true,
 };
 export const DEFAULT_PLANNER_SETTINGS: PlannerSettings = {
   autoFinalize: true,
@@ -103,15 +103,18 @@ export function normalizeMediaPlaybackSettings(value: unknown): MediaPlaybackSet
 
 export function normalizeThinkingDisplaySettings(value: unknown): ThinkingDisplaySettings {
   const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  const legacyShowRunStatusCard = typeof record.showRunStatusCard === "boolean" ? record.showRunStatusCard : undefined;
   return {
     mode:
       typeof record.mode === "string" && thinkingDisplayModes.has(record.mode as ThinkingDisplayMode)
         ? (record.mode as ThinkingDisplayMode)
         : DEFAULT_THINKING_DISPLAY_SETTINGS.mode,
-    showRunStatusCard:
-      typeof record.showRunStatusCard === "boolean"
-        ? record.showRunStatusCard
-        : DEFAULT_THINKING_DISPLAY_SETTINGS.showRunStatusCard,
+    hideRunStatusCardAfterFirstMessage:
+      typeof record.hideRunStatusCardAfterFirstMessage === "boolean"
+        ? record.hideRunStatusCardAfterFirstMessage
+        : legacyShowRunStatusCard !== undefined
+          ? !legacyShowRunStatusCard
+          : DEFAULT_THINKING_DISPLAY_SETTINGS.hideRunStatusCardAfterFirstMessage,
   };
 }
 

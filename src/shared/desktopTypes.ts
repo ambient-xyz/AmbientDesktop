@@ -499,7 +499,7 @@ export type ThinkingDisplayMode = "off" | "transient" | "full";
 
 export interface ThinkingDisplaySettings {
   mode: ThinkingDisplayMode;
-  showRunStatusCard: boolean;
+  hideRunStatusCardAfterFirstMessage: boolean;
 }
 
 export type ThemePreference = "system" | "light" | "dark";

@@ -46,6 +46,7 @@ export interface AgentRuntimeFeatureFactoryDependencies<Store extends AgentRunti
   appVersion?: string;
   env?: NodeJS.ProcessEnv;
   localModelHostMemory: FeatureCallback<AgentRuntimeFeatures["localModelHostMemory"]>;
+  modelRuntime?: (store: Store) => FeatureSection<"modelRuntime">;
   googleWorkspace: FeatureSection<"googleWorkspace">;
   workflowNativeTools: FeatureSection<"workflowNativeTools">;
   localTextSubagents?: FeatureSection<"localTextSubagents">;
@@ -107,6 +108,11 @@ export function createAgentRuntimeFeatureFactory<Store extends AgentRuntimeFeatu
         env: dependencies.env,
       },
       localModelHostMemory: dependencies.localModelHostMemory,
+      ...(dependencies.modelRuntime
+        ? {
+          modelRuntime: dependencies.modelRuntime(featureStore),
+        }
+        : {}),
       googleWorkspace: dependencies.googleWorkspace,
       workflowNativeTools: dependencies.workflowNativeTools,
       search: {

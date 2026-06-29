@@ -53,20 +53,28 @@ describe("AppWorkflowRecordingReviewControls", () => {
 
   it("hides the generic run status card while review feedback is running", () => {
     expect(workflowReviewRunStatusCardVisible({
+      hasPriorAssistantReply: false,
       reviewRunning: false,
       running: true,
-      thinkingDisplay: { showRunStatusCard: true },
+      thinkingDisplay: { hideRunStatusCardAfterFirstMessage: true },
     })).toBe(true);
     expect(workflowReviewRunStatusCardVisible({
+      hasPriorAssistantReply: false,
       reviewRunning: true,
       running: true,
-      thinkingDisplay: { showRunStatusCard: true },
+      thinkingDisplay: { hideRunStatusCardAfterFirstMessage: true },
     })).toBe(false);
     expect(workflowReviewRunStatusCardVisible({
+      hasPriorAssistantReply: true,
       reviewRunning: false,
       running: true,
-      runStatus: "compacting",
-      thinkingDisplay: { showRunStatusCard: false },
+      thinkingDisplay: { hideRunStatusCardAfterFirstMessage: true },
+    })).toBe(false);
+    expect(workflowReviewRunStatusCardVisible({
+      hasPriorAssistantReply: true,
+      reviewRunning: false,
+      running: true,
+      thinkingDisplay: { hideRunStatusCardAfterFirstMessage: false },
     })).toBe(true);
   });
 });

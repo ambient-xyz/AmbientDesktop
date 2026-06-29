@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { AMBIENT_GLM_5_2_FP8_MODEL, AMBIENT_KIMI_K2_7_CODE_MODEL } from "./ambientModels";
+import {
+  AMBIENT_GLM_5_2_FP8_MODEL,
+  AMBIENT_KIMI_K2_7_CODE_MODEL,
+  resolveAmbientModelReasoningCapability,
+} from "./ambientModels";
 import { shapeModelReasoningPayload } from "./modelReasoningPayload";
 
 describe("shapeModelReasoningPayload", () => {
@@ -116,6 +120,33 @@ describe("shapeModelReasoningPayload", () => {
         thinking: false,
         reasoning: false,
       },
+    });
+  });
+
+  it("uses runtime-discovered reasoning capabilities for non-static model ids", () => {
+    const result = shapeModelReasoningPayload({
+      payload: {
+        model: "moonshotai/kimi-k2.6",
+        enable_thinking: false,
+        reasoning_effort: "none",
+        tool_choice: "auto",
+      },
+      thinkingLevel: "xhigh",
+      resolveReasoningCapability: (modelId) =>
+        modelId === "moonshotai/kimi-k2.6"
+          ? resolveAmbientModelReasoningCapability(AMBIENT_KIMI_K2_7_CODE_MODEL)
+          : undefined,
+    });
+
+    expect(result.payload).toEqual({
+      model: "moonshotai/kimi-k2.6",
+      tool_choice: "auto",
+    });
+    expect(result.evidence).toMatchObject({
+      modelId: "moonshotai/kimi-k2.6",
+      resolvedThinkingLevel: "medium",
+      strategy: "omit-reasoning-controls",
+      changed: true,
     });
   });
 });

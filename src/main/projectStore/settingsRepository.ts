@@ -60,7 +60,7 @@ export class ProjectStoreSettingsRepository {
       featureFlags: this.getFeatureFlagSettings(),
       memory: this.getMemorySettings(),
       thinkingLevel: this.getSetting("thinkingLevel", "xhigh") as ThinkingLevel,
-      thinkingDisplay: { mode: "transient", showRunStatusCard: false },
+      thinkingDisplay: { mode: "transient", hideRunStatusCardAfterFirstMessage: true },
       modelRuntime: this.getModelRuntimeSettings(),
       modelCatalog: this.getModelRuntimeCatalog(),
       compaction: this.getCompactionSettings(),

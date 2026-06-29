@@ -11,7 +11,7 @@ describe("projectBoardModelBudgetProfile", () => {
       }),
     ).toMatchObject({
       operation: "planner_card_batch",
-      modelId: "zai-org/GLM-5.2-FP8",
+      modelId: "z-ai/glm-5.2",
       contextWindowTokens: 202_752,
       modelMaxOutputTokens: 202_752,
       maxOutputTokens: 4_800,

@@ -13,7 +13,8 @@ const resultsDir = join(repoRoot, "test-results", "running-model-status");
 const latestReportPath = join(resultsDir, "latest.json");
 const defaultProvider = "ambient";
 const kimiModel = "example/model-id";
-const glm52Model = "zai-org/GLM-5.2-FP8";
+const kimi26Model = "moonshotai/kimi-k2.6";
+const glm52Model = "z-ai/glm-5.2";
 const schemaVersion = "ambient-running-model-status-v1";
 const toolName = "ambient_model_status";
 const appWaitTimeoutMs = 90_000;
@@ -823,12 +824,13 @@ function normalizeModelId(modelId) {
 }
 
 function expectedModelContract(modelId, requestedModelId) {
-  if (modelId === kimiModel) {
+  const kimiLabel = kimiModelLabel(modelId);
+  if (kimiLabel) {
     return {
-      shortName: "kimi",
-      label: "Kimi K2.7 Code",
+      shortName: modelId === kimiModel ? "kimi" : "kimi26",
+      label: kimiLabel,
       requestedModelId,
-      effectiveModelId: kimiModel,
+      effectiveModelId: modelId,
       thinkingLevel: "xhigh",
       effectiveThinkingLevel: "medium",
       reasoningLabel: "Reasoning on",
@@ -839,7 +841,7 @@ function expectedModelContract(modelId, requestedModelId) {
   if (modelId === glm52Model) {
     return {
       shortName: "glm52",
-      label: "GLM-5.2 FP8",
+      label: "GLM 5.2",
       requestedModelId,
       effectiveModelId: glm52Model,
       thinkingLevel: "xhigh",
@@ -850,7 +852,13 @@ function expectedModelContract(modelId, requestedModelId) {
       payloadStrategy: "zai-reasoning-effort",
     };
   }
-  throw new Error(`running-model-status dogfood only has contracts for ${kimiModel} and ${glm52Model}; got ${modelId}`);
+  throw new Error(`running-model-status dogfood only has contracts for ${kimiModel}, ${kimi26Model}, and ${glm52Model}; got ${modelId}`);
+}
+
+function kimiModelLabel(modelId) {
+  if (modelId === kimiModel) return "Kimi K2.7 Code";
+  if (modelId === kimi26Model) return "Kimi K2.6";
+  return undefined;
 }
 
 function cleanChildEnv(env) {

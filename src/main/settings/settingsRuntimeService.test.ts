@@ -210,7 +210,7 @@ function createFixture(overrides: Partial<SettingsRuntimeServiceDependencies<Tes
     runtime,
   };
   const mediaPlaybackSettings = stateSlot({ generatedMediaAutoplay: false });
-  const thinkingDisplaySettings = stateSlot({ mode: "transient" as const, showRunStatusCard: false });
+  const thinkingDisplaySettings = stateSlot({ mode: "transient" as const, hideRunStatusCardAfterFirstMessage: true });
   const plannerSettings = stateSlot({ autoFinalize: true });
   const searchRoutingSettings = stateSlot({});
   const localDeepResearchSettings = stateSlot({

@@ -20,7 +20,7 @@ import type { createAppCredentialDialogActions } from "./AppCredentialDialogActi
 import type { createAppDesktopStateAppliers } from "./AppDesktopStateAppliers";
 import type { createAppDesktopStateMemoryControls } from "./AppDesktopStateMemoryControls";
 import { createAppGitActions } from "./AppGitActions";
-import { createAppGoalActions } from "./AppGoalActions";
+import { createAppGoalActions, parseGoalBudgetPromptValue } from "./AppGoalActions";
 import type { createAppNavigationActionsForApp } from "./AppNavigationActions";
 import { createAppPlannerActions } from "./AppPlannerActions";
 import type { useAppProjectBoardControlsForApp } from "./AppProjectBoardControls";
@@ -244,7 +244,7 @@ export function useAppActionOwnerGraphForApp({
     setContextAttachments: workflowRuntimeState.setContextAttachments,
     setContextError: workflowRuntimeState.setContextError,
   });
-  const goalActions = createAppGoalActions({
+  const baseGoalActions = createAppGoalActions({
     goalModeArmed: workflowRuntimeState.goalModeArmed,
     onGoalCleared: rememberClearedGoal,
     setError: shellUiState.setError,
@@ -258,6 +258,59 @@ export function useAppActionOwnerGraphForApp({
     setState,
     state,
   });
+  function openGoalBudgetDialog(): void {
+    const goal = state?.activeThreadGoal;
+    if (!goal) return;
+    workflowRuntimeState.setGoalBudgetDialog({
+      goalId: goal.goalId,
+      objective: goal.objective,
+      value: goal.tokenBudget?.toString() ?? "",
+    });
+    workflowRuntimeState.setGoalMenuOpen(false);
+  }
+
+  function updateGoalBudgetDialogValue(value: string): void {
+    workflowRuntimeState.setGoalBudgetDialog((current) =>
+      current ? { ...current, value, error: undefined } : current,
+    );
+  }
+
+  function cancelGoalBudgetDialog(): void {
+    if (!workflowRuntimeState.goalBudgetDialog?.busy) {
+      workflowRuntimeState.setGoalBudgetDialog(undefined);
+    }
+  }
+
+  async function submitGoalBudgetDialog(): Promise<void> {
+    const dialog = workflowRuntimeState.goalBudgetDialog;
+    if (!dialog || dialog.busy) return;
+    const parsed = parseGoalBudgetPromptValue(dialog.value);
+    if (parsed.kind === "invalid") {
+      workflowRuntimeState.setGoalBudgetDialog((current) =>
+        current ? { ...current, error: parsed.message } : current,
+      );
+      return;
+    }
+    workflowRuntimeState.setGoalBudgetDialog((current) =>
+      current ? { ...current, busy: true, error: undefined } : current,
+    );
+    const applied = await baseGoalActions.setActiveGoalBudget(dialog.value);
+    if (applied) {
+      workflowRuntimeState.setGoalBudgetDialog(undefined);
+      return;
+    }
+    workflowRuntimeState.setGoalBudgetDialog((current) =>
+      current ? { ...current, busy: false, error: "Could not update goal budget." } : current,
+    );
+  }
+
+  const goalActions = {
+    ...baseGoalActions,
+    cancelGoalBudgetDialog,
+    openGoalBudgetDialog,
+    submitGoalBudgetDialog,
+    updateGoalBudgetDialogValue,
+  };
   const pendingSubmittedPromptControls = createAppPendingSubmittedPromptControls({
     state,
     setPendingSubmittedPrompts: workflowRuntimeState.setPendingSubmittedPrompts,

@@ -175,6 +175,7 @@ export function createAgentRuntimePromptPipelineControllers({
     store,
     getFeatureFlagSnapshot: () => callbacks.currentFeatureFlagSnapshot(),
     applyThreadModelSettings: (threadId) => callbacks.applyThreadModelSettings(threadId),
+    resolveModelRuntimeProfile: (modelId) => sendPreflight.resolveMainModelRuntimeProfile(modelId),
     modelContentForSendInput: (activeRunInput) => sendPreparation.modelContentForSendInput(activeRunInput),
     emit: (event) => callbacks.emit(event),
   });

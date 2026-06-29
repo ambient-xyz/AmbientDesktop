@@ -1,8 +1,16 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
+import {
+  AMBIENT_DEFAULT_MODEL,
+  resolveAmbientModelRuntimeProfile,
+  type AmbientModelRuntimeProfile,
+} from "../../shared/ambientModels";
 import {
   prepareAgentRuntimeSendStartContext,
   type AgentRuntimeSendStartContextInput,
@@ -63,6 +71,7 @@ describe("prepareAgentRuntimeSendStartContext", () => {
       hooks: { onActivity },
       sendPreflight: {
         sendInputWithSymphonyParentModeToolCapableModel: sendInputWithToolCapableModel,
+        resolveMainModelRuntimeProfile: (modelId?: string) => resolveAmbientModelRuntimeProfile(modelId),
         runBeforePrompt,
       } as unknown as AgentRuntimeSendStartContextInput["sendPreflight"],
       sendPreparation: {
@@ -93,6 +102,47 @@ describe("prepareAgentRuntimeSendStartContext", () => {
     expect(result.context.runEventScope.markRunActivity()).toBe(true);
     expect(onActivity).toHaveBeenCalledTimes(1);
   });
+
+  it("resolves image inputs with dynamically discovered vision profiles", async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-send-start-images-"));
+    const imageBytes = Buffer.from("fake png bytes", "utf8");
+    await writeFile(join(workspacePath, "screenshot.png"), imageBytes);
+    const thread = threadSummary({
+      model: "moonshotai/kimi-k2.6",
+      workspacePath,
+    });
+    const sendInput = sendMessageInput({
+      context: [{ kind: "file", path: "screenshot.png", name: "screenshot.png", size: imageBytes.length }],
+    });
+    const runtimeInput = {
+      ...sendInput,
+      visibleUserContent: "visible user content",
+    } as RuntimeSendMessageInput;
+    const sendLoop = sendLoopContext(runtimeInput, thread);
+
+    const result = await prepareAgentRuntimeSendStartContext({
+      ...baseInput(sendInput),
+      sendPreflight: {
+        resolveMainModelRuntimeProfile: () => discoveredKimiProfile(),
+        sendInputWithSymphonyParentModeToolCapableModel: vi.fn(() => sendInput),
+        runBeforePrompt: vi.fn(async () => ({
+          kind: "continue",
+          promptContent: "prepared prompt",
+          runtimeModel: "moonshotai/kimi-k2.6",
+        })),
+      } as unknown as AgentRuntimeSendStartContextInput["sendPreflight"],
+      sendPreparation: {
+        prepareRuntimeSendLoopContext: vi.fn(() => sendLoop),
+      } as unknown as AgentRuntimeSendStartContextInput["sendPreparation"],
+      store: storeForThread(thread),
+    });
+
+    expect(result.kind).toBe("continue");
+    if (result.kind !== "continue") return;
+    expect(result.context.promptImageInputs.attachments).toEqual([
+      { path: "screenshot.png", mimeType: "image/png", bytes: imageBytes.length },
+    ]);
+  });
 });
 
 function baseInput(sendInput: SendMessageInput): AgentRuntimeSendStartContextInput {
@@ -108,6 +158,7 @@ function baseInput(sendInput: SendMessageInput): AgentRuntimeSendStartContextInp
       prepareRuntimeSendLoopContext: vi.fn(() => sendLoopContext(sendInput as RuntimeSendMessageInput, threadSummary())),
     } as unknown as AgentRuntimeSendStartContextInput["sendPreparation"],
     sendPreflight: {
+      resolveMainModelRuntimeProfile: vi.fn((modelId) => resolveAmbientModelRuntimeProfile(modelId)),
       sendInputWithSymphonyParentModeToolCapableModel: vi.fn(() => sendInput),
       runBeforePrompt: vi.fn(async () => ({
         kind: "continue",
@@ -136,7 +187,7 @@ function sendMessageInput(overrides: Partial<SendMessageInput> = {}): SendMessag
   } as SendMessageInput;
 }
 
-function threadSummary(): ThreadSummary {
+function threadSummary(overrides: Partial<ThreadSummary> = {}): ThreadSummary {
   return {
     id: "thread-1",
     kind: "chat",
@@ -149,7 +200,18 @@ function threadSummary(): ThreadSummary {
     workspacePath: "/tmp/ambient-workspace",
     permissionMode: "suggest",
     model: "example/model-id",
+    ...overrides,
   } as unknown as ThreadSummary;
+}
+
+function discoveredKimiProfile(): AmbientModelRuntimeProfile {
+  return {
+    ...resolveAmbientModelRuntimeProfile(AMBIENT_DEFAULT_MODEL),
+    profileId: "ambient:moonshotai/kimi-k2.6",
+    modelId: "moonshotai/kimi-k2.6",
+    label: "Kimi K2.6",
+    supportsVision: true,
+  };
 }
 
 function sendLoopContext(runtimeInput: RuntimeSendMessageInput, thread: ThreadSummary): RuntimeSendLoopContext {

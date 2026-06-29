@@ -1,8 +1,11 @@
 import {
+  ambientModelReasoningEffortForCapability,
   ambientModelReasoningEffortForThinkingLevel,
   normalizeAmbientModelId,
   resolveAmbientModelReasoningCapability,
+  resolveAmbientModelReasoningThinkingLevelForCapability,
   resolveAmbientModelReasoningThinkingLevel,
+  type AmbientModelReasoningCapability,
   type AmbientModelReasoningPayloadStrategy,
   type AmbientModelReasoningThinkingLevel,
 } from "./ambientModels";
@@ -25,6 +28,7 @@ export interface ShapeModelReasoningPayloadInput {
   payload: unknown;
   modelId?: string;
   thinkingLevel?: AmbientModelReasoningThinkingLevel;
+  resolveReasoningCapability?: (modelId?: string) => AmbientModelReasoningCapability | undefined;
 }
 
 export interface ShapeModelReasoningPayloadResult {
@@ -37,8 +41,10 @@ const REASONING_CONTROL_FIELDS = ["enable_thinking", "reasoning_effort", "thinki
 
 export function shapeModelReasoningPayload(input: ShapeModelReasoningPayloadInput): ShapeModelReasoningPayloadResult {
   const modelId = normalizeAmbientModelId(modelIdFromPayload(input.payload) ?? input.modelId);
-  const capability = resolveAmbientModelReasoningCapability(modelId);
-  const resolvedThinkingLevel = resolveAmbientModelReasoningThinkingLevel(modelId, input.thinkingLevel);
+  const capability = input.resolveReasoningCapability?.(modelId) ?? resolveAmbientModelReasoningCapability(modelId);
+  const resolvedThinkingLevel = input.resolveReasoningCapability
+    ? resolveAmbientModelReasoningThinkingLevelForCapability(capability, input.thinkingLevel)
+    : resolveAmbientModelReasoningThinkingLevel(modelId, input.thinkingLevel);
   const original = isRecord(input.payload) ? input.payload : {};
   const payload = { ...original };
 
@@ -47,7 +53,9 @@ export function shapeModelReasoningPayload(input: ShapeModelReasoningPayloadInpu
   }
 
   if (capability.payloadStrategy === "zai-reasoning-effort") {
-    const effort = ambientModelReasoningEffortForThinkingLevel(modelId, input.thinkingLevel);
+    const effort = input.resolveReasoningCapability
+      ? ambientModelReasoningEffortForCapability(capability, input.thinkingLevel)
+      : ambientModelReasoningEffortForThinkingLevel(modelId, input.thinkingLevel);
     payload.enable_thinking = true;
     if (effort) payload.reasoning_effort = effort;
   } else if (capability.payloadStrategy === "omit-reasoning-controls") {

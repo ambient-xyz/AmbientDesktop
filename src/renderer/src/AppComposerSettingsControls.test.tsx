@@ -79,7 +79,7 @@ function desktopState(): DesktopState {
       permissionMode: "full-access",
       model: "example/model-id",
       thinkingLevel: "medium",
-      thinkingDisplay: { mode: "transient", showRunStatusCard: true },
+      thinkingDisplay: { mode: "transient", hideRunStatusCardAfterFirstMessage: true },
     },
   } as DesktopState;
 }

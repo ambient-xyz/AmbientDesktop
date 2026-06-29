@@ -49,6 +49,7 @@ export interface RegisterAmbientApiKeyIpcDependencies {
   readCurrentSettingsModel(): string;
   getAmbientProviderStatus(model: string): ProviderStatus;
   emitProviderUpdated(provider: ProviderStatus): void;
+  refreshAmbientModelDiscovery?(): MaybePromise<void>;
 }
 
 export interface RegisterAmbientSecureStorageIpcDependencies {
@@ -106,6 +107,7 @@ export function registerAmbientApiKeyIpc({
   readCurrentSettingsModel,
   getAmbientProviderStatus,
   emitProviderUpdated,
+  refreshAmbientModelDiscovery,
 }: RegisterAmbientApiKeyIpcDependencies): void {
   const refreshProvider = () => {
     resetRuntimeAndPluginServers();
@@ -113,15 +115,22 @@ export function registerAmbientApiKeyIpc({
     emitProviderUpdated(provider);
     return provider;
   };
+  const refreshModels = () => {
+    void Promise.resolve(refreshAmbientModelDiscovery?.()).catch(() => undefined);
+  };
 
   handleIpc("ambient:save-api-key", (_event, apiKey: string) => {
     saveAmbientApiKey(z.string().parse(apiKey));
-    return refreshProvider();
+    const provider = refreshProvider();
+    refreshModels();
+    return provider;
   });
 
   handleIpc("ambient:clear-api-key", () => {
     clearSavedAmbientApiKey();
-    return refreshProvider();
+    const provider = refreshProvider();
+    refreshModels();
+    return provider;
   });
 
   handleIpc("ambient:test-api-key", (_event, apiKey?: string) => testAmbientApiKey(apiKey));

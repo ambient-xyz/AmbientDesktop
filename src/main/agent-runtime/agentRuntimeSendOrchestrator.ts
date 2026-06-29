@@ -66,7 +66,10 @@ export interface AgentRuntimeSendOrchestratorInput<Session extends AgentRuntimeS
   };
   activeRunHandoff: Pick<AgentRuntimeActiveRunHandoffController, "handleSendActiveRunHandoff">;
   sendPreparation: Pick<AgentRuntimeSendPreparationController, "prepareRuntimeSendLoopContext">;
-  sendPreflight: Pick<AgentRuntimeSendPreflightController, "runBeforePrompt" | "sendInputWithSymphonyParentModeToolCapableModel">;
+  sendPreflight: Pick<
+    AgentRuntimeSendPreflightController,
+    "resolveMainModelRuntimeProfile" | "runBeforePrompt" | "sendInputWithSymphonyParentModeToolCapableModel"
+  >;
   promptExecutions: Pick<AgentRuntimePromptExecutionController<Session>, "runPrompt">;
   promptOutcomes: Pick<AgentRuntimePromptOutcomeController, "finalizeSendAfterRun" | "handlePromptFailure" | "handlePromptSuccess">;
   subagentStopCascade: Pick<AgentRuntimeSubagentStopCascadeController, "cascadeSubagentsForStoppedParentRun">;

@@ -56,6 +56,7 @@ describe("registerAmbientApiKeyIpc", () => {
     expect(deps.readCurrentSettingsModel).toHaveBeenCalledOnce();
     expect(deps.getAmbientProviderStatus).toHaveBeenCalledWith("ambient-model");
     expect(deps.emitProviderUpdated).toHaveBeenCalledWith(provider);
+    expect(deps.refreshAmbientModelDiscovery).toHaveBeenCalledOnce();
   });
 
   it("rejects non-string API key saves before mutating provider state", () => {
@@ -66,6 +67,7 @@ describe("registerAmbientApiKeyIpc", () => {
     expect(deps.saveAmbientApiKey).not.toHaveBeenCalled();
     expect(deps.resetRuntimeAndPluginServers).not.toHaveBeenCalled();
     expect(deps.emitProviderUpdated).not.toHaveBeenCalled();
+    expect(deps.refreshAmbientModelDiscovery).not.toHaveBeenCalled();
   });
 
   it("clears the saved API key, resets runtimes, emits provider status, and returns it", async () => {
@@ -76,6 +78,7 @@ describe("registerAmbientApiKeyIpc", () => {
     expect(deps.clearSavedAmbientApiKey).toHaveBeenCalledOnce();
     expect(deps.resetRuntimeAndPluginServers).toHaveBeenCalledOnce();
     expect(deps.emitProviderUpdated).toHaveBeenCalledWith(provider);
+    expect(deps.refreshAmbientModelDiscovery).toHaveBeenCalledOnce();
   });
 
   it("delegates API key tests without mutating provider state", async () => {
@@ -233,6 +236,7 @@ function registerApiKeyWithFakes({
     readCurrentSettingsModel: vi.fn(() => "ambient-model"),
     getAmbientProviderStatus: vi.fn(() => provider),
     emitProviderUpdated: vi.fn(),
+    refreshAmbientModelDiscovery: vi.fn(),
   };
   registerAmbientApiKeyIpc(deps);
 

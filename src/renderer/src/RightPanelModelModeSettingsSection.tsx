@@ -940,22 +940,22 @@ function CollaborationModeSettingsRows({
       )}
       {settingsRowVisible("model-mode", "model-mode.run-status-card") && (
         <SettingsRow
-          label="Run status details"
-          value={state.settings.thinkingDisplay.showRunStatusCard ? "Shown" : "Hidden"}
-          description="Shows the live Ambient status card with streaming, heartbeat, and tool execution details while a request is running."
+          label="Detailed run card"
+          value={state.settings.thinkingDisplay.hideRunStatusCardAfterFirstMessage ? "First message only" : "Always shown"}
+          description="Shows the detailed Ambient working card for the first message in a thread, then relies on the compact status strip unless disabled."
         >
           <label className="setting-toggle">
             <input
               type="checkbox"
-              checked={state.settings.thinkingDisplay.showRunStatusCard}
+              checked={state.settings.thinkingDisplay.hideRunStatusCardAfterFirstMessage}
               onChange={(event) =>
                 onThinkingDisplaySettingsChange({
                   ...state.settings.thinkingDisplay,
-                  showRunStatusCard: event.target.checked,
+                  hideRunStatusCardAfterFirstMessage: event.target.checked,
                 })
               }
             />
-            <span>Show status card during runs</span>
+            <span>Hide after first assistant reply</span>
           </label>
         </SettingsRow>
       )}

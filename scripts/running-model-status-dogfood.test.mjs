@@ -16,7 +16,7 @@ describe("running model status Desktop dogfood harness wiring", () => {
     expect(packageJson.scripts["test:running-model-status:desktop-dogfood:kimi"]).toContain("--scenario=running-model-status");
     expect(packageJson.scripts["test:running-model-status:desktop-dogfood:kimi"]).toContain("example/model-id");
     expect(packageJson.scripts["test:running-model-status:desktop-dogfood:glm52"]).toContain("--scenario=running-model-status");
-    expect(packageJson.scripts["test:running-model-status:desktop-dogfood:glm52"]).toContain("zai-org/GLM-5.2-FP8");
+    expect(packageJson.scripts["test:running-model-status:desktop-dogfood:glm52"]).toContain("z-ai/glm-5.2");
     expect(packageJson.scripts["test:running-model-status:desktop-dogfood:unit"]).toContain("scripts/running-model-status-dogfood.test.mjs");
     expect(supervisor).toContain("scripts/running-model-status-dogfood.mjs");
     expect(supervisor).toContain("test-results/running-model-status/latest.json");
@@ -48,5 +48,7 @@ describe("running model status Desktop dogfood harness wiring", () => {
     expect(scenario).toContain("omit-reasoning-controls");
     expect(scenario).toContain("zai-reasoning-effort");
     expect(scenario).toContain("assertEqualStatusField(statusPayload.provider?.secretStatus");
+    expect(scenario).toContain("moonshotai/kimi-k2.6");
+    expect(scenario).toContain("Kimi K2.6");
   });
 });

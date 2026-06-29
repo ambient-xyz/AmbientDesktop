@@ -35,6 +35,9 @@ import type { RuntimeRunEventScope } from "./runtimeRunEventScope";
 type LocalTextMainRunOptions = Parameters<typeof runAgentRuntimeLocalTextMainRun>[1];
 
 export interface AgentRuntimeSendPreflightFeatures {
+  modelRuntime?: {
+    resolveModelRuntimeProfile?: (modelId?: string) => AmbientModelRuntimeProfile;
+  };
   localTextSubagents?: {
     resolveModelRuntimeProfile?: (modelId?: string) => AmbientModelRuntimeProfile;
     resolveRuntimeForMain?: (input: {
@@ -108,7 +111,8 @@ export class AgentRuntimeSendPreflightController {
   }
 
   resolveMainModelRuntimeProfile(modelId?: string): AmbientModelRuntimeProfile {
-    return this.options.features.localTextSubagents?.resolveModelRuntimeProfile?.(modelId) ??
+    return this.options.features.modelRuntime?.resolveModelRuntimeProfile?.(modelId) ??
+      this.options.features.localTextSubagents?.resolveModelRuntimeProfile?.(modelId) ??
       this.modelRuntimeRegistry.resolveProfile(modelId);
   }
 

@@ -152,7 +152,7 @@ function createHarness(options: {
     listGlobalWorkflowRecordingLibrary: () => [],
     settingsSlots: () => ({
       voiceSettingsAudit: [],
-      thinkingDisplay: { mode: "transient", showRunStatusCard: false },
+      thinkingDisplay: { mode: "transient", hideRunStatusCardAfterFirstMessage: true },
       media: { generatedMediaAutoplay: false },
       planner: { autoFinalize: true },
       search: {},

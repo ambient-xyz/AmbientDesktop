@@ -105,7 +105,7 @@ describe("App composer shell props", () => {
     expect(updateThreadSettings).toHaveBeenCalledWith({ thinkingLevel: "high" });
     expect(updateThreadSettings).toHaveBeenCalledWith({ model: "example/model-id" });
     expect(requestThreadPermissionModeChange).toHaveBeenCalledWith("full-access");
-    expect(updateThinkingDisplaySettings).toHaveBeenCalledWith({ mode: "full", showRunStatusCard: true });
+    expect(updateThinkingDisplaySettings).toHaveBeenCalledWith({ mode: "full", hideRunStatusCardAfterFirstMessage: true });
     expect(submitSymphonyBuilderAction.mock.calls).toEqual([["run-once"], ["save-recipe"]]);
     expect(projectBoardActions.addPlannerPlanToBoard).toHaveBeenCalledWith(artifact);
     expect(abortRun).toHaveBeenCalledWith("thread-42");
@@ -151,6 +151,7 @@ describe("App composer shell props", () => {
     const attachComposerFiles = vi.fn();
     const compactActiveThread = vi.fn();
     const clearActiveGoal = vi.fn();
+    const openGoalBudgetDialog = vi.fn();
     const openGitSummaryPanel = vi.fn();
     const requestThreadPermissionModeChange = vi.fn();
     const retrySttComposerTranscription = vi.fn();
@@ -171,6 +172,7 @@ describe("App composer shell props", () => {
       goalActions: {
         clearActiveGoal,
         editActiveGoalObjective: vi.fn(),
+        openGoalBudgetDialog,
         pauseOrResumeActiveGoal: vi.fn(),
         setActiveGoalBudget: vi.fn(),
         toggleGoalMode: vi.fn(),
@@ -248,6 +250,7 @@ describe("App composer shell props", () => {
     props.onThinkingDisplayModeChange("full");
     props.onPermissionModeChange("full-access");
     props.onToggleGoalMenu();
+    props.onSetGoalBudget();
     props.onSelectLocalDeepResearchEffort("quick");
     props.onClearGoal();
     props.onOpenGitSummary();
@@ -259,9 +262,10 @@ describe("App composer shell props", () => {
     expect(sendPlannerDurableRevision).toHaveBeenCalledWith(artifact, "ship it", { clearComposer: true });
     expect(submitSymphonyBuilderAction).toHaveBeenCalledWith("run-once");
     expect(projectBoardActions.addPlannerPlanToBoard).toHaveBeenCalledWith(artifact);
-    expect(updateThinkingDisplaySettings).toHaveBeenCalledWith({ mode: "full", showRunStatusCard: true });
+    expect(updateThinkingDisplaySettings).toHaveBeenCalledWith({ mode: "full", hideRunStatusCardAfterFirstMessage: true });
     expect(requestThreadPermissionModeChange).toHaveBeenCalledWith("full-access");
     expect(setGoalMenuOpen).toHaveBeenCalledTimes(1);
+    expect(openGoalBudgetDialog).toHaveBeenCalledTimes(1);
     expect(setLocalDeepResearchBudgetOverride).toHaveBeenCalledWith({ effort: "quick" });
     expect(clearActiveGoal).toHaveBeenCalledTimes(1);
     expect(openGitSummaryPanel).toHaveBeenCalledTimes(1);
@@ -326,7 +330,7 @@ function desktopState(input: DesktopStateInput = {}): DesktopState {
     },
     thinkingDisplay: {
       mode: "transient",
-      showRunStatusCard: true,
+      hideRunStatusCardAfterFirstMessage: true,
     },
   } as unknown as DesktopState["settings"];
   return {

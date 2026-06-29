@@ -2,7 +2,6 @@ import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
 import type { AmbientFeatureFlagSnapshot } from "../../shared/featureFlags";
 import type { PlannerPlanArtifact } from "../../shared/plannerTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
-import { resolveAmbientModelRuntimeProfile } from "../../shared/ambientModels";
 import type {
   AgentRuntimeActiveRunHandoffController,
   AgentRuntimeActiveRunHandoffActiveRun,
@@ -38,7 +37,7 @@ export interface AgentRuntimeSendStartContextInput {
   sendPreparation: Pick<AgentRuntimeSendPreparationController, "prepareRuntimeSendLoopContext">;
   sendPreflight: Pick<
     AgentRuntimeSendPreflightController,
-    "runBeforePrompt" | "sendInputWithSymphonyParentModeToolCapableModel"
+    "resolveMainModelRuntimeProfile" | "runBeforePrompt" | "sendInputWithSymphonyParentModeToolCapableModel"
   >;
   store: Pick<ProjectStore, "finishPlannerPlanFinalizationAttempt" | "getThread" | "getWorkspace">;
   getFeatureFlagSnapshot: () => AmbientFeatureFlagSnapshot;
@@ -134,7 +133,7 @@ export async function prepareAgentRuntimeSendStartContext(
   const promptImageInputs = await resolveAgentRuntimeImageInputs({
     sendInput: runtimeInput,
     workspacePath: thread.workspacePath,
-    modelProfile: resolveAmbientModelRuntimeProfile(thread.model),
+    modelProfile: input.sendPreflight.resolveMainModelRuntimeProfile(thread.model),
   });
   const runEventScope = createRuntimeRunEventScope({
     runWorkspacePath,

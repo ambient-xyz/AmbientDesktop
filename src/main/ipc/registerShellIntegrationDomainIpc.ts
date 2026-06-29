@@ -50,6 +50,7 @@ export interface RegisterShellIntegrationDomainIpcDependencies {
   readCurrentSettingsModel: RegisterAmbientApiKeyIpcDependencies["readCurrentSettingsModel"];
   getAmbientProviderStatus: RegisterAmbientApiKeyIpcDependencies["getAmbientProviderStatus"];
   emitProviderUpdated: RegisterAmbientApiKeyIpcDependencies["emitProviderUpdated"];
+  refreshAmbientModelDiscovery?: RegisterAmbientApiKeyIpcDependencies["refreshAmbientModelDiscovery"];
   refreshSecureStorageStatus: RegisterAmbientSecureStorageIpcDependencies["refreshSecureStorageStatus"];
   saveNamedSecret: RegisterAmbientSecureStorageIpcDependencies["saveNamedSecret"];
   updateNamedSecret: RegisterAmbientSecureStorageIpcDependencies["updateNamedSecret"];
@@ -76,6 +77,7 @@ export function registerShellIntegrationDomainIpc({
   readCurrentSettingsModel,
   getAmbientProviderStatus,
   emitProviderUpdated,
+  refreshAmbientModelDiscovery,
   refreshSecureStorageStatus,
   saveNamedSecret,
   updateNamedSecret,
@@ -114,6 +116,7 @@ export function registerShellIntegrationDomainIpc({
     readCurrentSettingsModel,
     getAmbientProviderStatus,
     emitProviderUpdated,
+    refreshAmbientModelDiscovery,
   });
 
   registerAmbientSecureStorageIpc({

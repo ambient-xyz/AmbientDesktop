@@ -28,6 +28,7 @@ import {
   MediaPreviewModal,
   type MediaPreviewModalRequest,
 } from "./AppToolMessages";
+import { GoalBudgetDialog, type GoalBudgetDialogState } from "./AppGoalControls";
 import {
   type ApiKeyStatus,
   type GitConfirmation,
@@ -82,6 +83,7 @@ export type AppModalHostProps = {
   apiKeyInputRef: RefObject<HTMLInputElement | null>;
   ambientCliSecretDialog?: AmbientCliSecretDialogState;
   ambientCliSecretInputRef: RefObject<HTMLInputElement | null>;
+  goalBudgetDialog?: GoalBudgetDialogState;
   localDeepResearchFollowupOpen: boolean;
   localDeepResearchSetup: LocalDeepResearchSetupUiState;
   localDeepResearchQ8Override: boolean;
@@ -114,6 +116,9 @@ export type AppModalHostProps = {
   onPasteAmbientCliSecret: () => void;
   onSaveAmbientCliSecret: () => void;
   onCloseAmbientCliSecret: () => void;
+  onGoalBudgetChange: (value: string) => void;
+  onCancelGoalBudget: () => void;
+  onConfirmGoalBudget: () => void;
   onLocalDeepResearchQ8OverrideChange: (value: boolean) => void;
   onSetupLocalDeepResearch: (action: LocalDeepResearchSetupAction) => void;
   onOpenSearchWebSettings: () => void;
@@ -162,6 +167,7 @@ export function AppModalHost({
   apiKeyInputRef,
   ambientCliSecretDialog,
   ambientCliSecretInputRef,
+  goalBudgetDialog,
   localDeepResearchFollowupOpen,
   localDeepResearchSetup,
   localDeepResearchQ8Override,
@@ -194,6 +200,9 @@ export function AppModalHost({
   onPasteAmbientCliSecret,
   onSaveAmbientCliSecret,
   onCloseAmbientCliSecret,
+  onGoalBudgetChange,
+  onCancelGoalBudget,
+  onConfirmGoalBudget,
   onLocalDeepResearchQ8OverrideChange,
   onSetupLocalDeepResearch,
   onOpenSearchWebSettings,
@@ -226,6 +235,7 @@ export function AppModalHost({
   onConfirmGitConfirmation,
 }: AppModalHostProps) {
   const securityPromptOpen = Boolean(activePermissionRequest || activePrivilegedCredentialRequest || activeSecureInputRequest);
+  const showGoalBudgetDialog = securityPromptOpen ? undefined : goalBudgetDialog;
   const showLocalDeepResearchFollowup = localDeepResearchFollowupOpen && !securityPromptOpen;
   return (
     <>
@@ -265,6 +275,15 @@ export function AppModalHost({
           onPaste={onPasteAmbientCliSecret}
           onSave={onSaveAmbientCliSecret}
           onClose={onCloseAmbientCliSecret}
+        />
+      )}
+
+      {showGoalBudgetDialog && (
+        <GoalBudgetDialog
+          dialog={showGoalBudgetDialog}
+          onCancel={onCancelGoalBudget}
+          onChange={onGoalBudgetChange}
+          onSubmit={onConfirmGoalBudget}
         />
       )}
 

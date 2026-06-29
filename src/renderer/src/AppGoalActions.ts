@@ -66,16 +66,16 @@ export function createAppGoalActions({
   clearActiveGoal: (options?: { confirm?: boolean }) => Promise<void>;
   editActiveGoalObjective: () => Promise<void>;
   pauseOrResumeActiveGoal: () => Promise<void>;
-  setActiveGoalBudget: () => Promise<void>;
+  setActiveGoalBudget: (value?: string) => Promise<boolean>;
   toggleGoalMode: () => Promise<void>;
-  updateActiveGoal: (input: ActiveGoalUpdateInput) => Promise<void>;
+  updateActiveGoal: (input: ActiveGoalUpdateInput) => Promise<ThreadGoal | undefined>;
 } {
   function applyActiveGoal(goal: ThreadGoal | undefined): void {
     setState((current) => current ? desktopStateWithActiveGoal(current, goal) : current);
   }
 
-  async function updateActiveGoal(input: ActiveGoalUpdateInput): Promise<void> {
-    if (!state?.activeThreadId) return;
+  async function updateActiveGoal(input: ActiveGoalUpdateInput): Promise<ThreadGoal | undefined> {
+    if (!state?.activeThreadId) return undefined;
     const currentGoal = state.activeThreadGoal;
     setGoalBusy(true);
     setError(undefined);
@@ -88,8 +88,10 @@ export function createAppGoalActions({
       applyActiveGoal(goal);
       setGoalMenuOpen(false);
       setGoalModeArmed(false);
+      return goal;
     } catch (err) {
       setError(errorMessage(err));
+      return undefined;
     } finally {
       setGoalBusy(false);
     }
@@ -154,21 +156,20 @@ export function createAppGoalActions({
     await updateActiveGoal({ objective });
   }
 
-  async function setActiveGoalBudget(): Promise<void> {
+  async function setActiveGoalBudget(value?: string): Promise<boolean> {
     const goal = state?.activeThreadGoal;
-    if (!goal) return;
-    const next = window.prompt("Estimated token budget. Leave blank for no budget.", goal.tokenBudget?.toString() ?? "");
-    if (next === null) return;
+    if (!goal) return false;
+    const next = value ?? window.prompt("Estimated token budget. Leave blank for no budget.", goal.tokenBudget?.toString() ?? "");
+    if (next === null) return false;
     const parsed = parseGoalBudgetPromptValue(next);
     if (parsed.kind === "clear") {
-      await updateActiveGoal({ tokenBudget: null });
-      return;
+      return Boolean(await updateActiveGoal({ tokenBudget: null }));
     }
     if (parsed.kind === "invalid") {
       setError(parsed.message);
-      return;
+      return false;
     }
-    await updateActiveGoal({ tokenBudget: parsed.tokenBudget });
+    return Boolean(await updateActiveGoal({ tokenBudget: parsed.tokenBudget }));
   }
 
   return {

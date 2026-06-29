@@ -33,7 +33,7 @@ describe("ambient model options", () => {
       }),
       expect.objectContaining({
         id: AMBIENT_GLM_5_2_FP8_MODEL,
-        label: "GLM-5.2 FP8",
+        label: "GLM 5.2",
         profileId: `ambient:${AMBIENT_GLM_5_2_FP8_MODEL}`,
         providerId: "ambient",
         locality: "cloud",
@@ -143,7 +143,7 @@ describe("ambient model options", () => {
     expect(resolveAmbientModelRuntimeProfile(AMBIENT_GLM_5_2_FP8_MODEL)).toMatchObject({
       providerId: "ambient",
       modelId: AMBIENT_GLM_5_2_FP8_MODEL,
-      label: "GLM-5.2 FP8",
+      label: "GLM 5.2",
       available: true,
       selectableAsMain: true,
       selectableAsSubagent: true,
@@ -250,12 +250,13 @@ describe("ambient model options", () => {
     expect(normalizeAmbientModelId("glm-5")).toBe(AMBIENT_GLM_5_2_FP8_MODEL);
     expect(normalizeAmbientModelId("ambient/large")).toBe(AMBIENT_GLM_5_2_FP8_MODEL);
     expect(normalizeAmbientModelId("zai-org/GLM-5-FP8")).toBe(AMBIENT_GLM_5_2_FP8_MODEL);
+    expect(normalizeAmbientModelId("zai-org/GLM-5.2-FP8")).toBe(AMBIENT_GLM_5_2_FP8_MODEL);
     expect(normalizeAmbientModelId(AMBIENT_GLM_5_1_FP8_MODEL)).toBe(AMBIENT_GLM_5_2_FP8_MODEL);
     expect(normalizeAmbientModelId("custom/model")).toBe("custom/model");
   });
 
-  it("labels removed GLM ids as GLM-5.2 FP8", () => {
-    expect(ambientModelLabel("ambient/large")).toBe("GLM-5.2 FP8");
+  it("labels removed GLM ids as GLM 5.2", () => {
+    expect(ambientModelLabel("ambient/large")).toBe("GLM 5.2");
   });
 
   it("preserves unknown models as unavailable runtime profiles", () => {

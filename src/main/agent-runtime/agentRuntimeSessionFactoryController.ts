@@ -8,6 +8,7 @@ import {
   SettingsManager,
   type ExtensionFactory,
 } from "@mariozechner/pi-coding-agent";
+import type { Model } from "@mariozechner/pi-ai";
 
 import type { DesktopEvent } from "../../shared/desktopTypes";
 import { isAgentMemoryActiveForThread } from "../../shared/agentMemorySettings";
@@ -19,6 +20,8 @@ import {
 } from "../../shared/featureFlags";
 import {
   normalizeAmbientModelId,
+  resolveAmbientModelRuntimeProfile,
+  type AmbientModelRuntimeProfile,
 } from "../../shared/ambientModels";
 import type { ContextUsageSnapshot, ThreadSummary } from "../../shared/threadTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
@@ -114,6 +117,7 @@ type AgentRuntimeSessionFactoryProviderRuntime = Pick<
   | "prepareEmbeddingProviderRuntimeForMemory"
   | "startEmbeddingProviderRuntimeForMemory"
 >;
+type AgentRuntimePiSessionModel = NonNullable<AgentRuntimePiSession["model"]>;
 
 export interface AgentRuntimeSessionFactoryControllerOptions {
   store: ProjectStore;
@@ -156,8 +160,8 @@ export class AgentRuntimeSessionFactoryController {
 
   async switchSessionToThreadModel(thread: ThreadSummary, session: AgentRuntimePiSession): Promise<void> {
     const provider = getAmbientProviderStatus(thread.model);
-    const model = ambientModel(thread.model, normalizeAmbientBaseUrl(provider.baseUrl));
-    if (normalizeAmbientModelId(session.model?.id) !== normalizeAmbientModelId(thread.model)) {
+    const model = ambientModel(thread.model, normalizeAmbientBaseUrl(provider.baseUrl), this.resolveModelRuntimeProfile(thread.model));
+    if (!sessionModelDescriptorMatches(session.model, model)) {
       await session.setModel(model);
     }
     session.setThinkingLevel(thread.thinkingLevel);
@@ -190,7 +194,9 @@ export class AgentRuntimeSessionFactoryController {
         this.options.sessions.delete(thread.id);
       } else {
         const existing = existingPlan.session;
-        if (normalizeAmbientModelId(existing.model?.id) !== normalizeAmbientModelId(thread.model)) {
+        const provider = getAmbientProviderStatus(thread.model);
+        const targetModel = ambientModel(thread.model, normalizeAmbientBaseUrl(provider.baseUrl), this.resolveModelRuntimeProfile(thread.model));
+        if (!sessionModelDescriptorMatches(existing.model, targetModel)) {
           await this.switchSessionToThreadModel(thread, existing);
         }
         existing.setThinkingLevel(thread.thinkingLevel);
@@ -233,7 +239,8 @@ export class AgentRuntimeSessionFactoryController {
     });
     const provider = getAmbientProviderStatus(thread.model);
     const apiKey = readAmbientApiKey();
-    const model = ambientModel(thread.model, normalizeAmbientBaseUrl(provider.baseUrl));
+    const modelProfile = this.resolveModelRuntimeProfile(thread.model);
+    const model = ambientModel(thread.model, normalizeAmbientBaseUrl(provider.baseUrl), modelProfile);
     let tencentMemoryExtension: ExtensionFactory | undefined;
     let memoryToolNames: string[] = [];
     if (tencentMemoryActive) {
@@ -340,6 +347,7 @@ export class AgentRuntimeSessionFactoryController {
       thread,
       workspace,
       model,
+      modelProfile,
       apiKey,
       tencentMemoryExtension,
       interruptedToolCallRecoveryToolsAvailable,
@@ -541,4 +549,40 @@ export class AgentRuntimeSessionFactoryController {
     this.options.recordContextUsageSnapshot(thread.id, session);
     return session;
   }
+
+  private resolveModelRuntimeProfile(modelId?: string): AmbientModelRuntimeProfile {
+    return (
+      this.options.features.modelRuntime?.resolveModelRuntimeProfile?.(modelId) ??
+      this.options.features.localTextSubagents?.resolveModelRuntimeProfile?.(modelId) ??
+      resolveAmbientModelRuntimeProfile(modelId)
+    );
+  }
+}
+
+function sessionModelDescriptorMatches(
+  current: AgentRuntimePiSession["model"] | undefined,
+  target: Model<"openai-completions">,
+): boolean {
+  if (normalizeAmbientModelId(current?.id) !== normalizeAmbientModelId(target.id)) return false;
+  if (!hasComparableSessionModelDescriptor(current)) return true;
+  return modelDescriptorFingerprint(current) === modelDescriptorFingerprint(target);
+}
+
+function hasComparableSessionModelDescriptor(
+  model: AgentRuntimePiSession["model"] | undefined,
+): model is AgentRuntimePiSessionModel {
+  if (!model) return false;
+  return typeof model.name === "string" || typeof model.contextWindow === "number" || Array.isArray(model.input);
+}
+
+function modelDescriptorFingerprint(model: AgentRuntimePiSessionModel | Model<"openai-completions">): string {
+  return JSON.stringify({
+    id: normalizeAmbientModelId(model.id),
+    name: model.name,
+    contextWindow: model.contextWindow,
+    maxTokens: model.maxTokens,
+    input: model.input,
+    compat: model.compat,
+    thinkingLevelMap: "thinkingLevelMap" in model ? model.thinkingLevelMap : undefined,
+  });
 }

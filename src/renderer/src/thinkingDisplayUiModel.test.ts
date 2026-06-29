@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ChatMessage } from "../../shared/threadTypes";
 import {
+  hasVisibleAssistantReply,
   shouldShowRunStatusCard,
   thinkingDisplayModeLabel,
   thinkingLevelLabel,
@@ -127,14 +128,20 @@ describe("thinkingDisplayUiModel", () => {
     ]);
   });
 
-  it("keeps the run status card hidden unless the setting is enabled or compaction is active during a run", () => {
-    expect(shouldShowRunStatusCard(undefined, true)).toBe(false);
-    expect(shouldShowRunStatusCard({ showRunStatusCard: false }, true)).toBe(false);
-    expect(shouldShowRunStatusCard({ showRunStatusCard: true }, false)).toBe(false);
-    expect(shouldShowRunStatusCard({ showRunStatusCard: true }, true)).toBe(true);
-    expect(shouldShowRunStatusCard({ showRunStatusCard: false }, true, "starting")).toBe(true);
-    expect(shouldShowRunStatusCard({ showRunStatusCard: false }, true, "compacting")).toBe(true);
-    expect(shouldShowRunStatusCard({ showRunStatusCard: false }, false, "compacting")).toBe(false);
+  it("shows the run status card for the first run and hides follow-up runs by default", () => {
+    expect(shouldShowRunStatusCard(undefined, true)).toBe(true);
+    expect(shouldShowRunStatusCard({ hideRunStatusCardAfterFirstMessage: true }, false)).toBe(false);
+    expect(shouldShowRunStatusCard({ hideRunStatusCardAfterFirstMessage: true }, true, false)).toBe(true);
+    expect(shouldShowRunStatusCard({ hideRunStatusCardAfterFirstMessage: true }, true, true)).toBe(false);
+    expect(shouldShowRunStatusCard({ hideRunStatusCardAfterFirstMessage: false }, true, true)).toBe(true);
+    expect(shouldShowRunStatusCard(undefined, true, true)).toBe(false);
+  });
+
+  it("detects a prior visible assistant reply for follow-up run cards", () => {
+    expect(hasVisibleAssistantReply([message("user-only", "user", "Start")])).toBe(false);
+    expect(hasVisibleAssistantReply([message("thinking", "assistant", "Working", { kind: "thinking", status: "done" })])).toBe(false);
+    expect(hasVisibleAssistantReply([message("hidden", "assistant", "Hidden", { hiddenFromTranscript: true })])).toBe(false);
+    expect(hasVisibleAssistantReply(messages)).toBe(true);
   });
 });
 

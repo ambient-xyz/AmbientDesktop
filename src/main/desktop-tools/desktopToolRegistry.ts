@@ -130,7 +130,7 @@ export const modelStatusToolDescriptors: DesktopToolDescriptor[] = [
     promptGuidelines: [
       "Use this when the task may depend on which Ambient model is selected or running, including Kimi vs GLM-5.2 behavior.",
       "This tool is read-only and returns Desktop-owned runtime metadata. It does not call the provider, mutate settings, or expose secrets.",
-      "Treat requestedModelId as the stored thread setting and effectiveModelId as the normalized runtime model. Legacy GLM aliases normalize to GLM-5.2 FP8.",
+      "Treat requestedModelId as the stored thread setting and effectiveModelId as the normalized runtime model. Legacy GLM aliases normalize to GLM 5.2.",
       "Treat capabilities and reasoning as the effective running model contract; selected only describes the stored thread model setting.",
       "Use reasoning.current for the active thread reasoning mode. defaultThinkingLevel is only the model default, not the selected thread setting.",
       "For GLM-5.2, reasoning.current labels both high and xhigh as Deep when they resolve to ZAI max effort; medium is Standard/ZAI high effort.",

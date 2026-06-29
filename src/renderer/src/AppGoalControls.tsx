@@ -10,11 +10,19 @@ import {
   Target,
   Trash2,
 } from "lucide-react";
-import type { CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties, type FormEvent } from "react";
 
 import type { RuntimeActivity, ThreadGoal } from "../../shared/threadTypes";
 
 export const GOAL_COMPLETION_CELEBRATION_MS = 2200;
+
+export type GoalBudgetDialogState = {
+  goalId: string;
+  objective: string;
+  value: string;
+  busy?: boolean;
+  error?: string;
+};
 
 const GOAL_COMPLETION_CONFETTI_COLORS = ["#31976a", "#2f80ed", "#f2b84b", "#d65f5f", "#24a6a8", "#7a6ff0"];
 const GOAL_COMPLETION_CONFETTI_PIECES = Array.from({ length: 30 }, (_, index) => ({
@@ -208,6 +216,79 @@ export function GoalStatusControl({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+export function GoalBudgetDialog({
+  dialog,
+  onCancel,
+  onChange,
+  onSubmit,
+}: {
+  dialog: GoalBudgetDialogState;
+  onCancel: () => void;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [dialog.goalId]);
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSubmit();
+  }
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onCancel}>
+      <form
+        className="goal-budget-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="goal-budget-title"
+        onSubmit={submit}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="permission-dialog-header">
+          <span className="dialog-icon">
+            <Clock size={20} />
+          </span>
+          <div>
+            <h2 id="goal-budget-title">Set Goal Budget</h2>
+            <p>{dialog.objective}</p>
+          </div>
+        </div>
+        <label className="dialog-field">
+          <span>Token budget</span>
+          <input
+            ref={inputRef}
+            className="panel-input"
+            inputMode="numeric"
+            value={dialog.value}
+            placeholder="No budget"
+            disabled={dialog.busy}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        </label>
+        {dialog.error && <p className="panel-status error">{dialog.error}</p>}
+        <div className="permission-actions">
+          <button type="button" className="secondary-button" disabled={dialog.busy} onClick={() => onChange("")}>
+            Remove budget
+          </button>
+          <div className="dialog-actions-right">
+            <button type="button" className="secondary-button" disabled={dialog.busy} onClick={onCancel}>
+              Cancel
+            </button>
+            <button type="submit" className="secondary-button" disabled={dialog.busy}>
+              {dialog.busy ? "Saving" : "Save budget"}
+            </button>
+          </div>
+        </div>
+      </form>
     </div>
   );
 }

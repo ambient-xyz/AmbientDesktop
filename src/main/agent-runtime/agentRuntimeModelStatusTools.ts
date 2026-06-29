@@ -11,9 +11,9 @@ import type {
   AmbientModelToolUseSupport,
 } from "../../shared/ambientModels";
 import {
-  ambientModelReasoningEffortForThinkingLevel,
+  ambientModelReasoningEffortForCapability,
   normalizeAmbientModelId,
-  resolveAmbientModelReasoningThinkingLevel,
+  resolveAmbientModelReasoningThinkingLevelForCapability,
 } from "../../shared/ambientModels";
 import type { ProviderStatus } from "../../shared/desktopTypes";
 import { modelStatusToolDescriptor } from "./agentRuntimeDesktopToolFacade";
@@ -178,7 +178,7 @@ export function buildAmbientModelStatus(input: BuildAmbientModelStatusInput): Am
       toolUse: runningProfile.toolUse,
       structuredOutput: runningProfile.structuredOutput,
     },
-    reasoning: reasoningStatus(runningProfile.reasoningCapability, runningModelId, input.selectedThinkingLevel),
+    reasoning: reasoningStatus(runningProfile.reasoningCapability, input.selectedThinkingLevel),
     warnings,
   };
 }
@@ -214,7 +214,6 @@ function providerSecretStatus(
 
 function reasoningStatus(
   reasoningCapability: AmbientModelRuntimeProfile["reasoningCapability"],
-  modelId: string,
   selectedThinkingLevel: AmbientModelReasoningThinkingLevel | undefined,
 ): AmbientModelStatusReasoning {
   const capability = reasoningCapability ?? {
@@ -233,7 +232,7 @@ function reasoningStatus(
     fixedReasoning: capability.fixedReasoning,
     hiddenReasoningPreserved: capability.hiddenReasoningPreserved,
     defaultThinkingLevel: capability.defaultThinkingLevel,
-    current: currentReasoningStatus(capability, modelId, selectedThinkingLevel),
+    current: currentReasoningStatus(capability, selectedThinkingLevel),
     payloadStrategy: capability.payloadStrategy,
     selectableThinkingLevels: capability.selectableThinkingLevels.map((option) => ({ ...option })),
     requestFields: [...capability.requestFields],
@@ -243,12 +242,11 @@ function reasoningStatus(
 
 function currentReasoningStatus(
   capability: AmbientModelReasoningCapability,
-  modelId: string,
   selectedThinkingLevel: AmbientModelReasoningThinkingLevel | undefined,
 ): AmbientModelStatusCurrentReasoning {
-  const effectiveThinkingLevel = resolveAmbientModelReasoningThinkingLevel(modelId, selectedThinkingLevel);
+  const effectiveThinkingLevel = resolveAmbientModelReasoningThinkingLevelForCapability(capability, selectedThinkingLevel);
   const selectedOption = capability.selectableThinkingLevels.find((option) => option.thinkingLevel === effectiveThinkingLevel);
-  const providerEffort = ambientModelReasoningEffortForThinkingLevel(modelId, selectedThinkingLevel);
+  const providerEffort = ambientModelReasoningEffortForCapability(capability, selectedThinkingLevel);
   const fixedDescription =
     "This model controls reasoning internally; Ambient preserves hidden reasoning and omits unsupported request controls.";
   const genericDescription =

@@ -6,6 +6,11 @@ import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 import type { BrowserCapabilityState } from "../../shared/browserTypes";
 import type { ContextUsageSnapshot, ThreadSummary } from "../../shared/threadTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
+import type {
+  AmbientModelReasoningCapability,
+  AmbientModelRuntimeCatalog,
+  AmbientModelRuntimeProfile,
+} from "../../shared/ambientModels";
 import {
   ambientModel,
   createAmbientProviderExtension,
@@ -40,6 +45,8 @@ export interface AgentRuntimeModelContextControllerOptions {
   countSerializedPayload: (payload: unknown, fallbackTokens?: number) => Promise<ContextAccountingTokenCount>;
   recordContextUsageSnapshot: (snapshot: Omit<ContextUsageSnapshot, "updatedAt">) => ContextUsageSnapshot;
   emitContextUsageUpdated: (snapshot: ContextUsageSnapshot) => void;
+  modelRuntimeCatalog?: (generatedAt?: string) => AmbientModelRuntimeCatalog;
+  resolveModelRuntimeProfile?: (modelId?: string) => AmbientModelRuntimeProfile | undefined;
   modelReasoningEvidencePath?: () => string | undefined;
   fileExists?: (path: string) => boolean;
 }
@@ -48,6 +55,7 @@ export interface AgentRuntimeModelContextExtensionFactoriesInput {
   thread: ThreadSummary;
   workspace: WorkspaceState;
   model: Model<"openai-completions">;
+  modelProfile?: AmbientModelRuntimeProfile;
   apiKey?: string;
   getRunningModel?: () => Model<"openai-completions"> | undefined;
 }
@@ -63,7 +71,7 @@ export class AgentRuntimeModelContextController {
       this.createModelStatusToolExtension(input),
       this.createAmbientCompactionSummaryExtension(input.thread.id, input.workspace, input.model, input.apiKey),
       this.createProviderCallContextPreflightExtension(input.thread.id, input.workspace.path, input.model),
-      this.createModelReasoningPayloadExtension(input.thread.id, input.model),
+      this.createModelReasoningPayloadExtension(input.thread.id, input.model, input.modelProfile),
       this.createContextAccountingExtension(input.thread.id, input.model),
     ];
   }
@@ -83,10 +91,15 @@ export class AgentRuntimeModelContextController {
     });
   }
 
-  createModelReasoningPayloadExtension(threadId: string, model: Model<"openai-completions">): ExtensionFactory {
+  createModelReasoningPayloadExtension(
+    threadId: string,
+    model: Model<"openai-completions">,
+    modelProfile?: AmbientModelRuntimeProfile,
+  ): ExtensionFactory {
     return createModelReasoningPayloadToolsExtension({
       modelId: model.id,
       getThinkingLevel: () => this.options.store.getThread(threadId).thinkingLevel,
+      resolveReasoningCapability: (modelId) => this.resolveReasoningCapability(modelId, modelProfile),
       evidencePath: this.options.modelReasoningEvidencePath?.() ?? process.env.AMBIENT_MODEL_REASONING_EVIDENCE_PATH,
     });
   }
@@ -114,7 +127,7 @@ export class AgentRuntimeModelContextController {
         const requestedModelId = this.options.store.getThread(input.thread.id)?.model ?? input.thread.model;
         return getAmbientProviderStatus(runningModel?.id ?? requestedModelId);
       },
-      modelRuntimeCatalog: () => this.options.store.getModelRuntimeCatalog(),
+      modelRuntimeCatalog: () => this.options.modelRuntimeCatalog?.() ?? this.options.store.getModelRuntimeCatalog(),
     });
   }
 
@@ -148,9 +161,23 @@ export class AgentRuntimeModelContextController {
     try {
       const thread = this.options.store.getThread(threadId);
       const provider = getAmbientProviderStatus(thread.model);
-      return ambientModel(thread.model, normalizeAmbientBaseUrl(provider.baseUrl)).contextWindow;
+      return ambientModel(
+        thread.model,
+        normalizeAmbientBaseUrl(provider.baseUrl),
+        this.options.resolveModelRuntimeProfile?.(thread.model),
+      ).contextWindow;
     } catch {
       return fallback;
     }
+  }
+
+  private resolveReasoningCapability(
+    modelId?: string,
+    fallbackProfile?: AmbientModelRuntimeProfile,
+  ): AmbientModelReasoningCapability | undefined {
+    const resolved = this.options.resolveModelRuntimeProfile?.(modelId)?.reasoningCapability;
+    if (resolved) return resolved;
+    if (!fallbackProfile || fallbackProfile.modelId !== modelId) return undefined;
+    return fallbackProfile.reasoningCapability;
   }
 }

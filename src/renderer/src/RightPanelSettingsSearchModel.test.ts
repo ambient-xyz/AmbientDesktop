@@ -303,7 +303,7 @@ function fixtureDesktopState(): DesktopState {
         },
         storageScope: "workspace",
       },
-      thinkingDisplay: { mode: "full", showRunStatusCard: true },
+      thinkingDisplay: { mode: "full", hideRunStatusCardAfterFirstMessage: true },
       modelRuntime: {
         aggressiveRetries: true,
         providerStreamIdleTimeoutMs: 30_000,

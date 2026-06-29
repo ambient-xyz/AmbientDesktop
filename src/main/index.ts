@@ -16,10 +16,19 @@ import {
   updateAmbientWorkflowPlaybook,
 } from "./ambient/ambientWorkflows";
 import { ambientRetryPolicyFromSettings } from "./ambient/aggressiveRetries";
+import {
+  AMBIENT_MODEL_DISCOVERY_REFRESH_INTERVAL_MS,
+  discoverAmbientModelRuntimeProfiles,
+} from "./ambient/ambientModelDiscovery";
 import { installAppLogCapture } from "./diagnostics/appLogs";
 import { parseAmbientLaunchArgs } from "./desktop-shell/launchArgs";
 import { localTextSubagentStartupFeatureFromEnv } from "./local-runtime/localTextSubagentStartupConfig";
 import { isAmbientSubagentsEnabled, resolveAmbientFeatureFlags } from "../shared/featureFlags";
+import {
+  normalizeAmbientModelId,
+  resolveAmbientModelRuntimeProfile,
+  type AmbientModelRuntimeProfile,
+} from "../shared/ambientModels";
 import { createSubagentRuntimeStartupReconciliationService } from "./subagents/subagentRuntimeStartupReconciliationService";
 import { installAppMenu } from "./desktop-shell/menu";
 import { createDesktopAppearanceService } from "./desktop-shell/desktopAppearanceService";
@@ -167,7 +176,11 @@ import { GoogleWorkspaceCliAdapter } from "./google-workspace/googleWorkspaceCli
 import { GoogleWorkspaceCliInstaller } from "./google-workspace/googleWorkspaceCliInstaller";
 import { GoogleWorkspaceSetupService } from "./google-workspace/googleWorkspaceSetupService";
 import { GoogleWorkspaceMethodBroker } from "./google-workspace/googleWorkspaceMethodBroker";
-import { readAmbientApiKey } from "./security/credentialStore";
+import {
+  getActiveAmbientProviderBaseUrl,
+  getActiveAmbientProviderId,
+  readAmbientApiKey,
+} from "./security/credentialStore";
 import { LAMBDA_RLM_SOURCE_COMMIT, LAMBDA_RLM_SOURCE_PAPER, LAMBDA_RLM_SOURCE_REPOSITORY } from "./tool-runtime/lambdaRlm";
 import { thirdPartyCreditAboutText, thirdPartyCredits } from "./desktop-shell/thirdPartyCredits";
 import { createWindowStateService } from "./desktop-shell/windowState";
@@ -219,10 +232,17 @@ const lambdaRlmThirdPartyCreditSource = {
 
 let mainWindow: BrowserWindow | undefined;
 let mediaPlaybackSettings = { generatedMediaAutoplay: false };
-let thinkingDisplaySettings: ThinkingDisplaySettings = { mode: "transient", showRunStatusCard: true };
+let thinkingDisplaySettings: ThinkingDisplaySettings = { mode: "transient", hideRunStatusCardAfterFirstMessage: true };
 let plannerSettings: PlannerSettings = { autoFinalize: true };
 let localDeepResearchSettings: LocalDeepResearchSettings = normalizeLocalDeepResearchAppSettings(undefined);
 let searchRoutingSettings: SearchRoutingSettings = {};
+let ambientDiscoveredModelProfiles: AmbientModelRuntimeProfile[] = [];
+let ambientModelDiscoveryTimer: ReturnType<typeof setInterval> | undefined;
+type AmbientModelDiscoveryRefreshReason = "startup" | "interval" | "credentials-updated";
+interface AmbientModelDiscoveryRequestIdentity {
+  apiKey: string;
+  baseUrl: string;
+}
 
 function emitMainWindowDesktopEvent(event: DesktopEvent): void {
   const window = mainWindow;
@@ -310,6 +330,7 @@ const desktopUpdateService = new DesktopUpdateService(
   desktopUpdateConfigFromEnv({
     currentVersion: app.getVersion(),
     isPackaged: app.isPackaged,
+    appPath: process.execPath,
     releaseChannel: process.env.AMBIENT_RELEASE_CHANNEL,
   }),
   (update) => emitMainWindowDesktopEvent({ type: "update-status", update }),
@@ -1227,6 +1248,10 @@ const agentRuntimeFeatureFactory = createAgentRuntimeFeatureFactory<ProjectStore
   appVersion: packageJson.version,
   env: process.env,
   localModelHostMemory: () => sampleLocalModelHostMemorySnapshot(),
+  modelRuntime: (targetStore) => ({
+    catalog: (generatedAt) => currentModelRuntimeCatalog(generatedAt ?? new Date().toISOString(), targetStore),
+    resolveModelRuntimeProfile: (modelId) => currentModelRuntimeProfile(modelId, targetStore),
+  }),
   googleWorkspace: {
     readIntegration: () => readFirstPartyGoogleIntegration(),
     installCli: async () => {
@@ -1424,9 +1449,109 @@ function currentFeatureFlagSnapshot(targetStore: ProjectStore = store) {
 }
 
 function currentModelRuntimeCatalog(generatedAt: string, targetStore: ProjectStore = store) {
-  return targetStore.getModelRuntimeCatalog(
-    generatedAt,
-    localTextSubagentStartup.feature ? [localTextSubagentStartup.feature.profile] : [],
+  return targetStore.getModelRuntimeCatalog(generatedAt, currentRuntimeModelProfiles());
+}
+
+function currentRuntimeModelProfiles(): AmbientModelRuntimeProfile[] {
+  return [
+    ...ambientDiscoveredModelProfiles,
+    ...(localTextSubagentStartup.feature ? [localTextSubagentStartup.feature.profile] : []),
+  ];
+}
+
+function currentModelRuntimeProfile(modelId?: string, targetStore: ProjectStore = store): AmbientModelRuntimeProfile {
+  const normalizedModelId = normalizeAmbientModelId(modelId);
+  const profile = currentModelRuntimeCatalog(new Date().toISOString(), targetStore).profiles.find(
+    (candidate) => normalizeAmbientModelId(candidate.modelId) === normalizedModelId,
+  );
+  return profile ?? resolveAmbientModelRuntimeProfile(normalizedModelId);
+}
+
+function startAmbientModelDiscoveryRefresh(): void {
+  if (ambientModelDiscoveryTimer) return;
+  void refreshAmbientModelDiscovery("startup");
+  ambientModelDiscoveryTimer = setInterval(() => {
+    void refreshAmbientModelDiscovery("interval");
+  }, AMBIENT_MODEL_DISCOVERY_REFRESH_INTERVAL_MS);
+  ambientModelDiscoveryTimer.unref?.();
+}
+
+function stopAmbientModelDiscoveryRefresh(): void {
+  if (!ambientModelDiscoveryTimer) return;
+  clearInterval(ambientModelDiscoveryTimer);
+  ambientModelDiscoveryTimer = undefined;
+}
+
+async function refreshAmbientModelDiscovery(reason: AmbientModelDiscoveryRefreshReason): Promise<void> {
+  const requestIdentity = currentAmbientModelDiscoveryRequestIdentity();
+  if (!requestIdentity) {
+    clearAmbientDiscoveredModelProfiles(
+      reason,
+      getActiveAmbientProviderId() === "ambient" ? "Ambient API key is unavailable" : "active provider is not Ambient",
+    );
+    return;
+  }
+
+  try {
+    const discovery = await discoverAmbientModelRuntimeProfiles({
+      apiKey: requestIdentity.apiKey,
+      baseUrl: requestIdentity.baseUrl,
+    });
+    if (!ambientModelDiscoveryRequestIdentityMatches(requestIdentity)) {
+      console.log(`[models] Ignored stale Ambient model discovery result for ${reason}.`);
+      return;
+    }
+    const nextProfiles = discovery.profiles;
+    const changed = ambientModelDiscoverySignature(nextProfiles) !== ambientModelDiscoverySignature(ambientDiscoveredModelProfiles);
+    ambientDiscoveredModelProfiles = nextProfiles;
+    if (changed) emitDesktopState();
+    console.log(
+      `[models] Refreshed Ambient model catalog from /v1/models for ${reason}: ${discovery.readyModelCount}/${discovery.receivedModelCount} ready, ${nextProfiles.length} runtime profile(s).`,
+    );
+  } catch (error) {
+    console.warn(`[models] Ambient model discovery failed for ${reason}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+function currentAmbientModelDiscoveryRequestIdentity(): AmbientModelDiscoveryRequestIdentity | undefined {
+  if (getActiveAmbientProviderId() !== "ambient") return undefined;
+  const apiKey = readAmbientApiKey();
+  if (!apiKey) return undefined;
+  const baseUrl = getActiveAmbientProviderBaseUrl("ambient");
+  if (!baseUrl) return undefined;
+  return {
+    apiKey,
+    baseUrl,
+  };
+}
+
+function ambientModelDiscoveryRequestIdentityMatches(identity: AmbientModelDiscoveryRequestIdentity): boolean {
+  const current = currentAmbientModelDiscoveryRequestIdentity();
+  return Boolean(current && current.apiKey === identity.apiKey && current.baseUrl === identity.baseUrl);
+}
+
+function clearAmbientDiscoveredModelProfiles(reason: AmbientModelDiscoveryRefreshReason, detail: string): void {
+  if (!ambientDiscoveredModelProfiles.length) return;
+  ambientDiscoveredModelProfiles = [];
+  emitDesktopState();
+  console.log(`[models] Cleared discovered Ambient model catalog for ${reason}: ${detail}.`);
+}
+
+function ambientModelDiscoverySignature(profiles: readonly AmbientModelRuntimeProfile[]): string {
+  return JSON.stringify(
+    profiles.map((profile) => ({
+      modelId: profile.modelId,
+      label: profile.label,
+      selectableAsMain: profile.selectableAsMain,
+      selectableAsSubagent: profile.selectableAsSubagent,
+      contextWindowTokens: profile.contextWindowTokens,
+      maxOutputTokens: profile.maxOutputTokens,
+      toolUse: profile.toolUse,
+      structuredOutput: profile.structuredOutput,
+      supportsVision: profile.supportsVision,
+      supportsAudio: profile.supportsAudio,
+      reasoning: profile.reasoningCapability?.payloadStrategy,
+    })),
   );
 }
 
@@ -1688,6 +1813,7 @@ function registerIpc(): void {
     recordBrowserControlAudit,
     recordBrowserProfileAudit,
     redactGoogleWorkspaceSetupState,
+    refreshAmbientModelDiscovery: () => refreshAmbientModelDiscovery("credentials-updated"),
     refreshGoogleWorkspaceConnectorMode,
     refreshSecureStorageStatus,
     refreshVoiceProviderCatalog,
@@ -1878,7 +2004,9 @@ async function startApp(): Promise<void> {
   registerIpc();
   registerWorkspaceMediaProtocol(protocol, workspaceMediaServer);
   await createWindow();
+  startAmbientModelDiscoveryRefresh();
   startPostWindowStartupLifecycle();
 }
 
+app.on("before-quit", stopAmbientModelDiscoveryRefresh);
 installShutdownHandlers();

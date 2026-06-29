@@ -59,12 +59,23 @@ export function transientThinkingActivityLinesForDisplay<T extends ThinkingDispl
   return input.lines.filter((line) => line.kind === "thinking");
 }
 
+export function hasVisibleAssistantReply(messages: readonly ChatMessage[]): boolean {
+  return messages.some((message) =>
+    message.role === "assistant" &&
+    !isHiddenTranscriptMessage(message) &&
+    !isThinkingMessageForDisplay(message) &&
+    Boolean(renderableMessageContentForDisplay(message))
+  );
+}
+
 export function shouldShowRunStatusCard(
-  settings: Pick<ThinkingDisplaySettings, "showRunStatusCard"> | undefined,
+  settings: Pick<ThinkingDisplaySettings, "hideRunStatusCardAfterFirstMessage"> | undefined,
   running: boolean,
-  status?: RunStatus,
+  hasPriorAssistantReply = false,
 ): boolean {
-  return Boolean(running && (settings?.showRunStatusCard || status === "starting" || status === "compacting"));
+  if (!running) return false;
+  if (!hasPriorAssistantReply) return true;
+  return !(settings?.hideRunStatusCardAfterFirstMessage ?? true);
 }
 
 export function visibleTextMatchCountForThinkingDisplay(input: {

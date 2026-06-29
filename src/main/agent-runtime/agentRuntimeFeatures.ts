@@ -38,6 +38,7 @@ import type {
 import type { WorkflowAgentThreadSummary, WorkflowRecoveryAction } from "../../shared/workflowTypes";
 import type { WorkspaceMediaUrlInput } from "../../shared/workspaceMedia";
 import type {
+  AmbientModelRuntimeCatalog,
   AmbientModelRuntimeProfile,
 } from "../../shared/ambientModels";
 import type {
@@ -106,6 +107,10 @@ export interface AgentRuntimeFeatures {
   };
   ambientCli?: {
     autoInstallFirstParty?: boolean;
+  };
+  modelRuntime?: {
+    catalog?: (generatedAt?: string) => AmbientModelRuntimeCatalog;
+    resolveModelRuntimeProfile?: (modelId?: string) => AmbientModelRuntimeProfile;
   };
   googleWorkspace?: AgentRuntimeGoogleWorkspaceTools;
   workflowNativeTools?: {

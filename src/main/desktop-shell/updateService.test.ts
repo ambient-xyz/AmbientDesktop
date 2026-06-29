@@ -116,6 +116,8 @@ describe("desktopUpdateConfigFromEnv", () => {
     const config = desktopUpdateConfigFromEnv({
       currentVersion: "0.1.0",
       isPackaged: true,
+      appPath: "/Applications/Ambient Desktop.app/Contents/MacOS/Ambient Desktop",
+      platform: "darwin",
       releaseChannel: "release",
       env: {
         AMBIENT_DESKTOP_UPDATE_BASE_URL: "https://updates.example.test/desktop/",
@@ -126,6 +128,55 @@ describe("desktopUpdateConfigFromEnv", () => {
     expect(config.enabled).toBe(true);
     expect(config.channel).toBe("stable");
     expect(config.feedUrl).toBe("https://updates.ambient.xyz/desktop/stable");
+  });
+
+  it("enables packaged macOS updates from Applications install paths", () => {
+    const globalInstall = desktopUpdateConfigFromEnv({
+      currentVersion: "0.1.0",
+      isPackaged: true,
+      appPath: "/Applications/Ambient Desktop.app/Contents/MacOS/Ambient Desktop",
+      platform: "darwin",
+      releaseChannel: "release",
+      env: {},
+    });
+    const userInstall = desktopUpdateConfigFromEnv({
+      currentVersion: "0.1.0",
+      isPackaged: true,
+      appPath: "/Users/neo/Applications/Ambient Desktop.app/Contents/MacOS/Ambient Desktop",
+      platform: "darwin",
+      releaseChannel: "release",
+      env: {},
+    });
+
+    expect(globalInstall.enabled).toBe(true);
+    expect(userInstall.enabled).toBe(true);
+  });
+
+  it("disables packaged macOS updates from disposable release artifact paths", () => {
+    const config = desktopUpdateConfigFromEnv({
+      currentVersion: "0.1.0",
+      isPackaged: true,
+      appPath: "/Users/example/Documents/ambientCoder-release-0.1.79-latest/release/mac-arm64/Ambient Desktop.app/Contents/MacOS/Ambient Desktop",
+      platform: "darwin",
+      releaseChannel: "release",
+      env: {},
+    });
+
+    expect(config.enabled).toBe(false);
+    expect(config.disabledReason).toContain("/Applications");
+  });
+
+  it("does not apply the macOS install-location guard to other platforms", () => {
+    const config = desktopUpdateConfigFromEnv({
+      currentVersion: "0.1.0",
+      isPackaged: true,
+      appPath: "C:\\Users\\Neo\\Downloads\\Ambient Desktop\\Ambient Desktop.exe",
+      platform: "win32",
+      releaseChannel: "release",
+      env: {},
+    });
+
+    expect(config.enabled).toBe(true);
   });
 
   it("allows update feed overrides only when updates are already disabled for development", () => {

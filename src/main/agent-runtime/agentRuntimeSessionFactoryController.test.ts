@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { AMBIENT_DEFAULT_MODEL } from "../../shared/ambientModels";
+import {
+  AMBIENT_DEFAULT_MODEL,
+  resolveAmbientModelRuntimeProfile,
+  type AmbientModelRuntimeProfile,
+} from "../../shared/ambientModels";
 import type { ThreadSummary } from "../../shared/threadTypes";
 import { AgentRuntimeSessionRegistry } from "./agentRuntimeSessionRegistry";
 import {
@@ -26,10 +30,11 @@ function thread(input: Partial<ThreadSummary> = {}): ThreadSummary {
 
 function session(input: {
   modelId?: string;
+  model?: AgentRuntimePiSession["model"];
   sessionFile?: string;
 } = {}): AgentRuntimePiSession {
   return {
-    model: input.modelId ? { id: input.modelId } : undefined,
+    model: input.model ?? (input.modelId ? { id: input.modelId } : undefined),
     sessionFile: input.sessionFile,
     setModel: vi.fn(async () => undefined),
     setThinkingLevel: vi.fn(),
@@ -40,6 +45,7 @@ function session(input: {
 function controller(input: {
   sessions?: AgentRuntimeSessionRegistry<AgentRuntimePiSession>;
   currentThread?: ThreadSummary;
+  features?: AgentRuntimeSessionFactoryControllerOptions["features"];
   commitThreadPiSessionFile?: AgentRuntimeSessionFactoryControllerOptions["commitThreadPiSessionFile"];
 } = {}): AgentRuntimeSessionFactoryController {
   const sessions = input.sessions ?? new AgentRuntimeSessionRegistry<AgentRuntimePiSession>();
@@ -53,7 +59,7 @@ function controller(input: {
     extensionAssembly: {} as AgentRuntimeSessionFactoryControllerOptions["extensionAssembly"],
     mcpToolOrchestration: {} as AgentRuntimeSessionFactoryControllerOptions["mcpToolOrchestration"],
     providerRuntime: {} as AgentRuntimeSessionFactoryControllerOptions["providerRuntime"],
-    features: {},
+    features: input.features ?? {},
     ambientCliSkillMountDiagnostics: new Map(),
     tencentMemoryRuntimeSnapshots: new Map(),
     getFeatureFlagSnapshot: vi.fn(() => ({ flags: {} }) as never),
@@ -100,4 +106,51 @@ describe("AgentRuntimeSessionFactoryController", () => {
       emit: expect.any(Function),
     });
   });
+
+  it("refreshes a reusable session when discovery changes the same model descriptor", async () => {
+    const existing = session({
+      model: {
+        id: "moonshotai/kimi-k2.6",
+        name: "moonshotai/kimi-k2.6 (unavailable)",
+        contextWindow: 200000,
+        maxTokens: 131072,
+        input: ["text"],
+        compat: {
+          supportsDeveloperRole: false,
+          zaiToolStream: true,
+        },
+      } as AgentRuntimePiSession["model"],
+      sessionFile: "/sessions/thread-1.jsonl",
+    });
+    const runtimeSessionFactory = controller({
+      features: {
+        modelRuntime: {
+          resolveModelRuntimeProfile: () => discoveredKimiProfile(),
+        },
+      },
+    });
+
+    await runtimeSessionFactory.switchSessionToThreadModel(
+      thread({ model: "moonshotai/kimi-k2.6" }),
+      existing,
+    );
+
+    expect(existing.setModel).toHaveBeenCalledWith(expect.objectContaining({
+      id: "moonshotai/kimi-k2.6",
+      name: "Kimi K2.6",
+      contextWindow: 262144,
+      maxTokens: 262144,
+      input: ["text", "image"],
+    }));
+  });
 });
+
+function discoveredKimiProfile(): AmbientModelRuntimeProfile {
+  return {
+    ...resolveAmbientModelRuntimeProfile(AMBIENT_DEFAULT_MODEL),
+    profileId: "ambient:moonshotai/kimi-k2.6",
+    modelId: "moonshotai/kimi-k2.6",
+    label: "Kimi K2.6",
+    supportsVision: true,
+  };
+}

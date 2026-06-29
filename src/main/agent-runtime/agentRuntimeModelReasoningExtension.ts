@@ -2,12 +2,16 @@ import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import type { ExtensionFactory } from "@mariozechner/pi-coding-agent";
 
-import type { AmbientModelReasoningThinkingLevel } from "../../shared/ambientModels";
+import type {
+  AmbientModelReasoningCapability,
+  AmbientModelReasoningThinkingLevel,
+} from "../../shared/ambientModels";
 import { shapeModelReasoningPayload, type ModelReasoningPayloadEvidence } from "../../shared/modelReasoningPayload";
 
 export interface ModelReasoningPayloadExtensionOptions {
   modelId: string;
   getThinkingLevel: () => AmbientModelReasoningThinkingLevel | undefined;
+  resolveReasoningCapability?: (modelId?: string) => AmbientModelReasoningCapability | undefined;
   evidencePath?: string;
   recordEvidence?: (evidence: ModelReasoningPayloadEvidence) => void;
 }
@@ -19,6 +23,7 @@ export function createModelReasoningPayloadExtension(options: ModelReasoningPayl
         payload: event.payload,
         modelId: options.modelId,
         thinkingLevel: options.getThinkingLevel(),
+        resolveReasoningCapability: options.resolveReasoningCapability,
       });
       recordModelReasoningPayloadEvidence(options, result.evidence);
       return result.changed ? result.payload : undefined;

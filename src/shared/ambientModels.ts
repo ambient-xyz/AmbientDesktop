@@ -1,6 +1,6 @@
 export const AMBIENT_KIMI_K2_7_CODE_MODEL = "example/model-id";
 export const AMBIENT_GLM_5_1_FP8_MODEL = "zai-org/GLM-5.1-FP8";
-export const AMBIENT_GLM_5_2_FP8_MODEL = "zai-org/GLM-5.2-FP8";
+export const AMBIENT_GLM_5_2_FP8_MODEL = "z-ai/glm-5.2";
 export const AMBIENT_DEFAULT_MODEL = AMBIENT_KIMI_K2_7_CODE_MODEL;
 
 export const AMBIENT_PROVIDER_AMBIENT = "ambient" as const;
@@ -131,6 +131,7 @@ export const AMBIENT_LEGACY_MODEL_IDS = [
   ["glm-5", AMBIENT_GLM_5_2_FP8_MODEL],
   ["ambient/large", AMBIENT_GLM_5_2_FP8_MODEL],
   ["zai-org/GLM-5-FP8", AMBIENT_GLM_5_2_FP8_MODEL],
+  ["zai-org/GLM-5.2-FP8", AMBIENT_GLM_5_2_FP8_MODEL],
   [AMBIENT_GLM_5_1_FP8_MODEL, AMBIENT_GLM_5_2_FP8_MODEL],
 ] as const;
 
@@ -261,7 +262,7 @@ export const AMBIENT_MODEL_RUNTIME_PROFILES: AmbientModelRuntimeProfile[] = [
     profileId: `${AMBIENT_PROVIDER_AMBIENT}:${AMBIENT_GLM_5_2_FP8_MODEL}`,
     providerId: AMBIENT_PROVIDER_AMBIENT,
     modelId: AMBIENT_GLM_5_2_FP8_MODEL,
-    label: "GLM-5.2 FP8",
+    label: "GLM 5.2",
     selectableAsMain: true,
     selectableAsSubagent: true,
     available: true,
@@ -397,6 +398,13 @@ export function resolveAmbientModelReasoningThinkingLevel(
   thinkingLevel: AmbientModelReasoningThinkingLevel | undefined,
 ): AmbientModelReasoningThinkingLevel {
   const capability = reasoningCapabilityForProfile(resolveAmbientModelRuntimeProfile(modelId));
+  return resolveAmbientModelReasoningThinkingLevelForCapability(capability, thinkingLevel);
+}
+
+export function resolveAmbientModelReasoningThinkingLevelForCapability(
+  capability: AmbientModelReasoningCapability,
+  thinkingLevel: AmbientModelReasoningThinkingLevel | undefined,
+): AmbientModelReasoningThinkingLevel {
   if (!thinkingLevel) return capability.defaultThinkingLevel;
   if (capability.control === "unsupported" && capability.payloadStrategy === "preserve-reasoning-controls") return thinkingLevel;
   if (capability.control !== "selectable_effort") return capability.defaultThinkingLevel;
@@ -415,8 +423,15 @@ export function ambientModelReasoningEffortForThinkingLevel(
   thinkingLevel: AmbientModelReasoningThinkingLevel | undefined,
 ): string | undefined {
   const capability = reasoningCapabilityForProfile(resolveAmbientModelRuntimeProfile(modelId));
+  return ambientModelReasoningEffortForCapability(capability, thinkingLevel);
+}
+
+export function ambientModelReasoningEffortForCapability(
+  capability: AmbientModelReasoningCapability,
+  thinkingLevel: AmbientModelReasoningThinkingLevel | undefined,
+): string | undefined {
   if (capability.payloadStrategy !== "zai-reasoning-effort") return undefined;
-  const resolvedThinkingLevel = resolveAmbientModelReasoningThinkingLevel(modelId, thinkingLevel);
+  const resolvedThinkingLevel = resolveAmbientModelReasoningThinkingLevelForCapability(capability, thinkingLevel);
   return capability.effortByThinkingLevel?.[resolvedThinkingLevel];
 }
 

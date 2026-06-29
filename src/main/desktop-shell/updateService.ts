@@ -1,4 +1,5 @@
 import type { ProgressInfo, UpdateCheckResult, UpdateDownloadedEvent, UpdateInfo } from "electron-updater";
+import { normalize, sep } from "node:path";
 import type { DesktopUpdateCheckReason, DesktopUpdateState } from "../../shared/desktopTypes";
 
 type UpdaterEvent =
@@ -35,6 +36,8 @@ export interface DesktopUpdateConfig {
 export interface DesktopUpdateRuntimeInput {
   currentVersion: string;
   isPackaged: boolean;
+  appPath?: string;
+  platform?: NodeJS.Platform;
   releaseChannel?: string;
   env?: NodeJS.ProcessEnv;
 }
@@ -56,14 +59,20 @@ export function desktopUpdateConfigFromEnv(input: DesktopUpdateRuntimeInput): De
   const env = input.env ?? process.env;
   const channel = normalizeUpdateChannel(input.releaseChannel ?? env.AMBIENT_RELEASE_CHANNEL);
   const explicitlyDisabled = env.AMBIENT_DESKTOP_UPDATES_DISABLED === "1" || env.AMBIENT_UPDATES_DISABLED === "1";
+  const installEligibility = desktopUpdateInstallEligibility({
+    appPath: input.appPath,
+    platform: input.platform ?? process.platform,
+  });
   const feedUrl = desktopUpdateFeedUrl({ channel, env, isPackaged: input.isPackaged });
-  const enabled = input.isPackaged && !explicitlyDisabled && channel !== "dev";
+  const enabled = input.isPackaged && !explicitlyDisabled && channel !== "dev" && installEligibility.ok;
   const disabledReason = !input.isPackaged
     ? "Updates are disabled for development builds."
     : explicitlyDisabled
       ? "Updates are disabled by environment configuration."
       : channel === "dev"
         ? "Updates are disabled on the development channel."
+        : !installEligibility.ok
+          ? installEligibility.reason
         : undefined;
 
   return {
@@ -76,6 +85,35 @@ export function desktopUpdateConfigFromEnv(input: DesktopUpdateRuntimeInput): De
     checkIntervalMs: numberFromEnv(env.AMBIENT_DESKTOP_UPDATE_CHECK_INTERVAL_MS, 30 * 60 * 1000),
     now: () => new Date(),
   };
+}
+
+export function desktopUpdateInstallEligibility(input: {
+  appPath?: string;
+  platform: NodeJS.Platform;
+}): { ok: boolean; reason?: string } {
+  if (input.platform !== "darwin") return { ok: true };
+  const bundlePath = macAppBundlePath(input.appPath);
+  if (!bundlePath) return { ok: true };
+  const normalizedBundlePath = normalize(bundlePath);
+  if (isPathInside(normalizedBundlePath, "/Applications") || /^\/Users\/[^/]+\/Applications(?:\/|$)/.test(normalizedBundlePath)) {
+    return { ok: true };
+  }
+  return {
+    ok: false,
+    reason: "Move Ambient Desktop to /Applications or ~/Applications to enable automatic updates.",
+  };
+}
+
+function macAppBundlePath(appPath: string | undefined): string | undefined {
+  if (!appPath) return undefined;
+  const marker = ".app";
+  const index = appPath.indexOf(marker);
+  return index >= 0 ? appPath.slice(0, index + marker.length) : undefined;
+}
+
+function isPathInside(candidate: string, parent: string): boolean {
+  const normalizedParent = normalize(parent);
+  return candidate === normalizedParent || candidate.startsWith(`${normalizedParent}${sep}`);
 }
 
 function desktopUpdateFeedUrl(input: { channel: string; env: NodeJS.ProcessEnv; isPackaged: boolean }): string {

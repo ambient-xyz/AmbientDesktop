@@ -76,11 +76,11 @@ describe("buildAmbientModelStatus", () => {
     expect(status.selected).toMatchObject({
       requestedModelId: "glm-5.1",
       effectiveModelId: AMBIENT_GLM_5_2_FP8_MODEL,
-      label: "GLM-5.2 FP8",
+      label: "GLM 5.2",
     });
     expect(status.running).toMatchObject({
       modelId: AMBIENT_GLM_5_2_FP8_MODEL,
-      label: "GLM-5.2 FP8",
+      label: "GLM 5.2",
       matchesSelected: true,
     });
     expect(status.capabilities).toMatchObject({
@@ -199,7 +199,7 @@ describe("registerModelStatusTools", () => {
     }, {
       requestedModelId: () => "glm-5.1",
       thinkingLevel: () => "xhigh",
-      runningModel: () => ({ id: AMBIENT_GLM_5_2_FP8_MODEL, name: "GLM-5.2 FP8" }),
+      runningModel: () => ({ id: AMBIENT_GLM_5_2_FP8_MODEL, name: "GLM 5.2" }),
       providerStatus: () => providerStatus({
         hasApiKey: true,
         model: AMBIENT_GLM_5_2_FP8_MODEL,
@@ -260,7 +260,7 @@ describe("registerModelStatusTools", () => {
       label: "Reasoning on",
     });
 
-    runningModel = { id: AMBIENT_GLM_5_2_FP8_MODEL, name: "GLM-5.2 FP8" };
+    runningModel = { id: AMBIENT_GLM_5_2_FP8_MODEL, name: "GLM 5.2" };
     const second = await registeredTools[0]!.execute("model-status", {}, undefined);
     expect(second.details.running).toMatchObject({
       modelId: AMBIENT_GLM_5_2_FP8_MODEL,

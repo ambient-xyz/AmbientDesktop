@@ -41,6 +41,34 @@ describe("App desktop event state reducer", () => {
     expect(withUpdated.messages[1]).toEqual(updated);
   });
 
+  it("marks active thread updates read in renderer state", () => {
+    const state = desktopState({
+      threads: [
+        thread({
+          id: "thread-1",
+          updatedAt: "2026-06-21T00:00:00.000Z",
+          lastReadAt: "2026-06-21T00:00:00.000Z",
+        }),
+      ],
+    });
+    const updatedThread = thread({
+      id: "thread-1",
+      updatedAt: "2026-06-21T00:01:00.000Z",
+      lastReadAt: "2026-06-21T00:00:00.000Z",
+      lastMessagePreview: "New work while visible",
+    });
+
+    const next = reduce(state, {
+      type: "thread-updated",
+      thread: updatedThread,
+      workspacePath: "/repo",
+    });
+
+    expect(next.threads[0]?.updatedAt).toBe("2026-06-21T00:01:00.000Z");
+    expect(next.threads[0]?.lastReadAt).toBe("2026-06-21T00:01:00.000Z");
+    expect(next.projects[0]?.threads[0]?.lastReadAt).toBe("2026-06-21T00:01:00.000Z");
+  });
+
   it("routes visible subagent-child messages into child message state", () => {
     const state = desktopState({
       threads: [

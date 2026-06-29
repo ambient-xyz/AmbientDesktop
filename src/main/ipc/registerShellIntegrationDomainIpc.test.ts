@@ -69,6 +69,7 @@ describe("registerShellIntegrationDomainIpc", () => {
     expect(deps.readCurrentSettingsModel).toHaveBeenCalledTimes(2);
     expect(deps.getAmbientProviderStatus).toHaveBeenCalledWith("ambient-model");
     expect(deps.emitProviderUpdated).toHaveBeenCalledTimes(2);
+    expect(deps.refreshAmbientModelDiscovery).toHaveBeenCalledTimes(2);
     expect(deps.testAmbientApiKey).toHaveBeenCalledWith("dummy-key");
   });
 
@@ -125,6 +126,7 @@ function registerWithFakes({
     readCurrentSettingsModel: vi.fn(() => "ambient-model"),
     getAmbientProviderStatus: vi.fn(() => provider),
     emitProviderUpdated: vi.fn(),
+    refreshAmbientModelDiscovery: vi.fn(),
     refreshSecureStorageStatus: vi.fn((): { status: SecureStorageStatus; guidance: SecureStorageRepairGuidance } => ({
       status: {
         status: "ready",

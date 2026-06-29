@@ -13,6 +13,7 @@ import type {
   SubagentApprovalDecisionDialogState,
   SubagentBarrierDecisionDialogState,
 } from "./AppModalHost";
+import type { GoalBudgetDialogState } from "./AppGoalControls";
 import type { PendingSubmittedPrompt } from "./AppConversationDisplayModel";
 import type { PendingWorkflowRecordingEditContext } from "./AppComposerSubmitActions";
 import type { SymphonyWorkflowBuilderDraft } from "./symphonyWorkflowBuilderUiModel";
@@ -51,6 +52,7 @@ export function useAppWorkflowRuntimeState() {
   const [goalModeArmed, setGoalModeArmed] = useState(false);
   const [goalMenuOpen, setGoalMenuOpen] = useState(false);
   const [goalBusy, setGoalBusy] = useState(false);
+  const [goalBudgetDialog, setGoalBudgetDialog] = useState<GoalBudgetDialogState | undefined>();
   const [goalCompletionCelebrationId, setGoalCompletionCelebrationId] = useState<string | undefined>();
   const latestDesktopStateRevisionRef = useRef<number | undefined>(undefined);
   const clearedGoalKeysRef = useRef(new Set<string>());
@@ -124,6 +126,8 @@ export function useAppWorkflowRuntimeState() {
     setGoalMenuOpen,
     goalBusy,
     setGoalBusy,
+    goalBudgetDialog,
+    setGoalBudgetDialog,
     goalCompletionCelebrationId,
     setGoalCompletionCelebrationId,
     latestDesktopStateRevisionRef,

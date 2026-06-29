@@ -216,6 +216,7 @@ function recoveryUpdateConfig(): DesktopUpdateConfig {
   return desktopUpdateConfigFromEnv({
     currentVersion: app.getVersion(),
     isPackaged: app.isPackaged,
+    appPath: process.execPath,
     releaseChannel: process.env.AMBIENT_RELEASE_CHANNEL,
   });
 }

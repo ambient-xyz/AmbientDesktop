@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const appSource = readFileSync(new URL("./App.tsx", import.meta.url), "utf8");
 const appDesktopEventHandlerSource = readFileSync(new URL("./AppDesktopEventHandler.ts", import.meta.url), "utf8");
+const appActionOwnerGraphSource = readFileSync(new URL("./AppActionOwnerGraph.ts", import.meta.url), "utf8");
 const appComposerSubmitActionsSource = readFileSync(new URL("./AppComposerSubmitActions.ts", import.meta.url), "utf8");
 const appComposerInteractionControlsSource = readFileSync(new URL("./AppComposerInteractionControls.ts", import.meta.url), "utf8");
 const appComposerLocalDeepResearchControlSource = readFileSync(
@@ -11,6 +12,7 @@ const appComposerLocalDeepResearchControlSource = readFileSync(
 );
 const appComposerSettingsControlsSource = readFileSync(new URL("./AppComposerSettingsControls.tsx", import.meta.url), "utf8");
 const appComposerShellSource = readFileSync(new URL("./AppComposerShell.tsx", import.meta.url), "utf8");
+const appComposerShellPropsSource = readFileSync(new URL("./AppComposerShellProps.ts", import.meta.url), "utf8");
 const appComposerStatusBarSource = readFileSync(new URL("./AppComposerStatusBar.tsx", import.meta.url), "utf8");
 const appComposerShellStateSource = readFileSync(new URL("./AppComposerShellState.ts", import.meta.url), "utf8");
 const appComposerSttControlsSource = readFileSync(new URL("./AppComposerSttControls.tsx", import.meta.url), "utf8");
@@ -19,6 +21,7 @@ const appConversationMessagesSource = readFileSync(new URL("./AppConversationMes
 const appDialogsSource = readFileSync(new URL("./AppDialogs.tsx", import.meta.url), "utf8");
 const appGitControlsSource = readFileSync(new URL("./AppGitControls.tsx", import.meta.url), "utf8");
 const appMessagesSource = readFileSync(new URL("./AppMessages.tsx", import.meta.url), "utf8");
+const appModalHostSource = readFileSync(new URL("./AppModalHost.tsx", import.meta.url), "utf8");
 const appLocalRuntimeActionsSource = readFileSync(new URL("./AppLocalRuntimeActions.ts", import.meta.url), "utf8");
 const appRightPanelHostPropsSource = readFileSync(new URL("./AppRightPanelHostProps.ts", import.meta.url), "utf8");
 const appWorkflowRuntimeStateSource = readFileSync(new URL("./AppWorkflowRuntimeState.ts", import.meta.url), "utf8");
@@ -215,8 +218,12 @@ describe("composer toolbar layout", () => {
     expect(appDesktopEventHandlerSource).toContain('"thread-goal-updated"');
     expect(appDesktopEventHandlerSource).toContain('event.type === "thread-goal-updated"');
     expect(statusbarSource).toContain("<GoalStatusControl");
+    expect(appActionOwnerGraphSource).toContain("function openGoalBudgetDialog()");
+    expect(appComposerShellPropsSource).toContain("setActiveGoalBudget: goalActions.openGoalBudgetDialog");
+    expect(appModalHostSource).toContain("<GoalBudgetDialog");
     expect(stylesSource).toContain(".goal-mode-toggle");
     expect(stylesSource).toContain(".goal-status-menu");
+    expect(stylesSource).toContain(".goal-budget-dialog");
     expect(stylesSource).toContain(".goal-status-chip.active:active");
     expect(stylesSource).toContain(".goal-status-chip.paused");
   });

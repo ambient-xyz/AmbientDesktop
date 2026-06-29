@@ -1,6 +1,6 @@
 {
   "name": "ambient-desktop",
-  "version": "0.1.94",
+  "version": "0.1.95",
   "description": "A local-first developer workstation for durable, inspectable agentic work.",
   "author": "Mechanus Labs Inc.",
   "license": "MIT",
@@ -74,7 +74,7 @@
     "test:async-long-context:desktop-dogfood:unit": "pnpm exec vitest run scripts/async-long-context-dogfood.test.mjs",
     "test:running-model-status:desktop-dogfood": "pnpm run test:running-model-status:desktop-dogfood:kimi && pnpm run test:running-model-status:desktop-dogfood:glm52",
     "test:running-model-status:desktop-dogfood:kimi": "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} AMBIENT_LIVE_MODEL=example/model-id node scripts/run-electron-dogfood.mjs --manifest-out=test-results/harness/running-model-status-kimi.manifest.json --scenario=running-model-status -- --expected-model=example/model-id",
-    "test:running-model-status:desktop-dogfood:glm52": "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} AMBIENT_LIVE_MODEL=zai-org/GLM-5.2-FP8 node scripts/run-electron-dogfood.mjs --manifest-out=test-results/harness/running-model-status-glm52.manifest.json --scenario=running-model-status -- --expected-model=zai-org/GLM-5.2-FP8",
+    "test:running-model-status:desktop-dogfood:glm52": "AMBIENT_PROVIDER=${AMBIENT_PROVIDER:-ambient} AMBIENT_LIVE_MODEL=z-ai/glm-5.2 node scripts/run-electron-dogfood.mjs --manifest-out=test-results/harness/running-model-status-glm52.manifest.json --scenario=running-model-status -- --expected-model=z-ai/glm-5.2",
     "test:running-model-status:desktop-dogfood:unit": "pnpm exec vitest run scripts/running-model-status-dogfood.test.mjs",
     "test:prompt-cache-status:desktop-dogfood": "AMBIENT_PROVIDER=ambient AMBIENT_LIVE_MODEL=example/model-id node scripts/run-electron-dogfood.mjs --manifest-out=test-results/harness/prompt-cache-status.manifest.json --scenario=prompt-cache-status",
     "test:prompt-cache-status:desktop-dogfood:unit": "pnpm exec vitest run scripts/prompt-cache-status-dogfood.test.mjs",

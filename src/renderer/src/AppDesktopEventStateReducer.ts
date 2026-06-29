@@ -19,6 +19,12 @@ export function isAppDesktopEventStateReducerEvent(event: DesktopEvent): boolean
   return STATE_REDUCER_DESKTOP_EVENT_TYPES.has(event.type);
 }
 
+export function threadSummaryReadWhileActive(thread: ThreadSummary): ThreadSummary {
+  if (!thread.updatedAt) return thread;
+  if (thread.lastReadAt && thread.lastReadAt >= thread.updatedAt) return thread;
+  return { ...thread, lastReadAt: thread.updatedAt };
+}
+
 export function reduceAppDesktopEventState({
   current,
   event,
@@ -91,10 +97,12 @@ export function reduceAppDesktopEventState({
     return { ...current, activeThreadGoal: undefined };
   }
   if (event.type === "thread-updated") {
+    const updatedThread =
+      event.thread.id === current.activeThreadId ? threadSummaryReadWhileActive(event.thread) : event.thread;
     const upsertThread = (threads: ThreadSummary[]) =>
-      threads.some((thread) => thread.id === event.thread.id)
-        ? threads.map((thread) => (thread.id === event.thread.id ? event.thread : thread))
-        : [...threads, event.thread];
+      threads.some((thread) => thread.id === updatedThread.id)
+        ? threads.map((thread) => (thread.id === updatedThread.id ? updatedThread : thread))
+        : [...threads, updatedThread];
     const projects = current.projects.map((project) =>
       desktopEventMatchesWorkspace(event, project.path)
         ? {
@@ -111,13 +119,13 @@ export function reduceAppDesktopEventState({
       threads: upsertThread(current.threads),
       projects,
       settings:
-        event.thread.id === current.activeThreadId
+        updatedThread.id === current.activeThreadId
           ? {
               ...current.settings,
-              permissionMode: event.thread.permissionMode,
-              collaborationMode: event.thread.collaborationMode,
-              model: event.thread.model,
-              thinkingLevel: event.thread.thinkingLevel,
+              permissionMode: updatedThread.permissionMode,
+              collaborationMode: updatedThread.collaborationMode,
+              model: updatedThread.model,
+              thinkingLevel: updatedThread.thinkingLevel,
             }
           : current.settings,
     };

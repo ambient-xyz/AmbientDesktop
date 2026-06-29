@@ -1,7 +1,15 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { SendMessageInput } from "../../shared/desktopTypes";
 import { resolveAmbientFeatureFlags } from "../../shared/featureFlags";
 import type { ThreadSummary } from "../../shared/threadTypes";
+import {
+  AMBIENT_DEFAULT_MODEL,
+  resolveAmbientModelRuntimeProfile,
+  type AmbientModelRuntimeProfile,
+} from "../../shared/ambientModels";
 import { SYMPHONY_PARENT_MODE_ACTIVE_RUN_HANDOFF_ERROR } from "./agentRuntimeSymphonyParentMode";
 import {
   AgentRuntimeActiveRunHandoffController,
@@ -124,6 +132,38 @@ describe("AgentRuntimeActiveRunHandoffController", () => {
     expect(removeActivityListener).toHaveBeenCalledTimes(1);
   });
 
+  it("resolves queued image inputs with dynamically discovered vision profiles", async () => {
+    const workspacePath = await mkdtemp(join(tmpdir(), "ambient-active-run-images-"));
+    const imageBytes = Buffer.from("fake png bytes", "utf8");
+    await writeFile(join(workspacePath, "screenshot.png"), imageBytes);
+    const thread = threadSummary({
+      id: "thread-queued-image",
+      model: "moonshotai/kimi-k2.6",
+      workspacePath,
+    });
+    const store = {
+      getThread: vi.fn(() => thread),
+      updateThreadSettings: vi.fn(() => thread),
+      addMessage: vi.fn((message: Record<string, unknown>) => ({ id: "message-queued", createdAt: new Date().toISOString(), ...message })),
+      markThreadRead: vi.fn(() => thread),
+    };
+    const run = createActiveRun();
+    const controller = controllerWithStore(store, {
+      resolveModelRuntimeProfile: () => discoveredKimiProfile(),
+    });
+
+    await expect(controller.handleSendActiveRunHandoff(sendInput(thread.id, {
+      context: [{ kind: "file", path: "screenshot.png", name: "screenshot.png", size: imageBytes.length }],
+      delivery: "follow-up",
+    }), run)).resolves.toBe(true);
+
+    expect(run.queue).toHaveBeenCalledWith(expect.objectContaining({
+      imageInputs: [
+        { type: "image", mimeType: "image/png", data: imageBytes.toString("base64") },
+      ],
+    }));
+  });
+
   it("rejects Symphony parent-mode handoff into an unrestricted active run", async () => {
     const thread = threadSummary({ id: "thread-symphony-active-run" });
     const controller = controllerWithStore({
@@ -150,7 +190,9 @@ function controllerWithStore(store: {
   updateThreadSettings: (threadId: string, update: Record<string, unknown>) => ThreadSummary;
   addMessage: (message: Record<string, unknown>) => Record<string, unknown>;
   markThreadRead: (threadId: string) => ThreadSummary;
-}): AgentRuntimeActiveRunHandoffController {
+}, options: {
+  resolveModelRuntimeProfile?: AgentRuntimeActiveRunHandoffControllerOptions["resolveModelRuntimeProfile"];
+} = {}): AgentRuntimeActiveRunHandoffController {
   return new AgentRuntimeActiveRunHandoffController({
     store: store as unknown as AgentRuntimeActiveRunHandoffControllerOptions["store"],
     getFeatureFlagSnapshot: () =>
@@ -158,11 +200,22 @@ function controllerWithStore(store: {
         settings: {
           subagents: true,
         },
-      }),
+    }),
     applyThreadModelSettings: vi.fn(async () => undefined),
+    resolveModelRuntimeProfile: options.resolveModelRuntimeProfile,
     modelContentForSendInput: (input) => `model:${input.content}`,
     emit: vi.fn(),
   });
+}
+
+function discoveredKimiProfile(): AmbientModelRuntimeProfile {
+  return {
+    ...resolveAmbientModelRuntimeProfile(AMBIENT_DEFAULT_MODEL),
+    profileId: "ambient:moonshotai/kimi-k2.6",
+    modelId: "moonshotai/kimi-k2.6",
+    label: "Kimi K2.6",
+    supportsVision: true,
+  };
 }
 
 function createActiveRun(

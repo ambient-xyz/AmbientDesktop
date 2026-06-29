@@ -41,30 +41,33 @@ export function workflowRecorderEmptyChatStateForThread({
 }
 
 export function workflowReviewRunStatusCardVisible({
+  hasPriorAssistantReply,
   reviewRunning,
   running,
-  runStatus,
   thinkingDisplay,
 }: {
+  hasPriorAssistantReply?: boolean;
   reviewRunning: boolean;
   running: boolean;
   runStatus?: RunStatus;
-  thinkingDisplay: Pick<ThinkingDisplaySettings, "showRunStatusCard"> | undefined;
+  thinkingDisplay: Pick<ThinkingDisplaySettings, "hideRunStatusCardAfterFirstMessage"> | undefined;
 }): boolean {
-  return shouldShowRunStatusCard(thinkingDisplay, running, runStatus) && !reviewRunning;
+  return shouldShowRunStatusCard(thinkingDisplay, running, hasPriorAssistantReply) && !reviewRunning;
 }
 
 export function useAppWorkflowRecordingReviewControls({
   activeThread,
+  hasPriorAssistantReply,
   running,
   runStatus,
   thinkingDisplay,
   workflowRecorderSurface,
 }: {
   activeThread: WorkflowRecordingReviewThread | undefined;
+  hasPriorAssistantReply?: boolean;
   running: boolean;
   runStatus?: RunStatus;
-  thinkingDisplay: Pick<ThinkingDisplaySettings, "showRunStatusCard"> | undefined;
+  thinkingDisplay: Pick<ThinkingDisplaySettings, "hideRunStatusCardAfterFirstMessage"> | undefined;
   workflowRecorderSurface: WorkflowRecorderSurfaceModel;
 }): {
   conversationReviewPanelDocked: boolean;
@@ -91,6 +94,7 @@ export function useAppWorkflowRecordingReviewControls({
   });
   const workflowRecordingReviewRunning = Boolean(workflowRecordingReviewFeedbackActive && running);
   const runStatusCardVisible = workflowReviewRunStatusCardVisible({
+    hasPriorAssistantReply,
     reviewRunning: workflowRecordingReviewRunning,
     running,
     runStatus,

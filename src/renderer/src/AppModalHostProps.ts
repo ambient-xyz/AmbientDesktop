@@ -184,6 +184,7 @@ type AppModalHostProjectShellStateInput = Pick<
 
 type AppModalHostWorkflowRuntimeStateInput = Pick<
   ReturnType<typeof useAppWorkflowRuntimeState>,
+  | "goalBudgetDialog"
   | "setSubagentApprovalDecisionDialog"
   | "setSubagentBarrierDecisionDialog"
   | "subagentApprovalDecisionDialog"
@@ -201,6 +202,10 @@ export type AppModalHostPropsForAppActions = {
   projectBoardActions: Pick<AppModalHostPropsInput, "confirmProjectBoardReset">;
   projectThreadActions: AppModalHostProjectThreadActions;
   shellCommandActions: AppModalHostShellCommandActions;
+  goalBudgetActions: Pick<
+    AppModalHostPropsInput,
+    "onCancelGoalBudget" | "onConfirmGoalBudget" | "onGoalBudgetChange"
+  >;
   submitPlannerRevisionDialog: AppModalHostPropsInput["submitPlannerRevisionDialog"];
   submitSubagentApprovalDecisionDialog: AppModalHostPropsInput["submitSubagentApprovalDecisionDialog"];
   submitSubagentBarrierDecisionDialog: AppModalHostPropsInput["submitSubagentBarrierDecisionDialog"];
@@ -252,12 +257,16 @@ export function createAppModalHostPropsForApp({
     confirmProjectBoardReset: actions.projectBoardActions.confirmProjectBoardReset,
     confirmThreadActionDialog: actions.projectThreadActions.confirmThreadActionDialog,
     gitConfirmation: workspaceShellState.gitConfirmation,
+    goalBudgetDialog: workflowRuntimeState.goalBudgetDialog,
     localDeepResearchFollowupOpen: providerRuntimeState.localDeepResearchFollowupOpen,
     localDeepResearchQ8Override: providerRuntimeState.localDeepResearchQ8Override,
     localDeepResearchSetup: providerRuntimeState.localDeepResearchSetup,
     mediaPreviewModal: shellUiState.mediaPreviewModal,
     onApiKeyChange: securityPromptState.setApiKeyDraft,
     onCommandPaletteQueryChange: shellUiState.setCommandPaletteQuery,
+    onCancelGoalBudget: actions.goalBudgetActions.onCancelGoalBudget,
+    onConfirmGoalBudget: actions.goalBudgetActions.onConfirmGoalBudget,
+    onGoalBudgetChange: actions.goalBudgetActions.onGoalBudgetChange,
     onLocalDeepResearchQ8OverrideChange: providerRuntimeState.setLocalDeepResearchQ8Override,
     openAmbientKeys: actions.credentialDialogActions.openAmbientKeys,
     openSearchWebSettings: actions.openSearchWebSettings,

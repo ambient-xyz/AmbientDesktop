@@ -118,6 +118,8 @@ export function createAgentRuntimeFoundationControllers({
     countSerializedPayload: (payload, fallbackTokens) => glmTokenizer.countSerializedPayload(payload, fallbackTokens),
     recordContextUsageSnapshot: (snapshot) => store.recordContextUsageSnapshot(snapshot),
     emitContextUsageUpdated: (snapshot) => callbacks.emit({ type: "context-usage-updated", snapshot }),
+    modelRuntimeCatalog: (generatedAt) => features.modelRuntime?.catalog?.(generatedAt) ?? store.getModelRuntimeCatalog(generatedAt),
+    resolveModelRuntimeProfile: (modelId) => features.modelRuntime?.resolveModelRuntimeProfile?.(modelId),
     modelReasoningEvidencePath: () => process.env.AMBIENT_MODEL_REASONING_EVIDENCE_PATH,
   });
   const providerRuntime = new AgentRuntimeProviderRuntimeController({

@@ -5,6 +5,7 @@ import type { WorkflowPlanEditIntentKind } from "../../shared/workflowThreadPlan
 import type { ThreadSummary } from "../../shared/threadTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import type { WorkflowRecordingLibraryDescription } from "../../shared/workflowTypes";
+import type { AmbientModelRuntimeProfile } from "../../shared/ambientModels";
 import {
   createPrivilegedActionAdapter,
   privilegedActionAdapterSelectionFromEnv,
@@ -133,6 +134,7 @@ export interface AgentRuntimeExtensionAssemblyInput {
   thread: ThreadSummary;
   workspace: WorkspaceState;
   model: Model<"openai-completions">;
+  modelProfile?: AmbientModelRuntimeProfile;
   apiKey: string | undefined;
   tencentMemoryExtension?: ExtensionFactory;
   interruptedToolCallRecoveryToolsAvailable: boolean;
@@ -156,6 +158,7 @@ export class AgentRuntimeExtensionAssemblyController {
         thread,
         workspace,
         model,
+        modelProfile: input.modelProfile,
         apiKey,
         getRunningModel: input.getRunningModel,
       }),
