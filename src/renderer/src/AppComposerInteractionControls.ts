@@ -12,7 +12,7 @@ import type { DesktopState } from "../../shared/desktopTypes";
 import type { LocalDeepResearchRunBudget } from "../../shared/localRuntimeTypes";
 import type { SlashCommandCatalogEntry, SlashCommandSelection } from "../../shared/slashCommandTypes";
 import type { ChatMessage, MessageDelivery } from "../../shared/threadTypes";
-import type { PendingWorkflowRecordingEditContext } from "./AppComposerSubmitActions";
+import type { PendingWorkflowRecordingEditContext } from "./AppComposerSubmitActionTypes";
 import type { AppComposerDraftSetOptions } from "./AppComposerShellState";
 import { pendingSubmittedPromptHasPersistedMatch, type PendingSubmittedPrompt } from "./AppConversationDisplayModel";
 import { shouldRouteComposerSubmitThroughSymphony } from "./AppSymphonyBuilderControls";

@@ -98,7 +98,7 @@ function synthesisCard(sourceId: string, title: string): ProjectBoardSynthesisDr
     blockedBy: [],
     acceptanceCriteria: ["The board apply path remains unchanged."],
     testPlan: { unit: ["focused helper test"], integration: [], visual: [], manual: [] },
-    sourceRefs: ["simplificationPlanV4.html"],
+    sourceRefs: ["docs/archive/simplificationPlanV4-2026-06-26.html"],
   };
 }
 

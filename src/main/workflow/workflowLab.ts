@@ -6,7 +6,7 @@ import type { CreateWorkflowLabRunInput, ListWorkflowLabRunsInput, WorkflowLabCa
 import { callWorkflowPiJson, WorkflowPiJsonValidationError, type WorkflowPiTextCallInput } from "./workflowPiTransport";
 import { readAmbientApiKey } from "./workflowSecurityFacade";
 import type { AmbientRetryPolicy } from "./workflowAmbientFacade";
-import type { ProjectStore } from "./workflowProjectStoreFacade";
+import type { WorkflowLabProjectStore } from "./workflowLabProjectStoreContract";
 
 export const WORKFLOW_LAB_SCHEMA_VERSION = 1;
 
@@ -413,7 +413,7 @@ export class AmbientWorkflowLabJudgeProvider {
   }
 }
 
-export async function runWorkflowLab(store: ProjectStore, runId: string, options: RunWorkflowLabOptions = {}): Promise<WorkflowLabRun> {
+export async function runWorkflowLab(store: WorkflowLabProjectStore, runId: string, options: RunWorkflowLabOptions = {}): Promise<WorkflowLabRun> {
   const startedAt = options.now?.() ?? new Date().toISOString();
   let run = store.updateWorkflowLabRunStatus(runId, "running");
   const workflow = store.describeWorkflowRecording(run.workflowId);

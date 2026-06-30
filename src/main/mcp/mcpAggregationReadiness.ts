@@ -1,4 +1,4 @@
-import type { McpInstalledServerSummary } from "./mcpInstallCatalog";
+import type { McpInstalledServerSummary } from "./mcpInstallCatalogTypes";
 import type { ToolHiveInstalledServerState } from "./mcpToolRuntimeFacade";
 import type {
   McpAggregationNamespacePlanItem,
@@ -9,7 +9,7 @@ import type {
   McpToolDescriptor,
   McpToolPolicySummary,
   McpToolSearchInput,
-} from "./mcpToolBridge";
+} from "./mcpToolBridgeTypes";
 
 export interface InstalledMcpServerRecord {
   summary: McpInstalledServerSummary;

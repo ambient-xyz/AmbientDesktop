@@ -1,6 +1,6 @@
 import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import { RightPanelBrowserPane } from "./RightPanelBrowserPane";
-import type { RightPanelBodyRendererInput } from "./RightPanelBodyRenderer";
+import type { RightPanelBodyRendererInput } from "./RightPanelBodyRendererTypes";
 import { RightPanelContextPane } from "./RightPanelContextPane";
 import { fileIconForEntry, fileTreeEntryTitle } from "./RightPanelDetailPanels";
 import { FilePreview, formatPanelFileSize } from "./RightPanelFilePreview";

@@ -10,7 +10,7 @@ import {
 } from "./RightPanelSettingsRuntime";
 import { SettingsRow } from "./RightPanelSettingsPrimitives";
 import { preferredVoiceForProvider, voiceOptionLabel } from "./RightPanelDetailPanels";
-import type { RightPanelVoiceSettingsSectionProps } from "./RightPanelSettingsVoiceSpeech";
+import type { RightPanelVoiceSettingsSectionProps } from "./RightPanelSettingsVoiceSpeechTypes";
 
 type VoiceSettingsRowsProps = RightPanelVoiceSettingsSectionProps;
 

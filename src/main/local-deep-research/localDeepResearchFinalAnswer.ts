@@ -7,7 +7,7 @@ import type {
   LocalDeepResearchRunInput,
   LocalDeepResearchRunProgressEvent,
   LocalDeepResearchRunResult,
-} from "./localDeepResearchRunner";
+} from "./localDeepResearchTypes";
 import type { LocalDeepResearchSetupContract } from "./localDeepResearchSetup";
 import { localDeepResearchToolBudgetState } from "../../shared/localDeepResearchBudget";
 import type {

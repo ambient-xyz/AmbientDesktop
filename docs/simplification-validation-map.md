@@ -1,6 +1,6 @@
 # Simplification Validation Map
 
-Use this map while executing `simplificationPlanV4.html` phase by phase. Pick the smallest validation set that covers the files changed, then add live checks only when a real Ambient/Pi or provider loop is affected. The active plan and release-gate index lives in `docs/active-plan-index.md`.
+Use this map for product-led simplification follow-ups after the V5 closeout. Pick the smallest validation set that covers the files changed, then add live checks only when a real Ambient/Pi or provider loop is affected. The closed-plan and release-gate index lives in `docs/active-plan-index.md`.
 
 
 ## Baseline Safety Rails

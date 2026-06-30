@@ -26,8 +26,8 @@ import type {
   ProjectBoardWorkspaceGitControls,
 } from "./ProjectBoardWorkspaceGitControls";
 import type { ProjectBoardWorkspaceNavigationController } from "./ProjectBoardWorkspaceNavigationController";
-import type { ProjectBoardWorkspaceProps } from "./ProjectBoardWorkspace";
 import type { ProjectBoardWorkspaceRunController } from "./ProjectBoardWorkspaceRunController";
+import type { ProjectBoardWorkspaceProps } from "./ProjectBoardWorkspaceTypes";
 import {
   projectBoardColumns,
   projectBoardComplexityEstimate,

@@ -16,7 +16,7 @@ import {
   type WorkflowCompilerAmbientCliCapability,
   type WorkflowCompilerCapabilityDiscoveryPlan,
 } from "./workflowCompiler";
-import type { CompileWorkflowArtifactInput, WorkflowCompilerProvider } from "./workflowCompilerService";
+import type { CompileWorkflowArtifactInput, WorkflowCompilerProvider } from "./workflowCompilerServiceTypes";
 import type { ProjectStore } from "./workflowCompilerProjectStoreFacade";
 import type { WorkflowCompilerRecipeSelectionResult, WorkflowCompilerSelectedRecipe } from "./workflowCompilerRecipes";
 import {

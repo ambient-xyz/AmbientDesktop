@@ -8,7 +8,7 @@ import {
   formatTimelineTime,
 } from "./RightPanelSettingsRuntime";
 import { SettingsRow } from "./RightPanelSettingsPrimitives";
-import type { RightPanelSpeechSettingsSectionProps } from "./RightPanelSettingsVoiceSpeech";
+import type { RightPanelSpeechSettingsSectionProps } from "./RightPanelSettingsVoiceSpeechTypes";
 
 type SpeechSettingsRowsProps = RightPanelSpeechSettingsSectionProps;
 

@@ -13,7 +13,7 @@ import { canonicalizeWorkflowGraphLayout, workflowGraphWithSourceMappings, type 
 import type { WorkflowProgramIrPatchOperation } from "./workflowCompilerIrRepair";
 import type { WorkflowCompilerPromptAssemblyRecord } from "./workflowCompilerPromptModules";
 import type { WorkflowCompilerRecipeSelectionResult, WorkflowCompilerSelectedRecipe } from "./workflowCompilerRecipes";
-import type { WorkflowCompilerCallableInvocationContext } from "./workflowCompilerService";
+import type { WorkflowCompilerCallableInvocationContext } from "./workflowCompilerCallableInvocationPrompt";
 import type {
   WorkflowProgramDiagnostic,
   WorkflowProgramLoweredOperationPlan,

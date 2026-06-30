@@ -6,7 +6,7 @@ import type {
   VoiceProviderDiagnostics,
   VoiceProviderRuntimeState,
 } from "../../shared/localRuntimeTypes";
-import type { AmbientCliPackageCommand, AmbientCliPackageHealthCheckResult, AmbientCliPackageSummary } from "./ambientCliPackages";
+import type { AmbientCliPackageCommand, AmbientCliPackageHealthCheckResult, AmbientCliPackageSummary } from "./ambientCliPackageTypes";
 
 export function ambientCliCommandHealth(pkg: AmbientCliPackageSummary, command: AmbientCliPackageCommand): "passed" | "failed" | "unknown" {
   const health = pkg.healthChecks?.find((check) => check.commandName === command.name);

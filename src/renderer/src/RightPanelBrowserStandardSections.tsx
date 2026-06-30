@@ -7,8 +7,9 @@ import type {
   BrowserProfileMode,
   BrowserScreenshotResult,
 } from "../../shared/browserTypes";
-import type { BrowserCredentialForm, BrowserInspectResult } from "./RightPanelBrowserController";
-import type { BrowserPaneApiKeyStatus } from "./RightPanelBrowserPaneViews";
+import type { BrowserCredentialForm } from "./RightPanelBrowserController";
+import { browserSelectionFullPath } from "./RightPanelBrowserReferenceText";
+import type { BrowserInspectResult, BrowserPaneApiKeyStatus } from "./RightPanelBrowserTypes";
 
 export function RightPanelBrowserStatusCard({
   browserState,
@@ -627,11 +628,4 @@ export function RightPanelBrowserInspectResultCard({
       </details>
     </section>
   );
-}
-
-function browserSelectionFullPath(selection: BrowserPickResult["selections"][number]): string | undefined {
-  for (let index = selection.candidates.length - 1; index >= 0; index -= 1) {
-    if (selection.candidates[index].includes(">")) return selection.candidates[index];
-  }
-  return selection.selector;
 }

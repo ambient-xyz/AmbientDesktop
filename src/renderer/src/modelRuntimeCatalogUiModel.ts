@@ -8,8 +8,9 @@ import {
   modelProviderOnboardingSettingsModel,
   type ModelProviderOnboardingSettingsModel,
 } from "./modelProviderOnboardingUiModel";
+import type { ModelRuntimeCatalogTone } from "./modelRuntimeCatalogTone";
 
-export type ModelRuntimeCatalogTone = "success" | "warning" | "error" | "info";
+export type { ModelRuntimeCatalogTone };
 
 export interface ModelRuntimeCatalogProfileRow {
   id: string;

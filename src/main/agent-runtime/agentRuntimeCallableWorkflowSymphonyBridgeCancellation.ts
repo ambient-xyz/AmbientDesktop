@@ -8,7 +8,7 @@ import {
 import type {
   AgentRuntimeCallableWorkflowSymphonyBridgeControllerOptions,
   AgentRuntimeCallableWorkflowSymphonyBridgeDependencies,
-} from "./agentRuntimeCallableWorkflowSymphonyBridgeController";
+} from "./agentRuntimeCallableWorkflowSymphonyBridgeTypes";
 import type { CallableWorkflowTaskSummary } from "../../shared/workflowTypes";
 import type { SubagentRunSummary, SubagentWaitBarrierSummary } from "../../shared/subagentTypes";
 

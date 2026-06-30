@@ -3,7 +3,7 @@ import { vi } from "vitest";
 
 import type { DesktopState } from "../../shared/desktopTypes";
 import type { ChatMessage, ThreadGoal } from "../../shared/threadTypes";
-import type { AppConversationMessagesProps } from "./AppConversationMessages";
+import type { AppConversationMessagesProps } from "./AppConversationMessagesTypes";
 import type { SubagentThreadInspectorModel } from "./subagentThreadInspectorUiModel";
 
 export function baseProps(overrides: Partial<AppConversationMessagesProps> = {}): AppConversationMessagesProps {

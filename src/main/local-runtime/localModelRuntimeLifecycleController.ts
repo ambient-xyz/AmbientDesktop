@@ -7,7 +7,7 @@ import type {
   LocalModelRuntimeState,
   LocalModelRuntimeStopInput,
   LocalModelRuntimeStopResult,
-} from "./localModelRuntimeManager";
+} from "./localModelRuntimeTypes";
 
 export interface LocalModelRuntimeLifecycleActiveRuntime {
   key: string;

@@ -29,7 +29,7 @@ import {
 } from "./browserChromeRuntimeController";
 import type { BrowserServiceControllerBundle } from "./browserServiceControllers";
 import type { BrowserServiceMutableState } from "./browserServiceMutableState";
-import type { InternalBrowserBackend } from "./browserService";
+import type { InternalBrowserBackend } from "./browserServiceTypes";
 
 export type BrowserRequestInput = {
   profileMode?: BrowserProfileMode;

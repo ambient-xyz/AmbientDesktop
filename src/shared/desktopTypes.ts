@@ -1073,9 +1073,13 @@ export interface AmbientDesktopApi {
   retryProjectBoardSynthesis(input: RetryProjectBoardSynthesisInput): Promise<DesktopState>;
   abandonProjectBoardSynthesisRun(input: { boardId: string; runId: string; reason?: string }): Promise<DesktopState>;
   seedProjectBoardSemanticIdleDogfood(input: SeedProjectBoardSemanticIdleDogfoodInput): Promise<DesktopState>;
-  seedProjectBoardProofJudgmentDogfood(input: SeedProjectBoardProofJudgmentDogfoodInput): Promise<ProjectBoardProofJudgmentDogfoodResult>;
-  seedProjectBoardCanonicalProjectionDogfood(input: SeedProjectBoardCanonicalProjectionDogfoodInput): Promise<ProjectBoardCanonicalProjectionDogfoodResult>;
-  seedProjectBoardDeliverableIntegrationDogfood(input: SeedProjectBoardDeliverableIntegrationDogfoodInput): Promise<ProjectBoardDeliverableIntegrationDogfoodResult>;
+  seedProjectBoardProofJudgmentDogfood(input: SeedProjectBoardProofJudgmentDogfoodInput): Promise<ProjectBoardProofJudgmentDogfoodResult<DesktopState>>;
+  seedProjectBoardCanonicalProjectionDogfood(
+    input: SeedProjectBoardCanonicalProjectionDogfoodInput,
+  ): Promise<ProjectBoardCanonicalProjectionDogfoodResult<DesktopState>>;
+  seedProjectBoardDeliverableIntegrationDogfood(
+    input: SeedProjectBoardDeliverableIntegrationDogfoodInput,
+  ): Promise<ProjectBoardDeliverableIntegrationDogfoodResult<DesktopState>>;
   deferProjectBoardSynthesisSections(input: DeferProjectBoardSynthesisSectionsInput): Promise<DesktopState>;
   updateProjectBoardStatus(input: UpdateProjectBoardStatusInput): Promise<DesktopState>;
   promotePlannerPlanToBoard(input: PromotePlannerPlanToBoardInput): Promise<DesktopState>;

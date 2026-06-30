@@ -16,7 +16,7 @@ import type {
   AmbientCliPackageEnvStatus,
   AmbientCliPackageSecretInput,
   AmbientCliPackageSummary,
-} from "./ambientCliPackages";
+} from "./ambientCliPackageTypes";
 
 export const cliPackageEnvBindingsPath = ".ambient/cli-packages/env-bindings.json";
 export const ambientCliWorkspaceProviderMarkerPath = ".ambient/cli-packages/workspace-provider-state.json";

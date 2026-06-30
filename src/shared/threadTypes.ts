@@ -4,15 +4,16 @@ import type {
   ModelProviderCapabilityEligibility,
   ModelProviderCapabilityProbeId,
   ModelProviderCapabilityProbeReport,
-  ModelProviderEndpointCompatibility,
   ModelProviderSecretFlow,
 } from "./modelProviderInstallTemplates";
+import type { InstallModelProviderEndpointCredentialRefInput, ModelRuntimeInstalledProviderEndpointConfig } from "./modelProviderEndpointTypes";
 import type { PermissionMode, PermissionPromptResponseMode, PermissionRisk } from "./permissionTypes";
 import type { ModelProviderEndpointProbeServiceResult } from "./pluginTypes";
 import type { SubagentRunStatus } from "./subagentProtocol";
 import type { MessageRole } from "./threadCoreTypes";
 import type { WorkflowRecordingState } from "./workflowRecordingTypes";
 export type { MessageRole, ThreadActionInput } from "./threadCoreTypes";
+export type { InstallModelProviderEndpointCredentialRefInput, ModelRuntimeInstalledProviderEndpointConfig } from "./modelProviderEndpointTypes";
 
 export type CollaborationMode = "agent" | "planner";
 
@@ -262,13 +263,6 @@ export interface ModelRuntimeInstalledProviderSecretRef {
   ref?: string;
 }
 
-export interface ModelRuntimeInstalledProviderEndpointConfig {
-  schemaVersion: "ambient-model-runtime-installed-provider-endpoint-v1";
-  compatibility: Exclude<ModelProviderEndpointCompatibility, "local-text">;
-  baseUrl: string;
-  anthropicVersion?: string;
-}
-
 export interface ModelRuntimeInstalledProvider {
   schemaVersion: "ambient-model-runtime-installed-provider-v1";
   source: "settings-provider-onboarding";
@@ -282,12 +276,6 @@ export interface ModelRuntimeInstalledProvider {
   secretRef?: ModelRuntimeInstalledProviderSecretRef;
   probeReport?: ModelProviderCapabilityProbeReport;
   eligibility?: ModelProviderCapabilityEligibility;
-}
-
-export interface InstallModelProviderEndpointCredentialRefInput {
-  flow: Extract<ModelProviderSecretFlow, "ambient_cli_secret_request" | "ambient_cli_env_bind">;
-  managedSecretRef: string;
-  label?: string;
 }
 
 export interface SaveModelProviderCredentialInput {

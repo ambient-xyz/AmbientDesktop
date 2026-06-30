@@ -8,7 +8,7 @@ import {
   registerPluginSetTrustedIpc,
   registerPluginUninstallCodexIpc,
 } from "./registerPluginIpc";
-import type { RegisterPluginToolingDomainIpcDependencies } from "./registerPluginToolingDomainIpc";
+import type { RegisterPluginToolingDomainIpcDependencies } from "./registerPluginToolingDomainIpcTypes";
 
 type RegisterPluginMutationDependencies = Pick<
   RegisterPluginToolingDomainIpcDependencies,

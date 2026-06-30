@@ -20,7 +20,7 @@ import type {
   CapabilityBuilderUpdatePlanResult,
   CapabilityBuilderValidateResult,
   CapabilityBuilderWriteFileResult,
-} from "./capabilityBuilder";
+} from "./capabilityBuilderTypes";
 
 export function capabilityBuilderScaffoldText(result: CapabilityBuilderScaffoldResult): string {
   return [

@@ -2,8 +2,7 @@ import { existsSync } from "node:fs";
 import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, relative, resolve } from "node:path";
-import type { PermissionGrantActionKind, PermissionGrantScopeKind, PermissionMode, PermissionRequest } from "../../shared/permissionTypes";
-import type { CollaborationMode } from "../../shared/threadTypes";
+import type { PermissionGrantActionKind, PermissionGrantScopeKind } from "../../shared/permissionTypes";
 import type { GoogleWorkspaceCallInput, GoogleWorkspaceMethodSideEffect, GoogleWorkspaceMethodSummary } from "../../shared/pluginTypes";
 import { googleWorkspaceGrantConditions, googleWorkspaceMethodGrantTarget } from "../../shared/googleWorkspaceGrantTargets";
 import { googleWorkspaceMethodApprovalDetail, googleWorkspaceMethodGrantIdentity } from "./permissionsGoogleWorkspaceFacade";
@@ -22,6 +21,7 @@ import {
 } from "./permissionPolicyShellCommands";
 import type { ShellCommandSemanticIntentKind } from "./permissionPolicyShellCommands";
 import { getBooleanField, getStringField, permissionGrantHash } from "./permissionPolicyInputFields";
+import type { PermissionDecision, PermissionPolicyInput, PermissionPrompt } from "./permissionPolicyTypes";
 import { classifyWorkflowToolPermission } from "./permissionPolicyWorkflowTools";
 
 export {
@@ -31,31 +31,7 @@ export {
   shellCommandAuditReason,
 } from "./permissionPolicyShellCommands";
 export type { ShellCommandSemanticIntentKind } from "./permissionPolicyShellCommands";
-
-type PermissionPrompt = Omit<PermissionRequest, "id">;
-
-export type PermissionDecision =
-  | { action: "allow" }
-  | {
-      action: "prompt";
-      request: PermissionPrompt;
-    }
-  | {
-      action: "deny";
-      request: PermissionPrompt;
-      reason: string;
-    };
-
-export interface PermissionPolicyInput {
-  threadId: string;
-  permissionMode: PermissionMode;
-  collaborationMode?: CollaborationMode;
-  workspacePath: string;
-  projectPath?: string;
-  readOnlyAllowedPaths?: string[];
-  toolName: string;
-  toolInput: unknown;
-}
+export type { PermissionDecision, PermissionPolicyInput, PermissionPrompt } from "./permissionPolicyTypes";
 
 const managedSecretPathPatterns = [
   /(^|\/)\.ambient\/(?:[^/]+\/)*secrets?(?:\/|$)/i,

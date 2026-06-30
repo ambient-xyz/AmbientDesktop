@@ -2,7 +2,8 @@ import type { Dispatch, SetStateAction } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { BrowserCapabilityState, BrowserScreenshotResult } from "../../shared/browserTypes";
-import { createRightPanelBrowserActions, type BrowserInspectResult } from "./RightPanelBrowserActions";
+import { createRightPanelBrowserActions } from "./RightPanelBrowserActions";
+import type { BrowserInspectResult } from "./RightPanelBrowserTypes";
 import type { ApiKeyStatus } from "./RightPanelSettingsRuntime";
 
 describe("RightPanelBrowserActions", () => {

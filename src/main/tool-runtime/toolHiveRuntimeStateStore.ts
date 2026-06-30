@@ -11,7 +11,7 @@ import type {
   ToolHiveRuntimeState,
   ToolHiveToolDescriptorSnapshotResult,
   ToolHiveToolDescriptorTrustResult,
-} from "./toolHiveRuntimeService";
+} from "./toolHiveRuntimeTypes";
 
 export const TOOLHIVE_RUNTIME_STATE_SCHEMA_VERSION = "ambient-toolhive-runtime-state-v1";
 

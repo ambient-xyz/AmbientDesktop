@@ -1,4 +1,4 @@
-import type { WebResearchAmbientCliBinding, WebResearchFallbackPolicy, WebResearchMcpBinding, WebResearchProviderConfig } from "./desktopTypes";
+import type { WebResearchAmbientCliBinding, WebResearchFallbackPolicy, WebResearchMcpBinding, WebResearchProviderConfig } from "./webResearchTypes";
 
 export type MessageVoiceStatus = "queued" | "synthesizing" | "ready" | "playing" | "paused" | "failed" | "skipped" | "canceled";
 

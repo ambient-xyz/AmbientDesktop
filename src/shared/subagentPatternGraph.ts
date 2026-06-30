@@ -1,6 +1,6 @@
 import type { SubagentRunStatus } from "./subagentProtocol";
 import type { SubagentRoleId } from "./subagentRoles";
-import type { SymphonyWorkflowPatternId } from "./symphonyWorkflowRecipes";
+import type { SymphonyWorkflowPatternId } from "./symphonyWorkflowPatternTypes";
 
 export const SUBAGENT_EFFECTIVE_ROLE_SNAPSHOT_SCHEMA_VERSION = "ambient-subagent-effective-role-v1" as const;
 export const SUBAGENT_PATTERN_ROLE_GRAPH_SCHEMA_VERSION = "ambient-subagent-pattern-role-graph-v1" as const;
@@ -282,8 +282,8 @@ export function buildPatternGraphSnapshot(input: {
       nodes.push(graphNode);
       graphNodeIds.push(graphNode.id);
     } else {
-      visibleBindings.forEach((binding, index) => {
-        const graphNode = roleGraphNodeToSnapshotNode(roleNode, binding, index);
+      visibleBindings.forEach((binding) => {
+        const graphNode = roleGraphNodeToSnapshotNode(roleNode, binding);
         nodes.push(graphNode);
         graphNodeIds.push(graphNode.id);
       });
@@ -456,7 +456,6 @@ export function aggregatePatternGraphOverflowApprovalState(
 function roleGraphNodeToSnapshotNode(
   roleNode: SubagentPatternRoleNode,
   binding?: SubagentPatternGraphChildBinding,
-  index?: number,
 ): SubagentPatternGraphNode {
   const status = graphStatusFromRunStatus(binding?.status);
   return {

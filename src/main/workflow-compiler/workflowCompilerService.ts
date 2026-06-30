@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { normalizeAmbientModelId } from "../../shared/ambientModels";
-import type { PermissionMode } from "../../shared/permissionTypes";
-import type { SearchRoutingSettings } from "../../shared/webResearchTypes";
 import type {
   WorkflowCompileProgress,
   WorkflowDashboard,
@@ -11,11 +9,7 @@ import type {
   WorkflowPromptCacheCheckpoint,
 } from "../../shared/workflowTypes";
 import type { DesktopToolDescriptor } from "./workflowCompilerDesktopToolFacade";
-import type { PluginMcpToolRegistration } from "./workflowCompilerPluginsFacade";
-import type { WorkflowConnectorDescriptor } from "./workflowCompilerWorkflowFacade";
-import type { ProjectStore } from "./workflowCompilerProjectStoreFacade";
 import { readAmbientApiKey } from "./workflowCompilerSecurityFacade";
-import type { AmbientRetryPolicy } from "./workflowCompilerAmbientFacade";
 import {
   selectWorkflowCompilerConnectorDescriptors,
   selectWorkflowCompilerToolDescriptors,
@@ -35,7 +29,6 @@ import {
   type WorkflowCompileContext,
 } from "./workflowCompilerCapabilityDiscovery";
 import { recordWorkflowCompilerRun } from "./workflowCompilerRunRecorder";
-import { type WorkflowPiProgress } from "./workflowCompilerWorkflowFacade";
 import {
   compileWorkflowProgramIrWithRepair,
   validateCompiledWorkflowProgramRecipeContracts,
@@ -44,7 +37,6 @@ import {
   type WorkflowProgramIrRepairHistoryEntry,
 } from "./workflowCompilerProgramIrRepair";
 import type { WorkflowCompilerPromptAssemblyRecord } from "./workflowCompilerPromptModules";
-import type { WorkflowCompilerCallableInvocationContext } from "./workflowCompilerCallableInvocationPrompt";
 import { AmbientWorkflowCompilerProvider } from "./workflowCompilerProvider";
 import { buildWorkflowPlanDslPromptParts, buildWorkflowProgramIrPromptParts } from "./workflowCompilerPromptParts";
 import {
@@ -59,7 +51,13 @@ import {
   type WorkflowProgramLoweredOperationPlan,
   type WorkflowProgramValidationReport,
 } from "./workflowCompilerWorkflowProgramFacade";
-import { lowerWorkflowPlanDslToProgramIr, parseWorkflowPlanDsl, type WorkflowPlanDsl } from "./workflowCompilerWorkflowFacade";
+import {
+  lowerWorkflowPlanDslToProgramIr,
+  parseWorkflowPlanDsl,
+  type WorkflowConnectorDescriptor,
+  type WorkflowPlanDsl,
+} from "./workflowCompilerWorkflowFacade";
+import type { CompileWorkflowArtifactInput, WorkflowCompilerProvider } from "./workflowCompilerServiceTypes";
 
 export {
   WORKFLOW_COMPILER_CALLABLE_INVOCATION_CONTEXT_SCHEMA_VERSION,
@@ -69,51 +67,7 @@ export type { WorkflowCompilerCallableInvocationContext } from "./workflowCompil
 export { AmbientWorkflowCompilerProvider, parseCompilerJson } from "./workflowCompilerProvider";
 export { buildWorkflowPlanDslPromptParts, buildWorkflowProgramIrPromptParts } from "./workflowCompilerPromptParts";
 export type { WorkflowCompilerPromptParts } from "./workflowCompilerPromptParts";
-
-export interface CompileWorkflowArtifactInput {
-  store: ProjectStore;
-  userRequest: string;
-  workflowThreadId?: string;
-  revisionId?: string;
-  workspaceSummary?: string;
-  toolDescriptors: DesktopToolDescriptor[];
-  pluginRegistrations?: PluginMcpToolRegistration[];
-  connectorDescriptors?: WorkflowConnectorDescriptor[];
-  explorationTraces?: WorkflowExplorationTraceSummary[];
-  stateRoot: string;
-  model: string;
-  permissionMode?: PermissionMode;
-  searchRoutingSettings?: SearchRoutingSettings;
-  baseUrl?: string;
-  retryPolicy?: AmbientRetryPolicy;
-  debugRewriteContext?: string;
-  callableWorkflowInvocation?: WorkflowCompilerCallableInvocationContext;
-  provider?: WorkflowCompilerProvider;
-  onProgress?: (progress: WorkflowCompileProgress) => void;
-}
-
-export interface WorkflowCompilerProvider {
-  discoverCapabilities?(input: { prompt: string; model: string; onProgress?: (progress: WorkflowPiProgress) => void }): Promise<unknown>;
-  compileProgramIr?(input: {
-    prompt: string;
-    model: string;
-    cacheCheckpoint?: WorkflowPromptCacheCheckpoint;
-    onProgress?: (progress: WorkflowPiProgress) => void;
-  }): Promise<unknown>;
-  compilePlanDsl?(input: {
-    prompt: string;
-    model: string;
-    cacheCheckpoint?: WorkflowPromptCacheCheckpoint;
-    onProgress?: (progress: WorkflowPiProgress) => void;
-  }): Promise<unknown>;
-  repairProgramIr?(input: {
-    prompt: string;
-    model: string;
-    cacheCheckpoint?: WorkflowPromptCacheCheckpoint;
-    attempt: number;
-    onProgress?: (progress: WorkflowPiProgress) => void;
-  }): Promise<unknown>;
-}
+export type { CompileWorkflowArtifactInput, WorkflowCompilerProvider } from "./workflowCompilerServiceTypes";
 
 const WORKFLOW_COMPILE_PROGRESS_TOTAL = 7;
 interface WorkflowCompilerRunResult {

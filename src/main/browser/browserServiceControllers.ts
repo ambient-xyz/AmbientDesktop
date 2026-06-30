@@ -1,5 +1,4 @@
 import type {
-  BrowserCapabilityState,
   BrowserProfileMode,
   BrowserScreenshotResult,
   BrowserSessionLifecycleEvent,
@@ -8,11 +7,7 @@ import type {
   BrowserRuntimeKind,
 } from "../../shared/browserTypes";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
-import type {
-  BrowserServiceOptions,
-  ChromeAvailability,
-  InternalBrowserBackend,
-} from "./browserService";
+import type { BrowserServiceOptions, ChromeAvailability, InternalBrowserBackend } from "./browserServiceTypes";
 import {
   BrowserChromeProfileController,
   chromeProfileSourcePath,
@@ -228,8 +223,7 @@ export function createBrowserServiceControllers({
     userActions,
     setLastError: state.setLastError,
   });
-  let chromeScreenshots: BrowserChromeScreenshotController;
-  chromeScreenshots = new BrowserChromeScreenshotController({
+  const chromeScreenshots: BrowserChromeScreenshotController = new BrowserChromeScreenshotController({
     getWorkspace,
     ensureChromeStarted: actions.ensureChromeStarted,
     getActiveTabSnapshot: () => chromeTargets.getActiveTabSnapshot(),

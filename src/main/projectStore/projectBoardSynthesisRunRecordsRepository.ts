@@ -14,7 +14,7 @@ import {
   type ProjectBoardSynthesisRunStoreRow,
 } from "./projectBoardMappers";
 import type { ProjectBoardSynthesisRunEventRecordInput } from "./projectBoardSynthesisRunLifecycleRepository";
-import type { ProjectStoreProjectBoardSynthesisRunRepositoryDeps } from "./projectBoardSynthesisRunRepository";
+import type { ProjectStoreProjectBoardSynthesisRunRepositoryDeps } from "./projectBoardSynthesisRunRepositoryTypes";
 
 export class ProjectStoreProjectBoardSynthesisRunRecordsRepository {
   constructor(

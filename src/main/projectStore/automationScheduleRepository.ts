@@ -12,12 +12,12 @@ import type {
 } from "../../shared/automationTypes";
 import type { WorkflowRunLimitOverrides } from "../../shared/workflowTypes";
 import type { ThreadSummary } from "../../shared/threadTypes";
+import { stringifyWorkflowRunLimitOverrides } from "../../shared/workflowRunLimitOverrides";
 import { computeAutomationScheduleNextRunAt, normalizeAutomationScheduleCronExpression } from "./automationSchedules";
 import {
   ProjectStoreAutomationScheduleTargetResolver,
   type ProjectStoreAutomationScheduleRepositoryDeps,
 } from "./automationScheduleTargetResolver";
-import { stringifyWorkflowRunLimitOverrides } from "./projectStoreWorkflowFacade";
 import {
   mapAutomationScheduleExceptionRow,
   mapAutomationScheduleRow,

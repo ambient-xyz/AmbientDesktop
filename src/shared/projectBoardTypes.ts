@@ -1,4 +1,3 @@
-import type { DesktopState } from "./desktopTypes";
 import type { ThreadSummary } from "./threadTypes";
 
 export interface ProjectSummary {
@@ -1026,8 +1025,8 @@ export interface SeedProjectBoardDeliverableIntegrationDogfoodInput {
   boardId: string;
 }
 
-export interface ProjectBoardProofJudgmentDogfoodResult {
-  state: DesktopState;
+export interface ProjectBoardProofJudgmentDogfoodResult<State = unknown> {
+  state: State;
   boardId: string;
   cardId: string;
   runId: string;
@@ -1041,8 +1040,8 @@ export interface ProjectBoardCanonicalProjectionDogfoodScenario {
   runIds: string[];
 }
 
-export interface ProjectBoardCanonicalProjectionDogfoodResult {
-  state: DesktopState;
+export interface ProjectBoardCanonicalProjectionDogfoodResult<State = unknown> {
+  state: State;
   boardId: string;
   scenarios: ProjectBoardCanonicalProjectionDogfoodScenario[];
 }
@@ -1057,8 +1056,8 @@ export interface ProjectBoardDeliverableIntegrationDogfoodScenario {
   excludedFiles: string[];
 }
 
-export interface ProjectBoardDeliverableIntegrationDogfoodResult {
-  state: DesktopState;
+export interface ProjectBoardDeliverableIntegrationDogfoodResult<State = unknown> {
+  state: State;
   boardId: string;
   scenarios: ProjectBoardDeliverableIntegrationDogfoodScenario[];
 }

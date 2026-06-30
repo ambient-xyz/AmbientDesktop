@@ -1,7 +1,6 @@
 import type { ToolDefinition } from "@mariozechner/pi-coding-agent";
 import { piToolFieldsFromDescriptor, pluginInstallToolDescriptor } from "./mcpDesktopToolsFacade";
 import {
-  McpToolBridge,
   mcpAggregationReadinessText,
   mcpToolDescriptorReviewAcceptText,
   mcpToolDescriptorReviewText,
@@ -9,15 +8,11 @@ import {
   mcpToolPolicyUpdatePreviewText,
   mcpToolPolicyUpdateResultText,
   mcpToolSearchResultsText,
-  type McpToolDescriptorReview,
-  type McpToolDescriptor,
-  type McpToolPolicyUpdatePreview,
 } from "./mcpToolBridge";
 import { createMcpToolBridgeCallPiToolDefinition } from "./mcpToolBridgeCallPiTool";
 export { mcpToolCallApprovalDetail } from "./mcpToolBridgeCallPiTool";
-import { type McpPermissionPolicyEvaluation } from "./mcpPermissionPolicyService";
-import { type McpRuntimePermissionEnforcement } from "./mcpRuntimePermissionEnforcement";
-import type { McpManagedFileExchangeStagedFile } from "./mcpManagedFileExchange";
+import type { McpToolBridgePiToolOptions, McpToolBridgePiToolWorkspace } from "./mcpToolBridgePiToolTypes";
+import type { McpToolDescriptor, McpToolDescriptorReview, McpToolPolicyUpdatePreview } from "./mcpToolBridgeTypes";
 import {
   compactText,
   mcpToolActivityUpdate,
@@ -32,52 +27,14 @@ import {
   toolResult,
 } from "./mcpToolBridgePiToolSupport";
 
-export interface McpToolBridgePiToolThread {
-  id: string;
-  collaborationMode: "agent" | "planner";
-  permissionMode: string;
-}
-
-export interface McpToolBridgePiToolWorkspace {
-  path: string;
-  name?: string;
-}
-
-export interface McpToolCallApprovalInput {
-  thread: McpToolBridgePiToolThread;
-  workspace: McpToolBridgePiToolWorkspace;
-  descriptor: McpToolDescriptor;
-  arguments: Record<string, unknown>;
-  originalArguments: Record<string, unknown>;
-  permission: McpPermissionPolicyEvaluation;
-  runtimeEnforcement: McpRuntimePermissionEnforcement;
-  stagedFiles: McpManagedFileExchangeStagedFile[];
-  detail: string;
-}
-
-export interface McpToolReviewAcceptApprovalInput {
-  thread: McpToolBridgePiToolThread;
-  workspace: McpToolBridgePiToolWorkspace;
-  review: McpToolDescriptorReview;
-  expectedDescriptorHash?: string;
-  detail: string;
-}
-
-export interface McpToolPolicyUpdateApprovalInput {
-  thread: McpToolBridgePiToolThread;
-  workspace: McpToolBridgePiToolWorkspace;
-  preview: McpToolPolicyUpdatePreview;
-  detail: string;
-}
-
-export interface McpToolBridgePiToolOptions {
-  bridge: McpToolBridge;
-  getThread: () => McpToolBridgePiToolThread;
-  workspace: McpToolBridgePiToolWorkspace;
-  authorizeCall?: (input: McpToolCallApprovalInput) => Promise<boolean> | boolean;
-  authorizeReviewAccept?: (input: McpToolReviewAcceptApprovalInput) => Promise<boolean> | boolean;
-  authorizePolicyUpdate?: (input: McpToolPolicyUpdateApprovalInput) => Promise<boolean> | boolean;
-}
+export type {
+  McpToolBridgePiToolOptions,
+  McpToolBridgePiToolThread,
+  McpToolBridgePiToolWorkspace,
+  McpToolCallApprovalInput,
+  McpToolPolicyUpdateApprovalInput,
+  McpToolReviewAcceptApprovalInput,
+} from "./mcpToolBridgePiToolTypes";
 
 export function createMcpToolBridgePiToolDefinitions(options: McpToolBridgePiToolOptions): ToolDefinition<any, any, any>[] {
   const search = piToolFieldsFromDescriptor(pluginInstallToolDescriptor("ambient_mcp_tool_search"));

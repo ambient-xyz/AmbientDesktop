@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import type { ChatMessage } from "../../shared/threadTypes";
 import { welcomeOnboardingPageKindFromMetadata } from "../../shared/welcomeOnboarding";
-import type { AppConversationMessagesProps } from "./AppConversationMessages";
+import type { AppConversationMessagesProps } from "./AppConversationMessagesTypes";
 import { MessageBubble, messageIsStreamingForRender } from "./AppMessages";
 import { WelcomeSetupMessage } from "./AppWelcomeSetup";
 import type { SubagentParentClusterModel } from "./subagentParentClusterUiModel";

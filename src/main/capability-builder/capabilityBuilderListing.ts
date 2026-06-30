@@ -4,7 +4,7 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { isPathInside } from "./capabilityBuilderSessionFacade";
 import type { ToolLargeOutputPreview, ToolLargeOutputPreviewItem } from "../../shared/threadTypes";
 import { materializeTextOutput, type MaterializedTextOutput } from "./capabilityBuilderToolRuntimeFacade";
-import type { CapabilityBuilderPreviewInput, CapabilityBuilderPreviewResult, CapabilityBuilderSourceRef } from "./capabilityBuilder";
+import type { CapabilityBuilderPreviewInput, CapabilityBuilderPreviewResult, CapabilityBuilderSourceRef } from "./capabilityBuilderTypes";
 
 const builderListDefaultMaxEntries = 200;
 const builderListMaxEntries = 1_000;

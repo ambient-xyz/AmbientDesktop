@@ -4,7 +4,6 @@ import type { DesktopState, SendMessageComposerIntent } from "../../shared/deskt
 import type { LocalDeepResearchRunBudget } from "../../shared/localRuntimeTypes";
 import type { SlashCommandSelection } from "../../shared/slashCommandTypes";
 import type { CollaborationMode, MessageDelivery, RunStatus, ThreadGoal, ThreadSummary } from "../../shared/threadTypes";
-import type { WorkflowRecordingEditContext } from "../../shared/workflowTypes";
 import type { WorkspaceContextReference } from "../../shared/workspaceTypes";
 import { resolveMessageDelivery } from "../../shared/messageDelivery";
 import {
@@ -12,6 +11,7 @@ import {
   parseSecretSlashCommand,
 } from "./plannerModeUiModel";
 import { mergeContextAttachments } from "./AppComposerControls";
+import type { PendingWorkflowRecordingEditContext, SubmitDraftOptions } from "./AppComposerSubmitActionTypes";
 import type { AppPendingSubmittedPromptControls } from "./AppComposerInteractionControls";
 import type { useAppComposerShellState } from "./AppComposerShellState";
 import type { useAppCoreLifecycleControlsForApp } from "./AppCoreLifecycleControls";
@@ -29,14 +29,7 @@ import type { AppThreadMaintenanceActions } from "./AppThreadMaintenanceActions"
 import type { useAppWorkflowRecordingReviewControls } from "./AppWorkflowRecordingReviewControls";
 import type { useAppWorkflowRuntimeState } from "./AppWorkflowRuntimeState";
 
-export type SubmitDraftOptions = {
-  composerIntent?: SendMessageComposerIntent;
-  activityLine?: string;
-};
-
-export type PendingWorkflowRecordingEditContext = WorkflowRecordingEditContext & {
-  draftPrefix: string;
-};
+export type { PendingWorkflowRecordingEditContext, SubmitDraftOptions } from "./AppComposerSubmitActionTypes";
 
 type ThreadSettingsPatch = Partial<Pick<
   ThreadSummary,

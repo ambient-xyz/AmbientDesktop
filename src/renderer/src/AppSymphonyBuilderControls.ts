@@ -9,7 +9,7 @@ import {
 import type { SaveSymphonyWorkflowRecipeInput } from "../../shared/workflowTypes";
 import type { SymphonyWorkflowPatternId } from "../../shared/symphonyWorkflowRecipes";
 import type { AppendRunActivityLine } from "./AppRunActivity";
-import type { SubmitDraftOptions } from "./AppComposerSubmitActions";
+import type { SubmitDraftOptions } from "./AppComposerSubmitActionTypes";
 import {
   parseCollaborationSlashCommand,
   parseSecretSlashCommand,

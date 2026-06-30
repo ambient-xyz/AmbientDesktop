@@ -9,9 +9,9 @@ import { createAppProjectThreadActions } from "./AppProjectThreadActions";
 import type { useAppProjectShellState } from "./AppProjectShellState";
 import type { useAppRightPanelState } from "./AppRightPanelState";
 import type { useAppRunActivityState } from "./AppRunActivityState";
-import { createAppWorkflowComposerNavigation } from "./AppShellCommandActions";
 import { createAppSidebarAreaControls } from "./AppSidebarAreaControls";
 import type { useAppShellUiState } from "./AppShellUiState";
+import { createAppWorkflowComposerNavigation } from "./AppWorkflowComposerNavigation";
 import { createAppWorkspaceNavigationControls } from "./AppWorkspaceNavigationControls";
 import type { useAppWorkspaceShellState } from "./AppWorkspaceShellState";
 

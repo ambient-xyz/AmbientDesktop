@@ -1,13 +1,15 @@
 import { managedFileExchangeFromVolumes } from "./toolRuntimeMcpManagedFileExchangeFacade";
 import { isRecord } from "./toolHiveRuntimeStateStore";
 import type {
-  ToolHiveAdoptStandardMcpImportWorkloadInput,
   ToolHiveAllowedCommand,
   ToolHiveCommandResult,
+  ToolHiveOperationProgress,
+} from "./toolHiveCommandRunner";
+import type {
+  ToolHiveAdoptStandardMcpImportWorkloadInput,
   ToolHiveImageVerificationPolicy,
   ToolHiveInstallValidationStatus,
   ToolHiveInstalledServerState,
-  ToolHiveOperationProgress,
   ToolHivePermissionProfileWriteInput,
   ToolHivePermissionProfileWriteResult,
   ToolHivePlainEnvVar,
@@ -17,7 +19,7 @@ import type {
   ToolHiveSecretDerivedBindingKind,
   ToolHiveWorkloadSummary,
   ToolHiveRuntimeState,
-} from "./toolHiveRuntimeService";
+} from "./toolHiveRuntimeTypes";
 
 interface ToolHiveRunAllowedWithProgressOptions {
   throwOnNonZero?: boolean;

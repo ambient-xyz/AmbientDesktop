@@ -11,7 +11,7 @@ import type {
   CallableWorkflowRegistry,
   CallableWorkflowSourceContext,
   CallableWorkflowToolDescriptor,
-} from "./callableWorkflowRegistry";
+} from "./callableWorkflowTypes";
 
 export function searchCallableWorkflowCatalogEntries(input: {
   schemaVersion: CallableWorkflowCatalogSearch["schemaVersion"];

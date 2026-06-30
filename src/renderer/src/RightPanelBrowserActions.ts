@@ -1,22 +1,10 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type {
-  BrowserCapabilityState,
-  BrowserPickResult,
-  BrowserProfileMode,
-  BrowserScreenshotResult,
-  BrowserUserActionState,
-} from "../../shared/browserTypes";
-import { browserPickReferenceText } from "./RightPanelBrowserPane";
+import type { BrowserCapabilityState, BrowserPickResult, BrowserProfileMode, BrowserScreenshotResult, BrowserUserActionState } from "../../shared/browserTypes";
+import { browserPickReferenceText } from "./RightPanelBrowserReferenceText";
+import type { BrowserInspectResult } from "./RightPanelBrowserTypes";
 import { ambientBrowserRuntimeForUrl } from "./RightPanelRichText";
 import type { ApiKeyStatus } from "./RightPanelSettingsRuntime";
-
-export type BrowserInspectResult = {
-  result: BrowserPickResult;
-  clipboardText: string;
-  copiedAt?: string;
-  copyError?: string;
-};
 
 type RightPanelBrowserActionInput = {
   workspacePath: string;

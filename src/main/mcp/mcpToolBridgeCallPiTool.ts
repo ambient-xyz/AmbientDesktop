@@ -26,7 +26,7 @@ import {
   toolResult,
   truncate,
 } from "./mcpToolBridgePiToolSupport";
-import type { McpToolBridgePiToolOptions, McpToolBridgePiToolWorkspace } from "./mcpToolBridgePiTools";
+import type { McpToolBridgePiToolOptions, McpToolBridgePiToolWorkspace } from "./mcpToolBridgePiToolTypes";
 import { mcpRuntimePermissionEnforcementDetailText, type McpRuntimePermissionEnforcement } from "./mcpRuntimePermissionEnforcement";
 import { redactSensitiveValue } from "./mcpSecurityFacade";
 

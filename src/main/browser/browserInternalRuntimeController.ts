@@ -21,9 +21,9 @@ import type {
   BrowserContentResult,
   BrowserNavigateResult,
   BrowserSearchResults,
-  InternalBrowserBackend,
   NormalizedBrowserKeypressInput,
-} from "./browserService";
+} from "./browserChromeRuntimeController";
+import type { InternalBrowserBackend } from "./browserServiceTypes";
 import {
   BrowserServiceUserActionController,
   browserUserActionDetectionExpression,

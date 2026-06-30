@@ -10,9 +10,9 @@ import {
 } from "./AutomationsWorkflowReviewViews";
 import {
   WorkflowDiscoveryActivity,
-  WorkflowDiscoveryContextReview,
   WorkflowDiscoverySummary,
 } from "./AutomationsWorkflowDiscoveryViews";
+import { WorkflowDiscoveryContextReview } from "./AutomationsWorkflowDiscoveryContextReviewView";
 import { WorkflowExplorationPreflightView } from "./AutomationsWorkflowExplorationViews";
 import { WorkflowPersistentStatusView } from "./AutomationsWorkflowRuntimeViews";
 import { WorkflowThreadTranscript } from "./AutomationsWorkflowUtilityViews";

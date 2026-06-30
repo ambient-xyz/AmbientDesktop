@@ -1,4 +1,4 @@
-import type { ProjectStoreRepositoryFactoryHost } from "./projectStoreRepositoryFactory";
+import type { ProjectStoreRepositoryFactoryHost } from "./projectStoreRepositoryFactoryTypes";
 import { cancelPendingParentToChildMailboxEvents, resolveSubagentParentStopWaitBarrier } from "./projectStoreSubagentsFacade";
 import { ProjectStoreSubagentBatchProgressRepository } from "./subagentBatchProgressRepository";
 import { ProjectStoreSubagentBatchRepository } from "./subagentBatchRepository";

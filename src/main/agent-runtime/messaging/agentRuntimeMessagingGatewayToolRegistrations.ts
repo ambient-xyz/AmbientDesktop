@@ -41,7 +41,7 @@ import { registerMessagingGatewayLifecycleApplyTools } from "./agentRuntimeMessa
 import { registerMessagingGatewayLifecyclePreviewTools } from "./agentRuntimeMessagingGatewayLifecyclePreviewTools";
 import { createMessagingGatewayLifecycleResolvers } from "./agentRuntimeMessagingGatewayLifecycleResolvers";
 import * as messagingGatewayStatusTools from "./agentRuntimeMessagingGatewayStatusTools";
-import type { AgentRuntimeMessagingGatewayToolExtensionOptions } from "./agentRuntimeMessagingGatewayToolExtension";
+import type { AgentRuntimeMessagingGatewayToolExtensionOptions } from "./agentRuntimeMessagingGatewayToolExtensionTypes";
 import { registerMessagingOverviewTools } from "./agentRuntimeMessagingOverviewTools";
 import { registerMessagingRemoteSurfaceBindingTools } from "./agentRuntimeMessagingRemoteSurfaceBindingTools";
 import {

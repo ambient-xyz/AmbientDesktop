@@ -1,5 +1,3 @@
-import type Database from "better-sqlite3";
-import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { ProjectStoreActiveRunRecoveryRepository } from "./activeRunRecoveryRepository";
 import { ProjectStoreAutomationRepository } from "./automationRepository";
 import { ProjectStoreCallableWorkflowTaskLifecycleRepository } from "./callableWorkflowTaskLifecycleRepository";
@@ -15,10 +13,9 @@ import { ProjectStorePlannerArtifactRepository } from "./plannerArtifactReposito
 import { ProjectStorePlannerQuestionBlockRepairRepository } from "./plannerQuestionBlockRepairRepository";
 import { ProjectStoreProjectBoardDurablePlanSourceRepository } from "./projectBoardDurablePlanSourceRepository";
 import { ProjectStoreProjectBoardLinkedTaskRepository } from "./projectBoardLinkedTaskRepository";
-import type { ProjectStoreProjectBoardRepositoryFactory } from "./projectBoardRepositoryFactory";
 import { ProjectStoreArtifactDraftRepository } from "./projectStoreArtifactDraftRepository";
 import { defaultOrchestrationProjectPath } from "./projectStoreFacadeHelpers";
-import type { SubagentMailboxDeliveryStore, SubagentParentStopWaitBarrierStore } from "./projectStoreSubagentsFacade";
+import type { ProjectStoreRepositoryFactoryHost } from "./projectStoreRepositoryFactoryTypes";
 import { ProjectStoreSettingsRepository } from "./settingsRepository";
 import { ProjectStoreSubagentRepositoryFactory } from "./projectStoreSubagentRepositoryFactory";
 import { ProjectStoreThreadGoalRepository } from "./threadGoalRepository";
@@ -29,13 +26,7 @@ import { ProjectStoreWorkflowRepositoryFactory } from "./projectStoreWorkflowRep
 import { ProjectStoreRunRepository } from "./runRepository";
 import { ProjectStoreWorkspaceSearchRepository } from "./workspaceSearchRepository";
 
-export interface ProjectStoreRepositoryFactoryHost extends SubagentMailboxDeliveryStore, SubagentParentStopWaitBarrierStore {
-  readonly projectBoardRepos: ProjectStoreProjectBoardRepositoryFactory;
-  requireDb(): Database.Database;
-  getWorkspace(): WorkspaceState;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- existing ProjectStore callbacks will be typed down as their owners are extracted.
-  [key: string]: any;
-}
+export type { ProjectStoreRepositoryFactoryHost };
 
 export function createProjectStoreRepositoryFactory(host: ProjectStoreRepositoryFactoryHost): ProjectStoreRepositoryFactory {
   return new ProjectStoreRepositoryFactory(host);

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { UtilityPanel } from "./RightPanel";
-import { renderRightPanelBody, type RightPanelBodyRendererInput } from "./RightPanelBodyRenderer";
+import type { UtilityPanel } from "./RightPanelTypes";
+import { renderRightPanelBody } from "./RightPanelBodyRenderer";
+import type { RightPanelBodyRendererInput } from "./RightPanelBodyRendererTypes";
 import {
   renderRightPanelAttachmentsBody,
   renderRightPanelBrowserBody,

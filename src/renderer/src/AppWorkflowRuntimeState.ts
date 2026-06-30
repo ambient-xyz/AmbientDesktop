@@ -15,7 +15,7 @@ import type {
 } from "./AppModalHost";
 import type { GoalBudgetDialogState } from "./AppGoalControls";
 import type { PendingSubmittedPrompt } from "./AppConversationDisplayModel";
-import type { PendingWorkflowRecordingEditContext } from "./AppComposerSubmitActions";
+import type { PendingWorkflowRecordingEditContext } from "./AppComposerSubmitActionTypes";
 import type { SymphonyWorkflowBuilderDraft } from "./symphonyWorkflowBuilderUiModel";
 
 export function useAppWorkflowRuntimeState() {

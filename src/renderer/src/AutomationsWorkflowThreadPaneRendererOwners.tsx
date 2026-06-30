@@ -11,7 +11,7 @@ import type { WorkflowArtifactPanelRenderers } from "./AutomationsWorkflowArtifa
 import { WorkflowReviewWorkspace } from "./AutomationsWorkflowReviewViews";
 import { WorkflowFocusedRunsPane } from "./AutomationsWorkflowRuntimeViews";
 import { WorkflowThreadComposerView } from "./AutomationsWorkflowThreadComposerViews";
-import type { AutomationsWorkflowThreadPaneRenderersInput } from "./AutomationsWorkflowThreadPaneRenderers";
+import type { AutomationsWorkflowThreadPaneRenderersInput } from "./AutomationsWorkflowThreadPaneRenderersTypes";
 import { findWorkflowGraphNodeReviewActionTarget } from "./workflowGraphNodeReviewRouting";
 import type { WorkflowGraphNodeReviewAction } from "./workflowGraphNodeReviewUiModel";
 import { workflowExplorationGateForThread } from "./workflowExplorationGateUiModel";

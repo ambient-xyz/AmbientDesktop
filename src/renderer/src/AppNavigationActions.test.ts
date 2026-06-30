@@ -7,8 +7,8 @@ import {
   type AppNavigationActionsForAppInput,
 } from "./AppNavigationActions";
 import { createAppProjectThreadActions } from "./AppProjectThreadActions";
-import { createAppWorkflowComposerNavigation } from "./AppShellCommandActions";
 import { createAppSidebarAreaControls } from "./AppSidebarAreaControls";
+import { createAppWorkflowComposerNavigation } from "./AppWorkflowComposerNavigation";
 import { createAppWorkspaceNavigationControls } from "./AppWorkspaceNavigationControls";
 
 vi.mock("./AppAutomationFolderControls", () => ({
@@ -23,7 +23,7 @@ vi.mock("./AppProjectThreadActions", () => ({
   createAppProjectThreadActions: vi.fn(),
 }));
 
-vi.mock("./AppShellCommandActions", () => ({
+vi.mock("./AppWorkflowComposerNavigation", () => ({
   createAppWorkflowComposerNavigation: vi.fn(),
 }));
 

@@ -8,7 +8,7 @@ import type {
   ToolHivePlainEnvVar,
   ToolHiveSecretBindingState,
   ToolHiveSecretDerivedBindingKind,
-} from "./toolHiveRuntimeService";
+} from "./toolHiveRuntimeTypes";
 
 export interface ToolHiveRuntimeEnvironmentOwnerOptions {
   env(): NodeJS.ProcessEnv;

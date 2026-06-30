@@ -1,5 +1,5 @@
 import type { McpAutowireCandidate } from "./mcpAutowireFacade";
-import type { McpInstallPreview } from "./mcpInstallCatalog";
+import type { McpInstallPreview } from "./mcpInstallCatalogTypes";
 import type { McpSecretBinding } from "./mcpInstallCatalogStandardImportPreview";
 import { sha256Hex } from "./mcpInstallCatalogUtilities";
 import type {

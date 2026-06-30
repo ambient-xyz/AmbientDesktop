@@ -20,7 +20,7 @@ import type {
 import type {
   LocalDeepResearchRunHistoryUiState,
   LocalDeepResearchSetupUiState,
-} from "./RightPanel";
+} from "./RightPanelTypes";
 import { formatTaskState } from "./RightPanelDetailPanels";
 import { SettingsRow } from "./RightPanelSettingsPrimitives";
 import {

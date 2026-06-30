@@ -5,7 +5,7 @@ import type { createAppBrowserActionControls } from "./AppBrowserActionControls"
 import type { createAppCapabilityPromptActions } from "./AppCapabilityPromptActions";
 import type { useAppChatFindControls } from "./AppChatFindControls";
 import type { createAppComposerRetryActions } from "./AppComposerRetryActions";
-import type { AppConversationMessagesProps } from "./AppConversationMessages";
+import type { AppConversationMessagesProps } from "./AppConversationMessagesTypes";
 import type { useAppConversationDisplayModel } from "./AppConversationDisplayModel";
 import type { createAppCredentialDialogActions } from "./AppCredentialDialogActions";
 import type { useAppActiveThreadModel } from "./AppActiveThreadModel";

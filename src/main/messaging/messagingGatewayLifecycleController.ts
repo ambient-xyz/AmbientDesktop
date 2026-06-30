@@ -11,7 +11,7 @@ import type {
   AdapterRuntimeRecord,
   MessagingGatewayBridgeSupervisor,
   MessagingGatewayProviderRegistryLike,
-} from "./messagingGatewayRunner";
+} from "./messagingGatewayRunnerTypes";
 
 export interface MessagingGatewayLifecycleControllerOptions {
   providers: MessagingGatewayProviderRegistryLike;

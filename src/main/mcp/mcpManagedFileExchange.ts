@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 import { chmod, copyFile, mkdir, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
-import type { ToolHiveInstalledServerState, ToolHiveRunVolume } from "./mcpToolRuntimeFacade";
 
 export const MCP_MANAGED_FILE_EXCHANGE_PURPOSE = "ambient-mcp-file-exchange";
 export const MCP_MANAGED_FILE_EXCHANGE_CONTAINER_PATH = "/ambient/mcp-files";
@@ -18,6 +17,17 @@ export interface McpManagedFileExchange {
   hostPath: string;
   containerPath: string;
   mode: "rw";
+}
+
+export interface McpManagedFileExchangeVolume {
+  hostPath: string;
+  containerPath: string;
+  mode: "ro" | "rw";
+  purpose?: string;
+}
+
+interface McpManagedFileExchangeServerState {
+  managedFileExchange?: McpManagedFileExchange;
 }
 
 export interface McpToolCallFileInput {
@@ -60,7 +70,7 @@ export function mcpManagedFileExchangeForWorkload(stateRoot: string, workloadNam
   };
 }
 
-export function mcpManagedFileExchangeVolume(exchange: McpManagedFileExchange): ToolHiveRunVolume {
+export function mcpManagedFileExchangeVolume(exchange: McpManagedFileExchange): McpManagedFileExchangeVolume {
   return {
     hostPath: exchange.hostPath,
     containerPath: exchange.containerPath,
@@ -78,7 +88,7 @@ export function mcpManagedFileExchangePermissionMount(exchange: McpManagedFileEx
   };
 }
 
-export function managedFileExchangeFromVolumes(volumes: ToolHiveRunVolume[] | undefined): McpManagedFileExchange | undefined {
+export function managedFileExchangeFromVolumes(volumes: McpManagedFileExchangeVolume[] | undefined): McpManagedFileExchange | undefined {
   const volume = volumes?.find((candidate) => candidate.purpose === MCP_MANAGED_FILE_EXCHANGE_PURPOSE);
   if (!volume || volume.mode !== "rw") return undefined;
   return {
@@ -165,7 +175,7 @@ export async function prepareMcpManagedFileExchangeArguments(input: {
   arguments: Record<string, unknown>;
   fileInputs?: McpToolCallFileInput[];
   workspacePath: string;
-  server?: ToolHiveInstalledServerState;
+  server?: McpManagedFileExchangeServerState;
 }): Promise<McpManagedFileExchangePreparation> {
   const exchange = input.server?.managedFileExchange;
   if (!exchange) {

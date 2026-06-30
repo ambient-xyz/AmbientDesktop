@@ -14,7 +14,7 @@ import type {
 import type { LocalRuntimeEvidenceInspectorModel } from "./localRuntimeEvidenceUiModel";
 import type { SubagentRepairDiagnosticsModel } from "./subagentRepairDiagnosticsUiModel";
 import type { SubagentReplayEvidenceInspectorModel } from "./subagentReplayEvidenceUiModel";
-import type { MiniCpmVisionSetupUiState } from "./RightPanel";
+import type { MiniCpmVisionSetupUiState } from "./RightPanelTypes";
 import {
   formatPermissionAuditDetail,
   formatPermissionRisk,

@@ -10,7 +10,7 @@ import type {
   LocalModelRuntimeStartupFailureReason,
   LocalModelRuntimeState,
   NormalizedAcquireInput,
-} from "./localModelRuntimeManager";
+} from "./localModelRuntimeTypes";
 
 interface RuntimeLeaseRecordFromStateInput {
   leaseId: string;

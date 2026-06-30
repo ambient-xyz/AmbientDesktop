@@ -5,7 +5,7 @@ import type {
   McpDefaultCatalogUpdatePreview,
   McpInstalledServerInventory,
   McpInstalledServerSummary,
-} from "./mcpInstallCatalog";
+} from "./mcpInstallCatalogTypes";
 import type {
   ToolHiveInstalledServerSourceIdentity,
   ToolHiveInstalledServerState,

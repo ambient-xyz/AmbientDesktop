@@ -28,7 +28,7 @@ import type {
   WorkflowUserInputRequest,
   WorkflowUserInputResponse,
   WorkflowUserInputResponseResolver,
-} from "./workflowAgentRuntime";
+} from "./workflowAgentRuntimeTypes";
 
 export interface WorkflowRuntimePrimitivesContext {
   abortSignal?: AbortSignal;

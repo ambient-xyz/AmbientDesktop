@@ -3,7 +3,7 @@ import type { ChatMessage } from "../../shared/threadTypes";
 import { AmbientStreamFailureError } from "./agentRuntimeAmbientFacade";
 import type { AmbientStreamFailureKind } from "./agentRuntimeAmbientFacade";
 import type { AssistantFinalizationRetryReason } from "./agentRuntimeAssistantRetryInput";
-import type { RuntimePromptFailureHandlerInput } from "./runtimePromptFailureHandler";
+import type { RuntimePromptFailureHandlerInput } from "./runtimePromptFailureTypes";
 import type { RuntimeProviderErrorDiagnostic } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import { isContinuableAmbientProviderInterruption } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import { runtimeProviderRetryStartingActivity } from "./provider-continuation/agentRuntimeProviderRetryActivity";

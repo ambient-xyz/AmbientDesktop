@@ -5,8 +5,8 @@ import {
   automationHelpText,
   useAutomationsWorkspaceControllerGraph,
   workflowRecorderSurface,
-  type AutomationsWorkspaceProps,
 } from "./AutomationsWorkspaceControllerGraph";
+import type { AutomationsWorkspaceProps } from "./AutomationsWorkspaceTypes";
 import { AutomationWorkspaceHeader } from "./AutomationsWorkspaceShellViews";
 import "./styles.css";
 
@@ -83,7 +83,6 @@ export {
   formatDiscoveryCapability,
   formatWorkflowTimeoutMode,
   WorkflowDiscoveryActivity,
-  WorkflowDiscoveryContextReview,
   workflowDiscoveryLiveStatusSubtitle,
   workflowDiscoveryLiveStatusTitle,
   workflowDiscoveryProgressDetail,
@@ -93,6 +92,7 @@ export {
   WorkflowRequestEditor,
   WorkflowRevisionPanel,
 } from "./AutomationsWorkflowDiscoveryViews";
+export { WorkflowDiscoveryContextReview } from "./AutomationsWorkflowDiscoveryContextReviewView";
 export {
   WorkflowAmbientCliCallList,
   WorkflowAmbientCliCapabilityList,
@@ -172,7 +172,7 @@ export {
   workflowAuditReportPreview,
   workflowRecorderSurface,
 } from "./AutomationsWorkspaceControllerGraph";
-export type { AutomationsWorkspaceProps } from "./AutomationsWorkspaceControllerGraph";
+export type { AutomationsWorkspaceProps } from "./AutomationsWorkspaceTypes";
 
 export function AutomationsWorkspace(props: AutomationsWorkspaceProps) {
   const { activePane, selectedThread, onSelectPane } = props;

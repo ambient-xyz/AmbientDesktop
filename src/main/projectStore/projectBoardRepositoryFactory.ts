@@ -69,8 +69,8 @@ import {
 } from "./projectBoardSessionCopyRepository";
 import {
   ProjectStoreProjectBoardSourceRepository,
-  type ProjectStoreProjectBoardSourceRepositoryDeps,
 } from "./projectBoardSourceRepository";
+import type { ProjectStoreProjectBoardSourceRepositoryDeps } from "./projectBoardSourceRepositoryTypes";
 import {
   ProjectStoreProjectBoardSynthesisApplyRepository,
   type ProjectStoreProjectBoardSynthesisApplyRepositoryDeps,
@@ -81,8 +81,8 @@ import {
 } from "./projectBoardSynthesisProposalRepository";
 import {
   ProjectStoreProjectBoardSynthesisRunRepository,
-  type ProjectStoreProjectBoardSynthesisRunRepositoryDeps,
 } from "./projectBoardSynthesisRunRepository";
+import type { ProjectStoreProjectBoardSynthesisRunRepositoryDeps } from "./projectBoardSynthesisRunRepositoryTypes";
 import {
   ProjectStoreProjectBoardSynthesisStartFreshRepository,
   type ProjectStoreProjectBoardSynthesisStartFreshRepositoryDeps,

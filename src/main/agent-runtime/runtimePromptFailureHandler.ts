@@ -1,182 +1,30 @@
-import type { DesktopEvent, SendMessageInput } from "../../shared/desktopTypes";
 import { promptCacheTelemetryFromUsage } from "../../shared/promptCacheTelemetry";
-import type { ChatMessage, InterruptedToolCallRecoverySnapshot, ProviderContinuationState, ThreadSummary, ToolArgumentProgressSnapshot } from "../../shared/threadTypes";
 import { AmbientStreamFailureError, isRetryableAmbientProviderError } from "./agentRuntimeAmbientFacade";
 import type { AmbientStreamFailureKind } from "./agentRuntimeAmbientFacade";
-import type { AssistantFinalizationRetryReason, AssistantFinalizationRetryState, RuntimeSessionRecoveryContext } from "../agent-runtime/agentRuntimeAssistantRetryInput";
+import type { AssistantFinalizationRetryReason } from "./agentRuntimeAssistantRetryInput";
 import { shouldOpenApiKeyDialogForRuntimeError, formatRuntimeError as formatAgentRuntimeError } from "../agent-runtime/agentRuntimeErrorFormatting";
-import type { RuntimeProviderErrorDiagnostic } from "./provider-continuation/agentRuntimeProviderDiagnostics";
 import { runtimeProviderErrorDiagnostic } from "./provider-continuation/agentRuntimeProviderDiagnostics";
-import { type ProviderInterruptionToolSnapshot } from "./provider-continuation/agentRuntimeProviderContinuationHelpers";
 import { runtimeProviderRetryStartingActivity } from "./provider-continuation/agentRuntimeProviderRetryActivity";
-import type { ChatStreamInterruptionDiagnostic } from "../agent-runtime/agentRuntimeSendStreamDiagnostics";
 import { formatToolTranscript } from "./tools/agentRuntimeToolTranscript";
-import { toolMessageMetadata, type SubagentParentControlAbortIntent } from "./tools/agentRuntimeToolMessageMetadata";
-import type { InterruptedToolCallRecoveryTracker } from "./recovery/interruptedToolCallRecovery";
+import { toolMessageMetadata } from "./tools/agentRuntimeToolMessageMetadata";
 import { interruptedToolCallRecoveryFinalizationMessage } from "./interruptedToolCallRecoveryFinalization";
-import { type RuntimeOpenToolFailureReason } from "./openToolFailureUpdates";
-import type { CallableWorkflowParentBlockingBlock } from "./agentRuntimeCallableWorkflowFacade";
 import {
   preOutputStreamStallRetryFinalizationMessage,
   providerErrorBeforeToolRetryFinalizationMessage,
 } from "./providerRetryFinalization";
 import { handleRuntimePromptProviderInterruption } from "./runtimePromptProviderInterruptionHandler";
-import type { RuntimeAssistantMessageController } from "./runtimeAssistantMessageController";
-import type { RuntimeToolMessageController } from "./runtimeToolMessageController";
-import type { PiSessionFileCommitReason } from "./agentRuntimeSessionFacade";
 import { streamWatchdogFinalizationMessage } from "./streamWatchdogFinalization";
 import { terminalProviderFailureFinalizationMessage } from "./terminalProviderFailureFinalization";
-import {
-  isSymphonyParentModeMissingWorkflowTaskError,
-  type SymphonyParentModePolicy,
-} from "./agentRuntimeSymphonyParentMode";
+import { isSymphonyParentModeMissingWorkflowTaskError } from "./agentRuntimeSymphonyParentMode";
 import { symphonyParentModeRecoveryFinalizationMessage } from "./symphonyParentModeRecoveryFinalization";
 import { finalAssistantMessageModel } from "./finalAssistantMessage";
 import {
   callableWorkflowFinalizationBlockedActivity,
   subagentFinalizationBlockedActivity,
-  type SubagentFinalizationBarrierBlock,
 } from "./agentRuntimeFinalizationBlocking";
+import type { RuntimePromptFailureHandlerInput } from "./runtimePromptFailureTypes";
 
-interface RuntimePromptFailureToolArgumentProgress {
-  current(toolCallId: string): ToolArgumentProgressSnapshot | undefined;
-}
-
-interface RuntimePromptFailureInterruptedToolRecovery {
-  recoverable(): InterruptedToolCallRecoverySnapshot[];
-}
-
-type RuntimePromptFailureRetryInputFactory = (
-  reason: AssistantFinalizationRetryReason,
-  sessionRecovery?: RuntimeSessionRecoveryContext,
-) => SendMessageInput;
-
-interface RuntimePromptFailureProviderContinuationStateInput {
-  message: string;
-  kind: AmbientStreamFailureKind;
-  retryScheduled: boolean;
-  replaySafe: boolean;
-  continuationSafe?: boolean;
-  retryUsesFreshSession?: boolean;
-  retryAttempt?: number;
-  maxRetries?: number;
-  retryReason?: string;
-  retryDelayMs?: number;
-  openToolCalls?: ProviderInterruptionToolSnapshot[];
-  completedToolMessageCount: number;
-  receivedAnyText?: boolean;
-  stateId?: string;
-}
-
-export interface RuntimePromptFailureHandlerInput {
-  error: unknown;
-  threadId: string;
-  workspacePath: string;
-  usesDedicatedReviewSession: boolean;
-  activeAssistantFinalizationRetry?: AssistantFinalizationRetryState | undefined;
-  assistantFinalizationRetryMaxRetries: number;
-  interruptedToolCallRecoveryAttemptsUsed: number;
-  interruptedToolCallRecoveryMaxRetries: number;
-  canScheduleInterruptedToolCallRecovery: boolean;
-  pendingEmptyResponseRetryDelayMs: number;
-  retrySourceUserMessageId?: string | undefined;
-  runtimeMessages: RuntimeAssistantMessageController;
-  toolMessages: RuntimeToolMessageController;
-  toolArgumentProgress: RuntimePromptFailureToolArgumentProgress;
-  interruptedToolCallRecovery: RuntimePromptFailureInterruptedToolRecovery;
-  startedToolCallIds: ReadonlySet<string>;
-  abortRequested: () => boolean;
-  streamWatchdogTimedOut: () => boolean;
-  currentPiStreamFailureKind: () => AmbientStreamFailureKind;
-  currentAssistantFinalText: () => string;
-  currentThinkingFinalText: () => string;
-  receivedAnyText: () => boolean;
-  subagentParentControlAbortIntent: () => SubagentParentControlAbortIntent | undefined;
-  isRunStoreActive: () => boolean;
-  consumeSubagentParentControlAbort: () => Promise<void>;
-  persistPiStreamTrace: (reason: string) => void;
-  canScheduleAssistantFinalizationRetryFor: (reason: AssistantFinalizationRetryReason) => boolean;
-  assistantFinalizationRetryAttemptsUsedFor: (
-    reason: AssistantFinalizationRetryReason,
-    recoveryStateId?: string,
-  ) => number;
-  assistantFinalizationRetryNextAttemptFor: (
-    reason: AssistantFinalizationRetryReason,
-    recoveryStateId?: string,
-  ) => number;
-  sessionRecoveryForCurrentSession: (
-    kind: RuntimeSessionRecoveryContext["kind"],
-    reason: string,
-    providerContinuationStateId?: string,
-  ) => RuntimeSessionRecoveryContext;
-  createAssistantFinalizationRetryInput: RuntimePromptFailureRetryInputFactory;
-  createInterruptedToolCallRecoveryInput: (snapshots: InterruptedToolCallRecoverySnapshot[]) => SendMessageInput;
-  collectOpenProviderInterruptionToolSnapshots: () => ProviderInterruptionToolSnapshot[];
-  createProviderContinuationState: (
-    input: RuntimePromptFailureProviderContinuationStateInput,
-  ) => ProviderContinuationState;
-  persistProviderContinuationState: (state: ProviderContinuationState) => ProviderContinuationState;
-  persistCurrentSessionPointerForRetry: (reason: PiSessionFileCommitReason) => Promise<void>;
-  createProviderInterruptionContinuationInput: (input: {
-    message: string;
-    diagnostic: RuntimeProviderErrorDiagnostic;
-    tools: ProviderInterruptionToolSnapshot[];
-    completedToolMessageCount: number;
-    continuationState: ProviderContinuationState;
-  }) => SendMessageInput;
-  setPendingEmptyResponseRetry: (input: SendMessageInput) => void;
-  setPendingInterruptedToolCallRecoveryFollowUp: (input: SendMessageInput) => void;
-  setPendingProviderInterruptionContinuation: (input: SendMessageInput | undefined) => void;
-  providerRetryAttemptCount: () => number;
-  setProviderRetryAttemptCount: (count: number) => void;
-  setProviderRetryLastError: (message: string) => void;
-  cleanupCurrentSession: (options?: { clearPersistedSessionFileIfCurrent?: boolean }) => void;
-  markOpenToolMessagesFailed: (reason: RuntimeOpenToolFailureReason) => void;
-  persistToolArgumentDiagnostics: (force?: boolean) => void;
-  replaceToolMessage: (messageId: string, content: string, metadata: Record<string, unknown>) => ChatMessage;
-  resolveSubagentFinalizationBlock?: (() => SubagentFinalizationBarrierBlock | undefined) | undefined;
-  resolveCallableWorkflowFinalizationBlock?: (() => CallableWorkflowParentBlockingBlock | undefined) | undefined;
-  recordSubagentFinalizationBlockedParentMailbox?: ((
-    block: SubagentFinalizationBarrierBlock,
-  ) => Array<{ id: string }>) | undefined;
-  recordCallableWorkflowFinalizationBlockedParentMailbox?: ((
-    block: CallableWorkflowParentBlockingBlock,
-  ) => { id: string } | undefined) | undefined;
-  suppressCallableWorkflowParentAssistantMessages?: ((
-    block: CallableWorkflowParentBlockingBlock,
-    options: { preserveMessageId?: string | undefined },
-  ) => void) | undefined;
-  finishPlannerFinalizationSources: (
-    status: "failed",
-    options: { error: string; workflowState: "failed" },
-  ) => void;
-  finishParentRun: (status: "done" | "error" | "aborted" | "interrupted", errorMessage?: string) => void;
-  getThread: () => ThreadSummary;
-  symphonyParentModePolicy?: SymphonyParentModePolicy | undefined;
-  chatStreamInterruptionDiagnostic: (
-    message: string,
-    input?: Partial<
-      Pick<
-        ChatStreamInterruptionDiagnostic,
-        | "kind"
-        | "retryScheduled"
-        | "replaySafe"
-        | "continuationSafe"
-        | "retryUsesFreshSession"
-        | "retryAttempt"
-        | "maxRetries"
-        | "retryReason"
-        | "retryDelayMs"
-        | "providerErrorDiagnostic"
-        | "interruptedToolCalls"
-        | "completedToolMessageCount"
-        | "receivedAnyText"
-      >
-    >,
-  ) => ChatStreamInterruptionDiagnostic;
-  chatStreamInterruptionNotice: (message: string) => string;
-  emitRunEvent: (event: DesktopEvent) => void;
-}
+export type { RuntimePromptFailureHandlerInput } from "./runtimePromptFailureTypes";
 
 export async function handleRuntimePromptFailure(input: RuntimePromptFailureHandlerInput): Promise<void> {
   if (!input.isRunStoreActive()) return;

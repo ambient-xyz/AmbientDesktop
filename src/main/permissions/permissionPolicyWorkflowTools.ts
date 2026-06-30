@@ -1,4 +1,4 @@
-import type { PermissionDecision, PermissionPolicyInput } from "./permissionPolicy";
+import type { PermissionDecision, PermissionPolicyInput } from "./permissionPolicyTypes";
 import { getBooleanField, getStringField, permissionGrantHash } from "./permissionPolicyInputFields";
 
 export function classifyWorkflowToolPermission(input: PermissionPolicyInput): PermissionDecision | undefined {

@@ -4,7 +4,7 @@ import type { ChatMessage, RunStatus } from "../../shared/threadTypes";
 import { BrowserUserActionChatCard } from "./AppChatChrome";
 import { AppConversationEmptyState } from "./AppConversationEmptyState";
 import { AppConversationMessageRenderer } from "./AppConversationMessageRenderer";
-import type { AppConversationMessagesProps } from "./AppConversationMessages";
+import type { AppConversationMessagesProps } from "./AppConversationMessagesTypes";
 import { AppConversationSubagentChildStartingState, useAppConversationSubagentSurfaces } from "./AppConversationSubagentSurfaces";
 import { RunActivityFeed, type RunActivityLine } from "./AppRunActivity";
 import { shouldVirtualizeMessages, useVirtualMessageRows } from "./messageVirtualization";

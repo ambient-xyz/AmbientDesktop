@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import type { WorkflowAgentThreadSummary, WorkflowCompileProgress, WorkflowDiscoveryProgress, WorkflowRevisionSummary } from "../../shared/workflowTypes";
 import {
   WorkflowDiscoveryActivity,
-  WorkflowDiscoveryContextReview,
   WorkflowDiscoveryQuestionView,
   WorkflowDiscoverySummary,
   WorkflowDiscoveryThreadWorkspace,
@@ -15,6 +14,7 @@ import {
   workflowDiscoveryThreadQuestions,
   workflowDiscoveryThreadWorkspaceViewModel,
 } from "./AutomationsWorkflowDiscoveryViews";
+import { WorkflowDiscoveryContextReview } from "./AutomationsWorkflowDiscoveryContextReviewView";
 
 describe("Automations workflow discovery views", () => {
   it("renders the discovery thread workspace from parent-owned state and render slots", () => {

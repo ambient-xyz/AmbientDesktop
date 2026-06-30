@@ -14,6 +14,8 @@ const LINT_TARGETS = ["src/**/*.{js,mjs,cjs,ts,tsx}", "scripts/**/*.{js,mjs,cjs}
 export function buildGuardrailSnapshot(options = {}) {
   const root = options.repoRoot ?? repoRoot;
   const trackedFiles = options.trackedFiles ?? gitTrackedFiles(root);
+  const packageScriptSummary = options.packageScriptSummary ?? readPackageScriptSummary(root);
+  const trackedRootDocs = findTrackedRootDocs(trackedFiles);
   const sourceFiles = trackedFiles.filter(isSourceFile).filter((file) => !isGeneratedOrVendored(file));
   const complexityReport = options.complexityReport ?? readComplexityReport(root);
   const scorecard = options.scorecard ?? buildV3Scorecard(complexityReport);
@@ -47,6 +49,9 @@ export function buildGuardrailSnapshot(options = {}) {
       importCycles: importCycles.length,
       importBoundaryEdges: importBoundaryEdges.length,
       hardBoundaryViolations: hardBoundaryViolations.length,
+      packageScripts: packageScriptSummary.packageScripts,
+      packageTestScripts: packageScriptSummary.packageTestScripts,
+      trackedRootDocs: trackedRootDocs.length,
       largeFiles: Object.keys(largeFileLineCeilings).length,
     },
     localTooling: {
@@ -68,8 +73,10 @@ export function buildGuardrailSnapshot(options = {}) {
     flatMainFiles,
     sharedTypesImporters,
     importCycles,
+    importCyclesByOwner: groupImportCyclesByOwner(importCycles),
     importBoundaryEdges,
     hardBoundaryViolations,
+    trackedRootDocs,
     largeFileLineCeilings,
     exceptions: {
       flatMainFiles: {},
@@ -139,6 +146,20 @@ export function compareGuardrailSnapshots(current, baseline) {
     );
   }
 
+  const baselinePackageScripts = baseline.metrics?.packageScripts;
+  if (baselinePackageScripts !== undefined && (current.metrics?.packageScripts ?? 0) > baselinePackageScripts) {
+    issues.push(
+      `repo-surface: package scripts increased from ${baselinePackageScripts} to ${current.metrics.packageScripts}`,
+    );
+  }
+
+  const baselineTrackedRootDocs = baseline.metrics?.trackedRootDocs;
+  if (baselineTrackedRootDocs !== undefined && (current.metrics?.trackedRootDocs ?? 0) > baselineTrackedRootDocs) {
+    issues.push(
+      `repo-surface: tracked root docs increased from ${baselineTrackedRootDocs} to ${current.metrics.trackedRootDocs}`,
+    );
+  }
+
   for (const [file, lines] of Object.entries(current.largeFileLineCeilings ?? {})) {
     const baselineCeiling = baseline.largeFileLineCeilings?.[file];
     const exceptionCeiling = exceptions.largeFiles?.[file]?.lineCeiling;
@@ -201,6 +222,9 @@ export function renderGuardrailSnapshotMarkdown(snapshot, comparison) {
     `| relative import cycles | ${formatNumber(snapshot.metrics.importCycles)} |`,
     `| import-boundary edges | ${formatNumber(snapshot.metrics.importBoundaryEdges)} |`,
     `| hard boundary violations | ${formatNumber(snapshot.metrics.hardBoundaryViolations ?? 0)} |`,
+    `| package scripts | ${formatNumber(snapshot.metrics.packageScripts ?? 0)} |`,
+    `| package test scripts | ${formatNumber(snapshot.metrics.packageTestScripts ?? 0)} |`,
+    `| tracked root docs | ${formatNumber(snapshot.metrics.trackedRootDocs ?? 0)} |`,
     `| files at/above ${formatNumber(snapshot.largeFileLineThreshold)} lines | ${formatNumber(snapshot.metrics.largeFiles)} |`,
     `| lint errors / warnings | ${formatNumber(snapshot.lint.totalErrors)} / ${formatNumber(snapshot.lint.totalWarnings)} |`,
     "",
@@ -209,6 +233,14 @@ export function renderGuardrailSnapshotMarkdown(snapshot, comparison) {
 
   if (comparison && !comparison.ok) {
     lines.push("", ...comparison.issues.map((issue) => `- ${issue}`));
+  }
+
+  const importCyclesByOwner = snapshot.importCyclesByOwner ?? groupImportCyclesByOwner(snapshot.importCycles ?? []);
+  if (importCyclesByOwner.length) {
+    lines.push("", "## Import Cycle Triage", "", "| Owner | Cycles |", "| --- | ---: |");
+    for (const entry of importCyclesByOwner) {
+      lines.push(`| \`${entry.owner}\` | ${formatNumber(entry.cycles.length)} |`);
+    }
   }
 
   lines.push("");
@@ -239,6 +271,19 @@ function readComplexityReport(root) {
 function gitTrackedFiles(root) {
   const output = execFileSync("git", ["ls-files"], { cwd: root, encoding: "utf8" });
   return output.split("\n").filter(Boolean);
+}
+
+function readPackageScriptSummary(root) {
+  const packageJson = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8"));
+  const scriptNames = Object.keys(packageJson.scripts ?? {});
+  return {
+    packageScripts: scriptNames.length,
+    packageTestScripts: scriptNames.filter((name) => name.startsWith("test:")).length,
+  };
+}
+
+function findTrackedRootDocs(trackedFiles) {
+  return trackedFiles.filter((file) => !file.includes("/") && /\.(?:md|html|txt)$/i.test(file)).sort();
 }
 
 function isSourceFile(file) {
@@ -288,6 +333,29 @@ function buildImportersByTarget(importGraph) {
     }
   }
   return importersByTarget;
+}
+
+function groupImportCyclesByOwner(importCycles) {
+  const byOwner = new Map();
+  for (const cycle of importCycles) {
+    const owner = ownerForCycle(cycle);
+    const cycles = byOwner.get(owner) ?? [];
+    cycles.push(cycle);
+    byOwner.set(owner, cycles);
+  }
+  return [...byOwner.entries()]
+    .map(([owner, cycles]) => ({ owner, cycles: cycles.sort() }))
+    .sort((left, right) => right.cycles.length - left.cycles.length || left.owner.localeCompare(right.owner));
+}
+
+function ownerForCycle(cycle) {
+  const firstFile = cycle.split(" -> ")[0] ?? "";
+  const mainOwner = /^src\/main\/([^/]+)/.exec(firstFile)?.[1];
+  if (mainOwner) return `main/${mainOwner}`;
+  if (firstFile.startsWith("src/renderer/")) return "renderer/src";
+  const sharedOwner = /^src\/shared\/([^/]+)/.exec(firstFile)?.[1];
+  if (sharedOwner) return `shared/${sharedOwner}`;
+  return firstFile.split("/").slice(0, 2).join("/") || "(unknown)";
 }
 
 function findImportCycles(importGraph) {

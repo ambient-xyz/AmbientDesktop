@@ -7,7 +7,7 @@ import type {
   McpRegistryInstallPreview,
   McpServerSearchResult,
   McpUnmanagedToolHiveWorkloadSummary,
-} from "./mcpInstallCatalog";
+} from "./mcpInstallCatalogTypes";
 import { mcpInstallPreviewSecretBindings } from "./mcpInstallCatalogInstallState";
 import type { McpStandardImportFallbackRoute, McpStandardImportPreview } from "./mcpInstallCatalogStandardImportPreview";
 import type { ToolHiveSecretBindingState } from "./mcpToolRuntimeFacade";

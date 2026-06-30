@@ -1,4 +1,4 @@
-import type { WorkflowRunLimitOverrides } from "./workflowTypes";
+import type { WorkflowRunLimitOverrides } from "./workflowRunLimitTypes";
 
 export type AutomationFolderKind = "home" | "custom";
 

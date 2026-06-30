@@ -15,14 +15,13 @@ import type {
   McpRegistryInstallPreviewInput,
   McpRemoteMcpProxyPreview,
   McpRemoteMcpProxyPreviewInput,
-} from "./mcpInstallCatalog";
+} from "./mcpInstallCatalogTypes";
 import type { McpSecretBinding } from "./mcpInstallCatalogStandardImportPreview";
 import {
   ambientWorkloadName,
   candidateHashMismatchBlocker,
   candidatePermissionProfile,
   normalizeMcpTransport,
-  normalizeRepositoryUrl,
   safeContainerMountPath,
   safeHostMountPath,
   safeIdSegment,

@@ -10,9 +10,11 @@ import type {
 } from "./permissionTypes";
 import type { GoogleWorkspaceMethodSideEffect } from "./pluginTypes";
 import type { SubagentPatternGraphSnapshot } from "./subagentPatternGraph";
-import type { SymphonyWorkflowPatternId } from "./symphonyWorkflowRecipes";
+import type { SymphonyWorkflowPatternId } from "./symphonyWorkflowPatternTypes";
+import type { WorkflowRunLimitOverrides } from "./workflowRunLimitTypes";
 
 export type * from "./workflowRecordingTypes";
+export type { WorkflowRunLimitOverrides } from "./workflowRunLimitTypes";
 
 export interface SaveSymphonyWorkflowRecipeInput extends ThreadActionInput {
   patternId: SymphonyWorkflowPatternId;
@@ -1499,11 +1501,6 @@ export type WorkflowRunRuntime = "workflow" | "automation";
 export type WorkflowRecoveryAction = "retry_step" | "resume_checkpoint" | "skip_item";
 
 export type WorkflowRecoveryTargetKind = "step" | "page" | "item" | "chunk";
-
-export interface WorkflowRunLimitOverrides {
-  idleTimeoutMs?: number;
-  maxRunMs?: number | null;
-}
 
 export interface WorkflowRecoveryContext {
   action: WorkflowRecoveryAction;

@@ -1,7 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 
 import type { AgentMemoryEmbeddingLifecycleActionKind } from "../../shared/agentMemoryDiagnostics";
-import type { RightPanelProps } from "./RightPanel";
+import type { RightPanelProps } from "./RightPanelTypes";
 import { useRightPanelCapabilityBuilderController } from "./RightPanelCapabilityBuilderController";
 import { useRightPanelBrowserController } from "./RightPanelBrowserController";
 import { renderRightPanelBody, rightPanelTitle } from "./RightPanelBodyRenderer";

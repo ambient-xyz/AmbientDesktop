@@ -1,5 +1,3 @@
-import type { IpcMain } from "electron";
-
 import { capabilityBuilderHistoryIpcChannels, registerCapabilityBuilderHistoryIpc } from "./registerCapabilityBuilderIpc";
 import {
   googleDisconnectIpcChannels,
@@ -62,8 +60,9 @@ import {
   toolsManagedDevServerStopIpcChannels,
   toolsManagedDevServersIpcChannels,
 } from "./registerToolsIpc";
+import type { RegisterPluginToolingDomainIpcDependencies } from "./registerPluginToolingDomainIpcTypes";
 
-type HandleIpc = (channel: string, listener: Parameters<IpcMain["handle"]>[1]) => void;
+export type { RegisterPluginToolingDomainIpcDependencies } from "./registerPluginToolingDomainIpcTypes";
 
 export const pluginToolingDomainIpcChannels = [
   ...pluginDiscoveryIpcChannels,
@@ -106,61 +105,6 @@ export const pluginToolingDomainIpcChannels = [
   ...pluginUninstallCodexIpcChannels,
   ...pluginInstallDependenciesIpcChannels,
 ] as const;
-
-export interface RegisterPluginToolingDomainIpcDependencies {
-  handleIpc: HandleIpc;
-  acceptMcpToolDescriptorReviewForDesktop: any;
-  activeThreadId: any;
-  activeThreadIdForHost: any;
-  allPluginMcpRuntimeSnapshots: any;
-  ambientMcpInstallPreview: any;
-  app: any;
-  buildContainerRuntimeInstallPlanFromProbe: any;
-  codexPluginTrustFingerprint: any;
-  createMcpInstallCatalog: any;
-  createPrivilegedActionAdapter: any;
-  dialog: any;
-  discoverCapabilityBuilderHistory: any;
-  emitMainWindowDesktopEvent: any;
-  executeContainerRuntimeManagedInstallAction: any;
-  googleWorkspaceCliInstaller: any;
-  googleWorkspaceSetupService: any;
-  installMcpDefaultCapabilityForDesktop: any;
-  installMcpRegistryServerForDesktop: any;
-  launchContainerRuntimeInstallAction: any;
-  listManagedDevServers: any;
-  mcpContainerRuntimeSetupStatePath: any;
-  openAllowedExternalUrl: any;
-  openContainerRuntimeApplication: any;
-  packageJson: any;
-  permissions: any;
-  pluginHost: any;
-  pluginStateReaderForStore: any;
-  privilegedActionAdapterSelectionFromEnv: any;
-  privilegedCredentials: any;
-  previewContainerRuntimeLifecycleAction: any;
-  probeAmbientMcpContainerRuntimeStatus: any;
-  probeContainerRuntime: any;
-  readAmbientPluginRegistry: any;
-  readCodexHostedMarketplaceReport: any;
-  readCodexPluginCatalog: any;
-  readFirstPartyGoogleIntegration: any;
-  recordContainerRuntimeDeferred: any;
-  recordContainerRuntimeInstallLaunched: any;
-  redactGoogleWorkspaceSetupState: any;
-  refreshGoogleWorkspaceConnectorMode: any;
-  requireActiveProjectRuntimeHost: any;
-  resetProjectRuntimeAndPluginServers: any;
-  resetRuntimeAndPluginServers: any;
-  runContainerRuntimeLifecycleAction: any;
-  restartProjectRuntimeMcpRuntime: any;
-  stopManagedDevServer: any;
-  stopProjectRuntimeMcpRuntime: any;
-  uninstallMcpServerForDesktop: any;
-  writeContainerRuntimeLifecycleRedactedLog: any;
-  writeContainerRuntimeManagedInstallRedactedLog: any;
-  writePrivilegedActionRedactedLog: any;
-}
 
 export function registerPluginToolingDomainIpc({
   handleIpc,

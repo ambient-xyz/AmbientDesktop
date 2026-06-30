@@ -10,7 +10,6 @@ import type {
   BrowserLoginRequest,
   BrowserLoginResult,
   BrowserNavigateInput,
-  BrowserPageContent,
   BrowserPickInput,
   BrowserPickResult,
   BrowserProfileMode,
@@ -19,7 +18,6 @@ import type {
   BrowserRuntimeKind,
   BrowserScreenshotResult,
   BrowserSearchInput,
-  BrowserSearchResult,
   BrowserStartInput,
   BrowserTabSnapshot,
   BrowserUserActionState,
@@ -30,7 +28,6 @@ import {
   managedChromeRevealBoundsForWorkArea as defaultManagedChromeRevealBoundsForWorkArea,
   type ManagedChromeRevealInput,
   type ManagedChromeRevealResult,
-  type ManagedChromeWindowBounds,
 } from "./browserChromeRevealController";
 import type { WorkspaceState } from "../../shared/workspaceTypes";
 import { chromeProfileSourcePath } from "./browserChromeProfileController";
@@ -43,7 +40,11 @@ import {
   type BrowserNavigateResult,
   type BrowserSearchResults,
 } from "./browserChromeRuntimeController";
-import { type BrowserServiceInternalStateSnapshot } from "./browserServiceStateSnapshot";
+import type {
+  BrowserServiceOptions,
+  ChromeAvailability,
+  InternalBrowserBackend,
+} from "./browserServiceTypes";
 import { browserUserActionDetectionExpression, type BrowserUserActionDetection } from "./browserUserActionController";
 import { createBrowserServiceControllers, type BrowserServiceControllerBundle } from "./browserServiceControllers";
 import {
@@ -126,42 +127,13 @@ export {
   normalizeBrowserUserActionDetection,
 } from "./browserUserActionController";
 
-export interface ChromeDevToolsEndpoint {
-  port: number;
-  webSocketDebuggerUrl: string;
-}
-
-export interface ChromeAvailability {
-  available: boolean;
-  executable?: string;
-  unavailableReason?: string;
-}
-
-export interface InternalBrowserBackend {
-  isAvailable(): boolean;
-  isRunning(): boolean;
-  getState(): Promise<BrowserServiceInternalStateSnapshot>;
-  start(): Promise<void>;
-  stop(): Promise<void>;
-  shutdown(): Promise<void>;
-  setViewBounds(input: BrowserViewBoundsInput): void;
-  navigate(input: BrowserNavigateInput): Promise<BrowserPageContent>;
-  content(input?: BrowserContentInput): Promise<BrowserPageContent>;
-  search(input: BrowserSearchInput): Promise<BrowserSearchResult[]>;
-  evaluate(input: BrowserEvaluateInput): Promise<unknown>;
-  keypress(input: BrowserKeypressInput): Promise<BrowserKeypressResult>;
-  login(input: BrowserLoginRequest): Promise<BrowserLoginResult>;
-  screenshot(input?: BrowserStartInput): Promise<BrowserScreenshotResult>;
-  pick(input: BrowserPickInput): Promise<BrowserPickResult>;
-  cancelPick(): Promise<void>;
-}
-
-export interface BrowserServiceOptions {
-  browserLoginBrokerAvailable?: boolean;
-  onStateChanged?: () => void | Promise<void>;
-  revealManagedChromeWindow?: (input: ManagedChromeRevealInput) => Promise<ManagedChromeRevealResult>;
-  managedChromeRevealBounds?: () => ManagedChromeWindowBounds | undefined;
-}
+export type {
+  BrowserServiceInternalStateSnapshot,
+  BrowserServiceOptions,
+  ChromeAvailability,
+  ChromeDevToolsEndpoint,
+  InternalBrowserBackend,
+} from "./browserServiceTypes";
 
 export class BrowserService {
   private readonly state: BrowserServiceMutableState;

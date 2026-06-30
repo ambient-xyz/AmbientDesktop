@@ -12,7 +12,7 @@ import {
   registerMcpServerUninstallIpc,
   registerMcpToolReviewAcceptIpc,
 } from "./registerMcpIpc";
-import type { RegisterPluginToolingDomainIpcDependencies } from "./registerPluginToolingDomainIpc";
+import type { RegisterPluginToolingDomainIpcDependencies } from "./registerPluginToolingDomainIpcTypes";
 
 type RegisterPluginToolingMcpInstallDependencies = Pick<
   RegisterPluginToolingDomainIpcDependencies,

@@ -10,7 +10,8 @@ import type {
   WorkflowPromptCacheCheckpoint,
 } from "../../shared/workflowTypes";
 import { diffWorkflowGraphs } from "../../shared/workflowGraphDiff";
-import type { CompileWorkflowArtifactInput, WorkflowCompilerCallableInvocationContext } from "./workflowCompilerService";
+import type { WorkflowCompilerCallableInvocationContext } from "./workflowCompilerCallableInvocationPrompt";
+import type { CompileWorkflowArtifactInput } from "./workflowCompilerServiceTypes";
 import type { WorkflowCompilerCapabilityDiscoveryPlan, WorkflowCompilerOutput } from "./workflowCompiler";
 import { writeWorkflowCompilerArtifactFiles } from "./workflowCompilerArtifactFiles";
 import type { WorkflowCompilerPromptAssemblyRecord } from "./workflowCompilerPromptModules";

@@ -6,8 +6,8 @@ import type { ThreadSummary } from "../../shared/threadTypes";
 import {
   createAppShellCommandActions,
   createAppShellCommandActionsForApp,
-  createAppWorkflowComposerNavigation,
 } from "./AppShellCommandActions";
+import { createAppWorkflowComposerNavigation } from "./AppWorkflowComposerNavigation";
 import type { AutomationPane } from "./AutomationsWorkspace";
 import type { AutomationPopover, ProjectPopover } from "./AppSidebar";
 import type { SidebarArea } from "./AppShellSidebar";

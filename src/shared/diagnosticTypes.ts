@@ -1,6 +1,7 @@
 import type { AmbientFeatureFlagSnapshot } from "./featureFlags";
 import type { AgentMemoryStorageDiagnostics } from "./agentMemoryDiagnostics";
 import type { AgentMemoryStarterStatus } from "./agentMemoryStarter";
+import type { DiagnosticExportHealthStatus } from "./diagnosticHealthTypes";
 import type {
   LocalModelResourceRegistryEntry,
   LocalRuntimeLeaseStatus,
@@ -21,6 +22,8 @@ import type {
   WorkflowRunStatus,
 } from "./workflowTypes";
 
+export type { DiagnosticExportHealthStatus } from "./diagnosticHealthTypes";
+
 export interface DiagnosticExportResult {
   path: string;
   bytes: number;
@@ -37,8 +40,6 @@ export interface DiagnosticExportResult {
     evidence?: DiagnosticExportLocalRuntimeEvidence;
   };
 }
-
-export type DiagnosticExportHealthStatus = "healthy" | "needs_attention" | "error" | "unavailable";
 
 export interface DiagnosticExportActionSummary {
   action: SubagentRepairDiagnosticAction;

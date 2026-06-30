@@ -1,15 +1,17 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import type {
-  AddProjectBoardCardRunFeedbackInput,
   ApplyProjectBoardSourceImpactFeedbackInput,
-  ProjectBoardCard,
-  ProjectBoardEvent,
   ProjectBoardSource,
   ProjectBoardSourceKind,
   ProjectBoardSummary,
   RefreshProjectBoardSourceDraftsInput,
 } from "../../shared/projectBoardTypes";
+import type {
+  ProjectBoardSourceEventInput,
+  ProjectBoardSourceInput,
+  ProjectStoreProjectBoardSourceRepositoryDeps,
+} from "./projectBoardSourceRepositoryTypes";
 import type { StageProjectBoardSourceDraftPiUpdatesInput } from "./projectStoreFacadeHelpers";
 import { projectBoardSourceKey } from "./projectStoreProjectBoardFacade";
 import {
@@ -32,21 +34,7 @@ import {
   projectBoardSourceUpdateImpactForRepository,
 } from "./projectBoardSourceImpactRepository";
 
-export type ProjectBoardSourceInput = Omit<ProjectBoardSource, "id" | "boardId" | "createdAt" | "updatedAt">;
-
-export type ProjectBoardSourceEventInput = Omit<ProjectBoardEvent, "id" | "createdAt"> & {
-  createdAt?: string;
-};
-
-export interface ProjectStoreProjectBoardSourceRepositoryDeps {
-  getProjectBoard(boardId: string): ProjectBoardSummary | undefined;
-  getProjectBoardCard(cardId: string): ProjectBoardCard;
-  listProjectBoardEvents(boardId: string, limit?: number): ProjectBoardEvent[];
-  listProjectBoardSources(boardId: string): ProjectBoardSource[];
-  listProjectBoardCards(boardId: string): ProjectBoardCard[];
-  addProjectBoardCardRunFeedback(input: AddProjectBoardCardRunFeedbackInput): ProjectBoardCard;
-  appendProjectBoardEvent(input: ProjectBoardSourceEventInput): void;
-}
+export type { ProjectBoardSourceEventInput, ProjectBoardSourceInput, ProjectStoreProjectBoardSourceRepositoryDeps };
 
 export class ProjectStoreProjectBoardSourceRepository {
   constructor(

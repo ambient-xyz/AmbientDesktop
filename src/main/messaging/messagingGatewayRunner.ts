@@ -1,9 +1,5 @@
 import type {
-  MessagingBindingListResult,
-  MessagingGatewayAdapterMode,
   MessagingGatewayAdapterRuntimeStatus,
-  MessagingGatewayAdapterState,
-  MessagingGatewayBridgeSupervisorStatus,
   MessagingGatewayLifecycleAction,
   MessagingGatewayLifecycleApplyResult,
   MessagingGatewayLifecycleMode,
@@ -14,19 +10,21 @@ import type {
   MessagingGatewayRuntimeState,
   MessagingGatewayRuntimeStatus,
   MessagingInboundEvent,
-  MessagingProviderDescriptor,
   MessagingSyntheticRouteResult,
-  RuntimeSurfaceSnapshot,
 } from "../../shared/messagingGateway";
 import { MessagingGatewayLifecycleController } from "./messagingGatewayLifecycleController";
 import { messagingProjectionText, routeMessagingInboundEvent, routeSyntheticMessagingEvent } from "./messagingGatewayProjection";
 import type { MessagingGatewayReadinessProbe } from "./messagingProviderReadiness";
 import { buildRemoteSurfaceRelaySummaries, relaySummaryTextLines } from "./messagingRelayStatus";
-
-export interface MessagingGatewayProviderRegistryLike {
-  get(providerId: string): { descriptor: MessagingProviderDescriptor } | undefined;
-  descriptors(): MessagingProviderDescriptor[];
-}
+import type {
+  AdapterRuntimeRecord,
+  MessagingGatewayBridgeSupervisor,
+  MessagingGatewayInboundDispatchInput,
+  MessagingGatewayInboundDispatchResult,
+  MessagingGatewayProviderRegistryLike,
+  MessagingGatewaySyntheticDispatchInput,
+  MessagingGatewaySyntheticDispatchResult,
+} from "./messagingGatewayRunnerTypes";
 
 export interface MessagingGatewayRunnerOptions {
   providers: MessagingGatewayProviderRegistryLike;
@@ -38,54 +36,15 @@ export interface MessagingGatewayRunnerOptions {
 }
 
 export type { MessagingGatewayReadinessProbe } from "./messagingProviderReadiness";
-
-export interface MessagingGatewayBridgeSupervisor {
-  status(): MessagingGatewayBridgeSupervisorStatus;
-  start(input: { readiness?: MessagingGatewayProviderReadiness }): Promise<MessagingGatewayBridgeSupervisorStatus>;
-  stop(): Promise<MessagingGatewayBridgeSupervisorStatus>;
-}
-
-export interface MessagingGatewaySyntheticDispatchInput {
-  event: MessagingInboundEvent;
-  bindings: MessagingBindingListResult;
-  surface?: RuntimeSurfaceSnapshot;
-}
-
-export interface MessagingGatewaySyntheticDispatchResult extends MessagingSyntheticRouteResult {
-  queuedProjection: MessagingGatewayQueuedProjection;
-  runtimeStatus: MessagingGatewayRuntimeStatus;
-}
-
-export interface MessagingGatewayInboundDispatchInput {
-  event: MessagingInboundEvent;
-  bindings: MessagingBindingListResult;
-  surface?: RuntimeSurfaceSnapshot;
-  source: "telegram-bridge" | "signal-bridge";
-  requireRunning?: boolean;
-  redactEventTextInResult?: boolean;
-}
-
-export interface MessagingGatewayInboundDispatchResult {
-  accepted: boolean;
-  droppedReason?: string;
-  event: MessagingInboundEvent;
-  binding?: MessagingSyntheticRouteResult["binding"];
-  projection?: MessagingSyntheticRouteResult["projection"];
-  promptContext?: MessagingSyntheticRouteResult["promptContext"];
-  queuedProjection?: MessagingGatewayQueuedProjection;
-  runtimeStatus: MessagingGatewayRuntimeStatus;
-}
-
-export interface AdapterRuntimeRecord {
-  state: MessagingGatewayAdapterState;
-  mode: MessagingGatewayAdapterMode;
-  syntheticEventCount: number;
-  realEventCount: number;
-  queuedProjectionCount: number;
-  readiness?: MessagingGatewayProviderReadiness;
-  lastActivityAt?: string;
-  lastError?: string;
-}
+export type {
+  AdapterRuntimeRecord,
+  MessagingGatewayBridgeSupervisor,
+  MessagingGatewayInboundDispatchInput,
+  MessagingGatewayInboundDispatchResult,
+  MessagingGatewayProviderRegistryLike,
+  MessagingGatewaySyntheticDispatchInput,
+  MessagingGatewaySyntheticDispatchResult,
+} from "./messagingGatewayRunnerTypes";
 
 export class MessagingGatewayRunner {
   private readonly providers: MessagingGatewayProviderRegistryLike;

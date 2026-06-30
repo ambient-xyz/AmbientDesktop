@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import type { WorkflowRecordingEditContext, WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
+import type { WorkflowRecordingLibraryEntry } from "../../shared/workflowTypes";
+import type { PendingWorkflowRecordingEditContext } from "./AppComposerSubmitActionTypes";
 import type {
   AutomationPopover,
   ProjectPopover,
@@ -14,9 +15,7 @@ export type PendingProjectComposerDraft = {
   nonce: number;
 };
 
-export type PendingWorkflowRecordingEditContext = WorkflowRecordingEditContext & {
-  draftPrefix: string;
-};
+export type { PendingWorkflowRecordingEditContext } from "./AppComposerSubmitActionTypes";
 
 export type WorkflowRecordingEditDraftRequest = {
   browserPreviewPath: string;

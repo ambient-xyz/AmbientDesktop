@@ -17,7 +17,7 @@ import type {
   LocalDeepResearchRunHistoryUiState,
   LocalDeepResearchSetupUiState,
   SettingsFocusRequest,
-} from "./RightPanel";
+} from "./RightPanelTypes";
 import { formatTaskState } from "./RightPanelDetailPanels";
 import { McpContainerRuntimeLifecycleControls } from "./RightPanelMcpRuntimeLifecycleControls";
 import { formatTimelineTime } from "./RightPanelSettingsRuntime";

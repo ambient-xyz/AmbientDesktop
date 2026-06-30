@@ -1,6 +1,6 @@
 import type { AsyncLocalStorage } from "node:async_hooks";
 
-import type { WorkflowProgramDryRunCall } from "./workflowProgramDryRun";
+import type { WorkflowProgramDryRunCall } from "./workflowProgramDryRunTypes";
 
 export interface WorkflowProgramDryRunWorkflowRuntimeInput {
   calls: WorkflowProgramDryRunCall[];

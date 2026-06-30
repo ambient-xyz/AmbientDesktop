@@ -26,7 +26,7 @@ import {
   type ProjectBoardSourceDraftRefreshRecord,
   type ProjectBoardSourceUpdateImpactMetadata,
 } from "./projectBoardMappers";
-import type { ProjectStoreProjectBoardSourceRepositoryDeps } from "./projectBoardSourceRepository";
+import type { ProjectStoreProjectBoardSourceRepositoryDeps } from "./projectBoardSourceRepositoryTypes";
 
 type SourceImpactPredicate = (impact: ProjectBoardSourceUpdateImpactMetadata) => boolean;
 

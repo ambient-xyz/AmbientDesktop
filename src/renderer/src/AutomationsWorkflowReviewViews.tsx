@@ -6,7 +6,7 @@ import type { WorkflowAgentThreadSummary, WorkflowArtifactSummary, WorkflowCompi
 import { workflowSourceEditDiffSummary, type AutomationSchedulePreset } from "./automationUiModel";
 import { AutomationHeadingLabel } from "./AutomationsHeading";
 import { useRunningClock } from "./AutomationsRunningClock";
-import { WorkflowDiscoveryContextReview } from "./AutomationsWorkflowDiscoveryViews";
+import { WorkflowDiscoveryContextReview } from "./AutomationsWorkflowDiscoveryContextReviewView";
 import {
   WorkflowReviewAuditSection,
   WorkflowReviewCapabilitiesSection,

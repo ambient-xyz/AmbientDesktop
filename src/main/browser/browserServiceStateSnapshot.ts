@@ -6,7 +6,7 @@ import type {
   BrowserTabSnapshot,
   BrowserUserActionState,
 } from "../../shared/browserTypes";
-import type { ChromeAvailability } from "./browserService";
+import type { BrowserServiceInternalStateSnapshot, ChromeAvailability } from "./browserServiceTypes";
 import type { BrowserPaths } from "./browserChromeSessionStore";
 
 export interface BrowserServiceCopiedProfileSnapshot {
@@ -21,13 +21,7 @@ export interface BrowserServiceActivePickerSnapshot {
   startedAt: string;
 }
 
-export interface BrowserServiceInternalStateSnapshot {
-  running: boolean;
-  activeTab?: BrowserTabSnapshot;
-  lastActivity?: string;
-  lastError?: string;
-  viewVisible?: boolean;
-}
+export type { BrowserServiceInternalStateSnapshot } from "./browserServiceTypes";
 
 export interface BrowserServiceStateSnapshotInput {
   runtime: BrowserRuntimeKind;

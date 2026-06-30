@@ -1,5 +1,5 @@
 import { ProjectStoreSymphonyWorkflowRecipeRepository } from "./symphonyWorkflowRecipeRepository";
-import type { ProjectStoreRepositoryFactoryHost } from "./projectStoreRepositoryFactory";
+import type { ProjectStoreRepositoryFactoryHost } from "./projectStoreRepositoryFactoryTypes";
 import { ProjectStoreWorkflowAgentReadModelRepository } from "./workflowAgentReadModelRepository";
 import { ProjectStoreWorkflowAgentThreadRepository } from "./workflowAgentThreadRepository";
 import { ProjectStoreWorkflowArtifactRepository } from "./workflowArtifactRepository";

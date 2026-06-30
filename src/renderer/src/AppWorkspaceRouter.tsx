@@ -2,10 +2,12 @@ import type { ComponentProps, CSSProperties, MouseEvent as ReactMouseEvent } fro
 
 import { AutomationsWorkspace, type AutomationsWorkspaceProps } from "./AutomationsWorkspace";
 import { AppComposerShell } from "./AppComposerShell";
-import { AppConversationMessages, type AppConversationMessagesProps } from "./AppConversationMessages";
+import { AppConversationMessages } from "./AppConversationMessages";
+import type { AppConversationMessagesProps } from "./AppConversationMessagesTypes";
 import type { SidebarArea } from "./AppShellSidebar";
 import { WorkflowRecordingReviewPanel } from "./AppWorkflowRecording";
-import { ProjectBoardWorkspace, type ProjectBoardWorkspaceProps } from "./ProjectBoardWorkspace";
+import { ProjectBoardWorkspace } from "./ProjectBoardWorkspace";
+import type { ProjectBoardWorkspaceProps } from "./ProjectBoardWorkspaceTypes";
 
 export function AppWorkspaceRouter({
   sidebarArea,

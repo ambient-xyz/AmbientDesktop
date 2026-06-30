@@ -8,7 +8,7 @@ import type {
   ToolHiveRuntimePreflight,
   ToolHiveWaitForWorkloadOptions,
   ToolHiveWorkloadSummary,
-} from "./toolHiveRuntimeService";
+} from "./toolHiveRuntimeTypes";
 
 type ToolHiveRunAllowedOptions = {
   throwOnNonZero?: boolean;

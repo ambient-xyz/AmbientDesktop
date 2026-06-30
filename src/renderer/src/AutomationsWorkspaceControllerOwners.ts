@@ -10,8 +10,8 @@ import { useWorkflowLabController } from "./AutomationsWorkflowLabController";
 import { useAutomationsWorkflowRecordingLibraryController } from "./AutomationsWorkflowRecordingLibraryController";
 import { useAutomationsWorkflowThreadController } from "./AutomationsWorkflowThreadController";
 import { useAutomationsWorkflowWorkspaceController } from "./AutomationsWorkflowWorkspaceController";
-import type { AutomationsWorkspaceProps } from "./AutomationsWorkspaceControllerGraph";
 import { useAutomationsWorkspaceSurfaceController } from "./AutomationsWorkspaceSurfaceController";
+import type { AutomationsWorkspaceProps } from "./AutomationsWorkspaceTypes";
 import { automationWorkspaceSelectionModel } from "./automationWorkspaceSelectionModel";
 import {
   DEFAULT_WORKFLOW_FOREGROUND_IDLE_TIMEOUT_MS,

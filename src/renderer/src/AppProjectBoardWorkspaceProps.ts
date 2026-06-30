@@ -3,7 +3,7 @@ import type { useAppProjectBoardControlsForApp } from "./AppProjectBoardControls
 import type { useAppProjectShellState } from "./AppProjectShellState";
 import type { useAppRunActivityState } from "./AppRunActivityState";
 import type { useAppWorkflowRuntimeState } from "./AppWorkflowRuntimeState";
-import type { ProjectBoardWorkspaceProps } from "./ProjectBoardWorkspace";
+import type { ProjectBoardWorkspaceProps } from "./ProjectBoardWorkspaceTypes";
 
 type ProjectBoardWorkspaceActionKey =
   | "onBuild"

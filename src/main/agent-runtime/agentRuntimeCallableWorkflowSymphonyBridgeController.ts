@@ -11,61 +11,21 @@ import {
   cancelCallableWorkflowSymphonyTaskChildRun,
   callableWorkflowPatternGraphChildRunIds,
 } from "./agentRuntimeCallableWorkflowSymphonyBridgeCancellation";
-import type { SubagentRuntimeEventEmitter } from "./agentRuntimePiFacade";
-import type { ProjectStore } from "./agentRuntimeProjectStoreFacade";
 import {
   createSubagentPiToolDefinitions,
   executeSubagentBarrierDecision,
   executeSubagentCancelAgent,
   isSubagentTerminalStatus,
-  type CreateSubagentPiToolDefinitionsOptions,
 } from "./agentRuntimeSubagentsFacade";
+import type {
+  AgentRuntimeCallableWorkflowSymphonyBridgeControllerOptions,
+  AgentRuntimeCallableWorkflowSymphonyBridgeDependencies,
+} from "./agentRuntimeCallableWorkflowSymphonyBridgeTypes";
 
-type AgentRuntimeCallableWorkflowSymphonyBridgeStore = Pick<
-  ProjectStore,
-  | "getCallableWorkflowTask"
-  | "listSubagentWaitBarriersForParentRun"
-  | "getSubagentRun"
-  | "listSubagentRunEvents"
-  | "getSubagentWaitBarrier"
-  | "updateSubagentWaitBarrierStatus"
-  | "pauseCallableWorkflowTask"
-  | "cancelCallableWorkflowTask"
-  | "failCallableWorkflowTask"
->;
-type ExecuteSubagentCancelAgent = typeof executeSubagentCancelAgent;
-type ExecuteSubagentBarrierDecision = typeof executeSubagentBarrierDecision;
-type CallableWorkflowSymphonyBridgeEventingStore = CreateSubagentPiToolDefinitionsOptions["store"] &
-  Parameters<ExecuteSubagentCancelAgent>[0]["store"] &
-  Parameters<ExecuteSubagentBarrierDecision>[0]["store"];
-type CallableWorkflowSymphonyBridgeRuntime = Required<
-  Pick<
-    NonNullable<CreateSubagentPiToolDefinitionsOptions["runtime"]>,
-    "startChildRun" | "waitForChildRun" | "cancelChildRun" | "followupChildRun" | "retryChildRun" | "resolveChildApprovalResponse"
-  >
->;
-
-export interface AgentRuntimeCallableWorkflowSymphonyBridgeDependencies {
-  createSubagentPiToolDefinitions: typeof createSubagentPiToolDefinitions;
-  executeSubagentBarrierDecision: ExecuteSubagentBarrierDecision;
-  executeSubagentCancelAgent: ExecuteSubagentCancelAgent;
-}
-
-export interface AgentRuntimeCallableWorkflowSymphonyBridgeControllerOptions {
-  store: AgentRuntimeCallableWorkflowSymphonyBridgeStore;
-  createSubagentEventingStore: () => CallableWorkflowSymphonyBridgeEventingStore;
-  getFeatureFlagSnapshot: CreateSubagentPiToolDefinitionsOptions["getFeatureFlagSnapshot"];
-  resolveSymphonyLaunchContract?: CreateSubagentPiToolDefinitionsOptions["resolveSymphonyLaunchContract"];
-  resolveModelRuntimeProfile: NonNullable<CreateSubagentPiToolDefinitionsOptions["resolveModelRuntimeProfile"]>;
-  resolveCapacityLease: NonNullable<CreateSubagentPiToolDefinitionsOptions["resolveCapacityLease"]>;
-  prepareChildWorktree: NonNullable<CreateSubagentPiToolDefinitionsOptions["prepareChildWorktree"]>;
-  runtime: CallableWorkflowSymphonyBridgeRuntime;
-  createRuntimeCancelEventEmitter: (run: SubagentRunSummary) => SubagentRuntimeEventEmitter;
-  createRuntimeRetryEventEmitter: (run: SubagentRunSummary) => SubagentRuntimeEventEmitter;
-  emitCallableWorkflowTaskUpdated: (task: CallableWorkflowTaskSummary) => void;
-  emitSubagentWaitBarrierUpdated: (barrier: SubagentWaitBarrierSummary) => void;
-  dependencies?: Partial<AgentRuntimeCallableWorkflowSymphonyBridgeDependencies>;
-}
+export type {
+  AgentRuntimeCallableWorkflowSymphonyBridgeControllerOptions,
+  AgentRuntimeCallableWorkflowSymphonyBridgeDependencies,
+} from "./agentRuntimeCallableWorkflowSymphonyBridgeTypes";
 
 const defaultDependencies: AgentRuntimeCallableWorkflowSymphonyBridgeDependencies = {
   createSubagentPiToolDefinitions,

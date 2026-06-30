@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import type { AgentMemoryEmbeddingLifecycleActionKind } from "../../shared/agentMemoryDiagnostics";
 import type { DesktopState } from "../../shared/desktopTypes";
 import { localDeepResearchEffortLabel, localDeepResearchMaxToolCallsForEffort } from "../../shared/localDeepResearchBudget";
-import type { RightPanelProps } from "./RightPanel";
+import type { RightPanelProps } from "./RightPanelTypes";
 import type { RightPanelDiagnosticsController } from "./RightPanelDiagnosticsController";
 import type { RightPanelMcpController } from "./RightPanelMcpController";
 import type { RightPanelSettingsController } from "./RightPanelSettingsController";

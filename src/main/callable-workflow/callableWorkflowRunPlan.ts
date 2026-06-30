@@ -12,7 +12,7 @@ import type {
   CallableWorkflowSymphonyMetricCriterion,
   CallableWorkflowSymphonyStepSelection,
   CallableWorkflowToolDescriptor,
-} from "./callableWorkflowRegistry";
+} from "./callableWorkflowTypes";
 
 export function buildCallableWorkflowRunPlanFromTool(input: {
   tool: CallableWorkflowToolDescriptor;

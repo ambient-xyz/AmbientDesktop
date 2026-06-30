@@ -1,6 +1,8 @@
 import type {
   ToolHiveAllowedCommand,
   ToolHiveCommandResult,
+} from "./toolHiveCommandRunner";
+import type {
   ToolHiveImageVerificationPolicy,
   ToolHiveInstalledServerState,
   ToolHivePermissionProfileWriteInput,
@@ -12,7 +14,7 @@ import type {
   ToolHiveSecretBindingState,
   ToolHiveSecretDerivedBindingKind,
   ToolHiveRuntimeState,
-} from "./toolHiveRuntimeService";
+} from "./toolHiveRuntimeTypes";
 
 interface ToolHiveRunAllowedOptions {
   throwOnNonZero?: boolean;

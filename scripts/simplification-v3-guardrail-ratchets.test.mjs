@@ -47,6 +47,8 @@ describe("simplification V3 guardrail ratchets", () => {
         srcMainFlatFiles: 3,
         sharedTypesImporters: 2,
         importCycles: 2,
+        packageScripts: 11,
+        trackedRootDocs: 6,
       },
       flatMainFiles: ["src/main/a.ts", "src/main/b.ts", "src/main/newFlat.ts"],
       sharedTypesImporters: ["src/main/a.ts", "src/main/newImporter.ts"],
@@ -75,6 +77,8 @@ describe("simplification V3 guardrail ratchets", () => {
         "shared-types-fan-in: 1 new importers: src/main/newImporter.ts",
         "import-cycles: 1 new cycles: src/main/newCycle.ts -> src/main/a.ts",
         "import-boundaries: 1 new boundary imports: main-owner-peer:ipc->projectStore:src/main/ipc/new.ts->src/main/projectStore/a.ts",
+        "repo-surface: package scripts increased from 10 to 11",
+        "repo-surface: tracked root docs increased from 5 to 6",
         "large-file: src/main/a.ts grew from ceiling 900 to 910 lines",
         "large-file: new file src/main/newLarge.ts has 825 lines above threshold 800",
         "hotspot-size: app-shell file lines grew from ceiling 100 to 101",
@@ -144,6 +148,8 @@ describe("simplification V3 guardrail ratchets", () => {
         srcMainFlatFiles: 3,
         sharedTypesImporters: 2,
         importCycles: 2,
+        packageScripts: 10,
+        trackedRootDocs: 5,
       },
       flatMainFiles: ["src/main/a.ts", "src/main/b.ts", "src/main/newFlat.ts"],
       sharedTypesImporters: ["src/main/a.ts", "src/main/newImporter.ts"],
@@ -176,6 +182,9 @@ describe("simplification V3 guardrail ratchets", () => {
     expect(markdown).toContain("flat src/main files");
     expect(markdown).toContain("lint errors / warnings");
     expect(markdown).toContain("import-boundary edges");
+    expect(markdown).toContain("package scripts");
+    expect(markdown).toContain("tracked root docs");
+    expect(markdown).toContain("## Import Cycle Triage");
     expect(markdown).toContain("Guardrail ratchets passed.");
   });
 });
@@ -191,6 +200,9 @@ function fixtureSnapshot(overrides = {}) {
       sharedTypesImporters: 1,
       importCycles: 1,
       importBoundaryEdges: 1,
+      packageScripts: 10,
+      packageTestScripts: 8,
+      trackedRootDocs: 5,
       largeFiles: 1,
       ...overrides.metrics,
     },

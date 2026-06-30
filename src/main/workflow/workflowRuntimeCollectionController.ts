@@ -24,7 +24,7 @@ import type {
   WorkflowRenderedDocument,
   WorkflowRuntimeEvent,
   WorkflowRuntimeMetadata,
-} from "./workflowAgentRuntime";
+} from "./workflowAgentRuntimeTypes";
 
 export interface WorkflowRuntimeCollectionContext {
   checkpointStore: WorkflowCheckpointStore;

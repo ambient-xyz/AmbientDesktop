@@ -1,22 +1,15 @@
 import { AMBIENT_SUBAGENTS_FEATURE_FLAG, type AmbientFeatureFlagId } from "./featureFlags";
 import { buildDefaultSymphonyPatternRoleGraph, type SubagentPatternRoleGraph } from "./subagentPatternGraph";
 import type { SubagentRoleId } from "./subagentRoles";
+import type { SymphonyWorkflowPatternId } from "./symphonyWorkflowPatternTypes";
 import type { CallableWorkflowSourcePreview } from "./workflowTypes";
 
 export const SYMPHONY_WORKFLOW_RECIPE_SCHEMA_VERSION = "ambient-symphony-workflow-recipe-v1" as const;
 export const SYMPHONY_WORKFLOW_SOURCE_PREVIEW_SCHEMA_VERSION =
   "ambient-callable-workflow-source-preview-v1" as const;
 
-export const SYMPHONY_WORKFLOW_PATTERN_IDS = [
-  "map_reduce",
-  "adversarial_debate",
-  "imitate_and_verify",
-  "pipeline",
-  "ensemble",
-  "self_healing_loop",
-] as const;
-
-export type SymphonyWorkflowPatternId = typeof SYMPHONY_WORKFLOW_PATTERN_IDS[number];
+export { SYMPHONY_WORKFLOW_PATTERN_IDS } from "./symphonyWorkflowPatternTypes";
+export type { SymphonyWorkflowPatternId } from "./symphonyWorkflowPatternTypes";
 
 export type SymphonyMetricTemplateKind =
   | "objective_metric"

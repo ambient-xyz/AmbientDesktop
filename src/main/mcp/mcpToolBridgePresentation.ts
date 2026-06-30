@@ -8,7 +8,7 @@ import type {
   McpToolPolicyUpdatePreview,
   McpToolPolicyUpdateResult,
   McpToolTimeoutHint,
-} from "./mcpToolBridge";
+} from "./mcpToolBridgeTypes";
 
 const defaultMcpHttpTimeoutMs = 60_000;
 const mcpToolSearchDescriptionPreviewChars = 240;

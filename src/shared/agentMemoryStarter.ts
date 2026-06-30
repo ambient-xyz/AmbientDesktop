@@ -1,6 +1,6 @@
 import type { AmbientFeatureFlagSettings } from "./featureFlags";
 import type { AgentMemorySettings } from "./agentMemorySettings";
-import type { AgentMemoryEmbeddingDiagnostics, AgentMemoryNativeDependencyPreflight } from "./agentMemoryDiagnostics";
+import type { AgentMemoryEmbeddingDiagnostics, AgentMemoryNativeDependencyPreflight } from "./agentMemoryEmbeddingDiagnosticsTypes";
 
 export const AGENT_MEMORY_STARTER_STATES = [
   "off",

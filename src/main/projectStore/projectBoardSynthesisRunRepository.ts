@@ -1,8 +1,6 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
 import type {
-  ProjectBoardPlanningSnapshot,
-  ProjectBoardPlanningSnapshotKind,
   ProjectBoardSynthesisRun,
   ProjectBoardSynthesisRunEvent,
   ProjectBoardSynthesisRunProgressiveRecord,
@@ -14,10 +12,9 @@ import {
   type ProjectBoardSynthesisRunEventRecordInput,
 } from "./projectBoardSynthesisRunLifecycleRepository";
 import { ProjectStoreProjectBoardSynthesisRunRecordsRepository } from "./projectBoardSynthesisRunRecordsRepository";
+import type { ProjectStoreProjectBoardSynthesisRunRepositoryDeps } from "./projectBoardSynthesisRunRepositoryTypes";
 
-export interface ProjectStoreProjectBoardSynthesisRunRepositoryDeps {
-  appendProjectBoardPlanningSnapshotForRun(runId: string, kind: ProjectBoardPlanningSnapshotKind): ProjectBoardPlanningSnapshot | undefined;
-}
+export type { ProjectStoreProjectBoardSynthesisRunRepositoryDeps };
 
 export class ProjectStoreProjectBoardSynthesisRunRepository {
   private readonly lifecycleRepository: ProjectStoreProjectBoardSynthesisRunLifecycleRepository;

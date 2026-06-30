@@ -17,7 +17,7 @@ import type {
   InstallAmbientCliPackageInput,
   PreviewAmbientCliPackageInput,
   UninstallAmbientCliPackageInput,
-} from "./ambientCliPackages";
+} from "./ambientCliPackageTypes";
 
 type AmbientCliPackageInstallSafetyServices = ReturnType<typeof createAmbientCliPackageInstallSafetyServices>;
 

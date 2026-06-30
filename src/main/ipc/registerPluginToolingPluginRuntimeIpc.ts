@@ -9,7 +9,7 @@ import {
   registerPluginRegistryIpc,
   registerPluginRuntimeCapabilitiesIpc,
 } from "./registerPluginIpc";
-import type { RegisterPluginToolingDomainIpcDependencies } from "./registerPluginToolingDomainIpc";
+import type { RegisterPluginToolingDomainIpcDependencies } from "./registerPluginToolingDomainIpcTypes";
 
 type RegisterPluginCatalogRuntimeDependencies = Pick<
   RegisterPluginToolingDomainIpcDependencies,

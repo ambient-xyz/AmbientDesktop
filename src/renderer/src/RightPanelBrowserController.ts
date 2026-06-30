@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { BrowserCapabilityState, BrowserUserActionState } from "../../shared/browserTypes";
-import { browserProfileModeForState, createRightPanelBrowserActions, type BrowserInspectResult } from "./RightPanelBrowserActions";
+import { browserProfileModeForState, createRightPanelBrowserActions } from "./RightPanelBrowserActions";
 import {
   browserCredentialSaveInputFromForm,
   emptyBrowserCredentialForm,
   useRightPanelBrowserCredentialController,
 } from "./RightPanelBrowserCredentialController";
 import type { BrowserCredentialForm } from "./RightPanelBrowserCredentialController";
+import type { BrowserInspectResult } from "./RightPanelBrowserTypes";
 import { useRightPanelBrowserVisualAnalysisController } from "./RightPanelBrowserVisualAnalysisController";
 import type { ApiKeyStatus } from "./RightPanelSettingsRuntime";
 

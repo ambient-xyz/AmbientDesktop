@@ -1,4 +1,4 @@
-import type { WorkflowApprovalRequest, WorkflowUserInputRequest } from "./workflowAgentRuntime";
+import type { WorkflowApprovalRequest, WorkflowUserInputRequest } from "./workflowAgentRuntimeTypes";
 
 export class WorkflowPausedError extends Error {
   constructor(readonly approval: WorkflowApprovalRequest) {

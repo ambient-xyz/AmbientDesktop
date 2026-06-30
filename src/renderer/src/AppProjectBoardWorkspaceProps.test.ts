@@ -6,7 +6,7 @@ import {
   createAppProjectBoardWorkspacePropsForApp,
   type AppProjectBoardWorkspacePropsInput,
 } from "./AppProjectBoardWorkspaceProps";
-import type { ProjectBoardWorkspaceProps } from "./ProjectBoardWorkspace";
+import type { ProjectBoardWorkspaceProps } from "./ProjectBoardWorkspaceTypes";
 
 describe("App project-board workspace props", () => {
   it("is hidden until the board route is open with an active, unsuppressed project", () => {

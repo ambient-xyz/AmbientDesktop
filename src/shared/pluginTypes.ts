@@ -1,7 +1,7 @@
 import type { AmbientModelRuntimeProfile, AmbientProviderDescriptor } from "./ambientModels";
 import type { ModelProviderCapabilityEligibility, ModelProviderCapabilityProbePlan, ModelProviderCapabilityProbeReport } from "./modelProviderInstallTemplates";
+import type { InstallModelProviderEndpointCredentialRefInput, ModelRuntimeInstalledProviderEndpointConfig } from "./modelProviderEndpointTypes";
 import type { PermissionMode, PrivilegedActionAdapterResultStatus } from "./permissionTypes";
-import type { InstallModelProviderEndpointCredentialRefInput, ModelRuntimeInstalledProviderEndpointConfig } from "./threadTypes";
 
 export interface ModelProviderCredentialSaveResult {
   schemaVersion: "ambient-model-provider-credential-save-v1";
